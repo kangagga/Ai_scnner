@@ -1,0 +1,22 @@
+{
+  "name": "AI Crypto Signal Bot",
+  "short_name": "CryptoBot",
+  "description": "AI-powered crypto signal scanner",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050a0f",
+  "theme_color": "#00ffe7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

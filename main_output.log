@@ -1,0 +1,218 @@
+2026-06-03 00:29:54,204 [INFO] main — 🤖 AI Crypto Signal Bot starting…
+2026-06-03 00:29:54,206 [INFO] main —    Interval scan   : 60s
+2026-06-03 00:29:54,207 [INFO] main —    Min score       : 70
+2026-06-03 00:29:54,207 [INFO] main —    Signal threshold: 70
+2026-06-03 00:29:54,207 [INFO] main —    Daily report    : 07:00 WIB
+2026-06-03 00:29:54,209 [INFO] api_server — 🌐 Dashboard API berjalan di http://0.0.0.0:5000
+2026-06-03 00:29:54,210 [INFO] main — 🌐 Buka dashboard: http://localhost:5000  (atau http://<IP>:5000)
+ * Serving Flask app 'api_server'
+ * Debug mode: off
+2026-06-03 00:29:55,259 [INFO] main — 🔍 Scan dimulai — 00:29:55
+2026-06-03 00:29:56,319 [INFO] market_context — Fear & Greed: 11 (Extreme Fear) 😱
+2026-06-03 00:29:57,745 [INFO] data_fetcher — Gate.io: 2210 simbol aktif
+2026-06-03 00:29:59,946 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66774.50 | ADX: 52.7
+2026-06-03 00:29:59,948 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 00:30:01,380 [INFO] data_fetcher — Gate.io: 738 pair aktif, tidak ada listing baru
+2026-06-03 00:41:37,284 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 00:41:37,332 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 00:41:37,343 [INFO] main — 🔄 Bot berjalan. Ctrl+C untuk stop.
+2026-06-03 00:42:37,374 [INFO] main — 🔍 Scan dimulai — 00:42:37
+2026-06-03 00:42:37,379 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 00:42:39,201 [INFO] data_fetcher — 🆕 New listing: SAPIENUSDT | Vol: $50,556
+2026-06-03 00:57:16,754 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 00:57:16,781 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 00:58:16,859 [INFO] main — 🔍 Scan dimulai — 00:58:16
+2026-06-03 00:58:21,117 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66994.40 | ADX: 52.7
+2026-06-03 00:58:21,120 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 00:58:22,262 [INFO] data_fetcher — 🆕 New listing: ALUUSDT | Vol: $54,132
+2026-06-03 00:58:22,265 [INFO] data_fetcher — 🆕 New listing: WBTCUSDT | Vol: $64,552
+2026-06-03 00:58:22,268 [INFO] data_fetcher — 🆕 New listing: SAPIENUSDT | Vol: $50,760
+2026-06-03 00:58:22,271 [INFO] data_fetcher — 🆕 New listing: L3USDT | Vol: $50,096
+2026-06-03 00:58:22,274 [INFO] data_fetcher — 🆕 New listing: ZKCUSDT | Vol: $53,799
+2026-06-03 01:13:13,960 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 01:13:14,011 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 01:14:14,039 [INFO] main — 🔍 Scan dimulai — 01:14:14
+2026-06-03 01:14:15,972 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66794.30 | ADX: 52.7
+2026-06-03 01:14:15,974 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 01:14:18,065 [INFO] data_fetcher — 🆕 New listing: WBTCUSDT | Vol: $64,552
+2026-06-03 01:14:18,072 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $50,004
+2026-06-03 01:14:18,075 [INFO] data_fetcher — 🆕 New listing: TBCUSDT | Vol: $53,421
+2026-06-03 01:14:18,076 [INFO] data_fetcher — 🆕 New listing: ALUUSDT | Vol: $55,200
+2026-06-03 01:14:18,078 [INFO] data_fetcher — 🆕 New listing: BTXUSDT | Vol: $51,613
+2026-06-03 01:14:18,080 [INFO] data_fetcher — 🆕 New listing: ZKCUSDT | Vol: $54,447
+2026-06-03 01:14:18,080 [INFO] data_fetcher — 🆕 New listing: CLANKERUSDT | Vol: $50,056
+2026-06-03 01:14:18,081 [INFO] data_fetcher — 🆕 New listing: SAPIENUSDT | Vol: $50,731
+2026-06-03 01:14:18,082 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $50,159
+2026-06-03 01:28:24,109 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 01:28:24,157 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 01:29:24,192 [INFO] main — 🔍 Scan dimulai — 01:29:24
+2026-06-03 01:29:26,618 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 67033.70 | ADX: 52.7
+2026-06-03 01:29:26,619 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 01:29:27,802 [INFO] data_fetcher — 🆕 New listing: WBTCUSDT | Vol: $64,552
+2026-06-03 01:29:27,812 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $50,764
+2026-06-03 01:29:27,813 [INFO] data_fetcher — 🆕 New listing: TBCUSDT | Vol: $119,141
+2026-06-03 01:29:27,814 [INFO] data_fetcher — 🆕 New listing: ALUUSDT | Vol: $55,513
+2026-06-03 01:29:27,816 [INFO] data_fetcher — 🆕 New listing: BTXUSDT | Vol: $50,475
+2026-06-03 01:29:27,817 [INFO] data_fetcher — 🆕 New listing: ZKCUSDT | Vol: $54,740
+2026-06-03 01:29:27,818 [INFO] data_fetcher — 🆕 New listing: SAPIENUSDT | Vol: $50,531
+2026-06-03 01:29:27,819 [INFO] data_fetcher — 🆕 New listing: COWUSDT | Vol: $50,034
+2026-06-03 01:29:27,820 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $50,318
+2026-06-03 01:44:02,905 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 01:44:02,940 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 01:45:02,981 [INFO] main — 🔍 Scan dimulai — 01:45:02
+2026-06-03 01:45:04,059 [INFO] market_context — Fear & Greed: 11 (Extreme Fear) 😱
+2026-06-03 01:45:06,011 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66529.20 | ADX: 52.7
+2026-06-03 01:45:06,012 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 01:45:07,502 [INFO] data_fetcher — 🆕 New listing: ALUUSDT | Vol: $56,143
+2026-06-03 01:45:07,504 [INFO] data_fetcher — 🆕 New listing: TBCUSDT | Vol: $116,163
+2026-06-03 01:45:07,509 [INFO] data_fetcher — 🆕 New listing: WBTCUSDT | Vol: $64,552
+2026-06-03 01:45:07,511 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $50,835
+2026-06-03 01:45:07,514 [INFO] data_fetcher — 🆕 New listing: BTXUSDT | Vol: $50,467
+2026-06-03 01:45:07,517 [INFO] data_fetcher — 🆕 New listing: ZKCUSDT | Vol: $58,804
+2026-06-03 01:45:09,180 [INFO] data_fetcher — 🆕 New listing terdeteksi: ALUUSDT | Vol 24h: $56,143
+2026-06-03 01:45:09,182 [INFO] data_fetcher — 🆕 New listing terdeteksi: TBCUSDT | Vol 24h: $116,163
+2026-06-03 01:45:09,184 [INFO] data_fetcher — 🆕 New listing terdeteksi: WBTCUSDT | Vol 24h: $64,552
+2026-06-03 01:45:09,186 [INFO] data_fetcher — 🆕 New listing terdeteksi: ARGUSDT | Vol 24h: $50,835
+2026-06-03 01:45:09,188 [INFO] data_fetcher — 🆕 New listing terdeteksi: BTXUSDT | Vol 24h: $50,467
+2026-06-03 01:45:09,191 [INFO] data_fetcher — 🆕 New listing terdeteksi: ZKCUSDT | Vol 24h: $58,804
+2026-06-03 01:45:09,201 [INFO] data_fetcher — 🆕 Total 6 pair baru: ['ALUUSDT', 'TBCUSDT', 'WBTCUSDT', 'ARGUSDT', 'BTXUSDT', 'ZKCUSDT']
+2026-06-03 02:02:29,254 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 02:02:29,309 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 02:03:29,351 [INFO] main — 🔍 Scan dimulai — 02:03:29
+2026-06-03 02:03:31,787 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66849.80 | ADX: 52.7
+2026-06-03 02:03:31,789 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 02:03:32,766 [INFO] data_fetcher — 🆕 New listing: CLANKERUSDT | Vol: $51,196
+2026-06-03 02:03:32,767 [INFO] data_fetcher — 🆕 New listing: RIVER3LUSDT | Vol: $50,077
+2026-06-03 02:03:32,773 [INFO] data_fetcher — 🆕 New listing: SAPIENUSDT | Vol: $50,171
+2026-06-03 02:03:32,778 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $50,041
+2026-06-03 02:17:52,522 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 02:17:52,533 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 02:18:52,566 [INFO] main — 🔍 Scan dimulai — 02:18:52
+2026-06-03 02:18:55,665 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66928.30 | ADX: 52.7
+2026-06-03 02:18:55,666 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 02:18:57,267 [INFO] data_fetcher — 🆕 New listing: SAROSUSDT | Vol: $50,357
+2026-06-03 02:18:57,270 [INFO] data_fetcher — 🆕 New listing: CLANKERUSDT | Vol: $51,112
+2026-06-03 02:32:25,092 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 02:32:25,134 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 02:33:25,171 [INFO] main — 🔍 Scan dimulai — 02:33:25
+2026-06-03 02:33:25,179 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 02:33:26,730 [INFO] data_fetcher — 🆕 New listing: SNEKUSDT | Vol: $53,108
+2026-06-03 02:33:26,731 [INFO] data_fetcher — 🆕 New listing: CLANKERUSDT | Vol: $50,895
+2026-06-03 02:33:26,734 [INFO] data_fetcher — 🆕 New listing: SAROSUSDT | Vol: $50,848
+2026-06-03 02:33:26,738 [INFO] data_fetcher — 🆕 New listing: KOMAUSDT | Vol: $50,234
+2026-06-03 02:46:24,516 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 02:46:24,538 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 02:47:24,578 [INFO] main — 🔍 Scan dimulai — 02:47:24
+2026-06-03 02:47:26,046 [INFO] market_context — Fear & Greed: 11 (Extreme Fear) 😱
+2026-06-03 02:47:27,818 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66700.10 | ADX: 52.7
+2026-06-03 02:47:27,819 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 02:47:29,323 [INFO] data_fetcher — 🆕 New listing: SNEKUSDT | Vol: $53,529
+2026-06-03 02:47:29,324 [INFO] data_fetcher — 🆕 New listing: KMNOUSDT | Vol: $50,042
+2026-06-03 02:47:29,326 [INFO] data_fetcher — 🆕 New listing: KOMAUSDT | Vol: $50,524
+2026-06-03 02:47:29,327 [INFO] data_fetcher — 🆕 New listing: SAROSUSDT | Vol: $51,323
+2026-06-03 02:47:29,330 [INFO] data_fetcher — 🆕 New listing: CLANKERUSDT | Vol: $52,143
+2026-06-03 02:47:30,336 [INFO] data_fetcher — 🆕 New listing terdeteksi: SAROSUSDT | Vol 24h: $51,323
+2026-06-03 02:47:30,338 [INFO] data_fetcher — 🆕 New listing terdeteksi: SNEKUSDT | Vol 24h: $53,529
+2026-06-03 02:47:30,339 [INFO] data_fetcher — 🆕 New listing terdeteksi: KOMAUSDT | Vol 24h: $50,524
+2026-06-03 02:47:30,341 [INFO] data_fetcher — 🆕 New listing terdeteksi: KMNOUSDT | Vol 24h: $50,042
+2026-06-03 02:47:30,345 [INFO] data_fetcher — 🆕 New listing terdeteksi: CLANKERUSDT | Vol 24h: $52,143
+2026-06-03 02:47:30,346 [INFO] data_fetcher — 🆕 Total 5 pair baru: ['SAROSUSDT', 'SNEKUSDT', 'KOMAUSDT', 'KMNOUSDT', 'CLANKERUSDT']
+2026-06-03 02:58:59,813 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 02:58:59,833 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 02:59:59,875 [INFO] main — 🔍 Scan dimulai — 02:59:59
+2026-06-03 02:59:59,903 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 03:00:00,820 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $50,180
+2026-06-03 03:00:00,823 [INFO] data_fetcher — 🆕 New listing: HUMAUSDT | Vol: $52,305
+2026-06-03 03:00:00,824 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $50,227
+2026-06-03 03:12:30,235 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 03:12:30,246 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 03:13:30,282 [INFO] main — 🔍 Scan dimulai — 03:13:30
+2026-06-03 03:13:32,865 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66415.60 | ADX: 52.7
+2026-06-03 03:13:32,868 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 03:13:34,178 [INFO] data_fetcher — 🆕 New listing: HUMAUSDT | Vol: $52,546
+2026-06-03 03:13:34,180 [INFO] data_fetcher — 🆕 New listing: ENSOUSDT | Vol: $52,358
+2026-06-03 03:13:34,181 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $50,006
+2026-06-03 03:13:34,183 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $54,163
+2026-06-03 03:28:10,911 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 03:28:10,973 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 03:29:11,018 [INFO] main — 🔍 Scan dimulai — 03:29:11
+2026-06-03 03:29:13,410 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 66139.80 | ADX: 52.7
+2026-06-03 03:29:13,412 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 03:29:14,767 [INFO] data_fetcher — 🆕 New listing: ACPUSDT | Vol: $64,852
+2026-06-03 03:29:14,771 [INFO] data_fetcher — 🆕 New listing: HUMAUSDT | Vol: $52,632
+2026-06-03 03:29:14,773 [INFO] data_fetcher — 🆕 New listing: ENSOUSDT | Vol: $56,306
+2026-06-03 03:29:14,773 [INFO] data_fetcher — 🆕 New listing: TAPPROTOCOLUSDT | Vol: $50,844
+2026-06-03 03:29:14,776 [INFO] data_fetcher — 🆕 New listing: EULUSDT | Vol: $51,288
+2026-06-03 03:29:14,778 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $54,635
+2026-06-03 03:42:49,432 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 03:42:49,471 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 03:43:49,504 [INFO] main — 🔍 Scan dimulai — 03:43:49
+2026-06-03 03:43:49,506 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 03:43:50,782 [INFO] data_fetcher — 🆕 New listing: CVCUSDT | Vol: $54,199
+2026-06-03 03:43:50,786 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $56,398
+2026-06-03 03:43:50,788 [INFO] data_fetcher — 🆕 New listing: ACPUSDT | Vol: $64,852
+2026-06-03 03:43:50,790 [INFO] data_fetcher — 🆕 New listing: HUMAUSDT | Vol: $53,198
+2026-06-03 03:43:50,791 [INFO] data_fetcher — 🆕 New listing: EULUSDT | Vol: $53,648
+2026-06-03 03:43:50,797 [INFO] data_fetcher — 🆕 New listing: TAPPROTOCOLUSDT | Vol: $50,891
+2026-06-03 03:43:50,799 [INFO] data_fetcher — 🆕 New listing: ENSOUSDT | Vol: $56,261
+2026-06-03 03:43:50,802 [INFO] data_fetcher — 🆕 New listing: TOKENUSDT | Vol: $51,445
+2026-06-03 03:43:50,805 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $69,857
+2026-06-03 03:57:18,501 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir konteks | 
+/home/userland/ai-scanner/main.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now  = datetime.utcnow()
+2026-06-03 03:57:18,546 [INFO] main — Tidak ada sinyal ≥70, skip Telegram.
+2026-06-03 03:58:18,586 [INFO] main — 🔍 Scan dimulai — 03:58:18
+2026-06-03 03:58:19,674 [INFO] market_context — Fear & Greed: 11 (Extreme Fear) 😱
+2026-06-03 03:58:21,634 [INFO] market_context — BTC Trend: DOWNTREND (STRONG) | Price: 65804.60 | ADX: 52.9
+2026-06-03 03:58:21,635 [INFO] market_context — Market Context: BTC: 🔴 DOWNTREND (STRONG) | F&G: 😱 11 Extreme Fear | Bias: 🚫 BUY BLOCKED / ✅ SELL OK
+2026-06-03 03:58:22,794 [INFO] data_fetcher — 🆕 New listing: SNTUSDT | Vol: $52,967
+2026-06-03 03:58:22,805 [INFO] data_fetcher — 🆕 New listing: CVCUSDT | Vol: $56,431
+2026-06-03 03:58:22,806 [INFO] data_fetcher — 🆕 New listing: TOKENUSDT | Vol: $53,461
+2026-06-03 03:58:22,808 [INFO] data_fetcher — 🆕 New listing: ENSOUSDT | Vol: $56,920
+2026-06-03 03:58:22,810 [INFO] data_fetcher — 🆕 New listing: ARGUSDT | Vol: $70,571
+2026-06-03 03:58:22,812 [INFO] data_fetcher — 🆕 New listing: NXPCUSDT | Vol: $50,903
+2026-06-03 03:58:22,813 [INFO] data_fetcher — 🆕 New listing: ACPUSDT | Vol: $70,640
+2026-06-03 03:58:22,814 [INFO] data_fetcher — 🆕 New listing: EULUSDT | Vol: $53,821
+2026-06-03 03:58:22,815 [INFO] data_fetcher — 🆕 New listing: HUMAUSDT | Vol: $52,109
+2026-06-03 03:58:22,816 [INFO] data_fetcher — 🆕 New listing: TAPPROTOCOLUSDT | Vol: $51,572
+2026-06-03 03:58:22,816 [INFO] data_fetcher — 🆕 New listing: YGGUSDT | Vol: $57,308
+2026-06-03 03:58:22,818 [INFO] data_fetcher — 🆕 New listing: ZETAUSDT | Vol: $50,068
+2026-06-03 03:58:24,542 [INFO] data_fetcher — 🆕 New listing terdeteksi: NXPCUSDT | Vol 24h: $50,903
+2026-06-03 03:58:24,543 [INFO] data_fetcher — 🆕 New listing terdeteksi: ACPUSDT | Vol 24h: $70,640
+2026-06-03 03:58:24,544 [INFO] data_fetcher — 🆕 New listing terdeteksi: SNTUSDT | Vol 24h: $52,967
+2026-06-03 03:58:24,545 [INFO] data_fetcher — 🆕 New listing terdeteksi: HUMAUSDT | Vol 24h: $52,109
+2026-06-03 03:58:24,546 [INFO] data_fetcher — 🆕 New listing terdeteksi: ENSOUSDT | Vol 24h: $56,920
+2026-06-03 03:58:24,548 [INFO] data_fetcher — 🆕 New listing terdeteksi: TAPPROTOCOLUSDT | Vol 24h: $51,572
+2026-06-03 03:58:24,550 [INFO] data_fetcher — 🆕 New listing terdeteksi: ARGUSDT | Vol 24h: $70,571
+2026-06-03 03:58:24,551 [INFO] data_fetcher — 🆕 New listing terdeteksi: EULUSDT | Vol 24h: $53,821
+2026-06-03 03:58:24,552 [INFO] data_fetcher — 🆕 New listing terdeteksi: TOKENUSDT | Vol 24h: $53,461
+2026-06-03 03:58:24,554 [INFO] data_fetcher — 🆕 New listing terdeteksi: YGGUSDT | Vol 24h: $57,308
+2026-06-03 03:58:24,555 [INFO] data_fetcher — 🆕 New listing terdeteksi: ZETAUSDT | Vol 24h: $50,068
+2026-06-03 03:58:24,556 [INFO] data_fetcher — 🆕 New listing terdeteksi: CVCUSDT | Vol 24h: $56,431
+2026-06-03 03:58:24,563 [INFO] data_fetcher — 🆕 Total 12 pair baru: ['NXPCUSDT', 'ACPUSDT', 'SNTUSDT', 'HUMAUSDT', 'ENSOUSDT', 'TAPPROTOCOLUSDT', 'ARGUSDT', 'EULUSDT', 'TOKENUSDT', 'YGGUSDT']

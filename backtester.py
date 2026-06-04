@@ -1,0 +1,327 @@
+# ============================================================
+#  backtester.py  – Uji Sinyal di Data Historis
+#  Cara pakai:
+#    from backtester import run_backtest, print_report
+#    result = run_backtest("BTCUSDT", "1h", days=90)
+#    print_report(result)
+# ============================================================
+import logging
+import pandas as pd
+import numpy as np
+from typing import Optional
+from data_fetcher import fetch_ohlcv
+from indicators   import institutional_ai_v4
+
+logger = logging.getLogger(__name__)
+
+VALID_SIGNALS = {
+    "BUY", "SELL",
+    "BUY (REVERSAL)", "SELL (REVERSAL)",
+    "BUY (SETUP)", "SELL (SETUP)",
+}
+
+
+# ------------------------------------------------------------------
+#  Core Backtester
+# ------------------------------------------------------------------
+def run_backtest(
+    symbol    : str,
+    timeframe : str   = "1h",
+    days      : int   = 90,
+    sl_atr    : float = 1.5,   # SL = N x ATR
+    tp1_atr   : float = 2.0,   # TP1 = N x ATR
+    tp2_atr   : float = 3.5,
+    tp3_atr   : float = 5.0,
+    min_confidence: float = 50.0,
+) -> Optional[dict]:
+    """
+    Jalankan backtest untuk 1 symbol + timeframe.
+    Simulasi: masuk di harga close saat sinyal, keluar di TP/SL candle berikutnya.
+    """
+
+    # Hitung limit candle yang dibutuhkan
+    candles_per_day = {"1h": 24, "4h": 6, "1d": 1}.get(timeframe, 24)
+    limit = min(days * candles_per_day + 300, 1000)
+
+    df = fetch_ohlcv(symbol, timeframe, limit=limit)
+    if df is None or len(df) < 200:
+        logger.warning(f"Backtest {symbol}/{timeframe}: data tidak cukup")
+        return None
+
+    # Cast tipe data
+    for col in ["open", "high", "low", "close", "volume"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna().reset_index(drop=True)
+
+    # Hitung indikator
+    df = institutional_ai_v4(df)
+
+    # Ambil hanya N hari terakhir untuk backtest
+    test_start = len(df) - (days * candles_per_day)
+    test_start = max(test_start, 200)   # minimal 200 candle warmup
+    df_test    = df.iloc[test_start:].reset_index(drop=True)
+
+    trades = []
+    prev_signal = "NO TRADE"
+
+    for i in range(len(df_test) - 1):
+        row    = df_test.iloc[i]
+        signal = str(row.get("signal", "NO TRADE"))
+        conf   = float(row.get("confidence", 0))
+
+        # Filter
+        if signal not in VALID_SIGNALS:
+            prev_signal = signal
+            continue
+        if conf < min_confidence:
+            prev_signal = signal
+            continue
+        # Hanya ambil sinyal fresh (berubah dari sebelumnya)
+        if signal == prev_signal:
+            prev_signal = signal
+            continue
+
+        prev_signal = signal
+
+        entry = float(row["close"])
+        atr   = float(row.get("atr", entry * 0.01))
+
+        if signal.startswith("BUY"):
+            sl  = entry - sl_atr  * atr
+            tp1 = entry + tp1_atr * atr
+            tp2 = entry + tp2_atr * atr
+            tp3 = entry + tp3_atr * atr
+            direction = "BUY"
+        else:
+            sl  = entry + sl_atr  * atr
+            tp1 = entry - tp1_atr * atr
+            tp2 = entry - tp2_atr * atr
+            tp3 = entry - tp3_atr * atr
+            direction = "SELL"
+
+        # Simulasi exit: cek candle-candle berikutnya
+        exit_price  = None
+        exit_reason = "OPEN"
+        exit_candle = None
+        pnl_pct     = 0.0
+
+        for j in range(i + 1, min(i + 50, len(df_test))):   # max 50 candle ke depan
+            future = df_test.iloc[j]
+            high   = float(future["high"])
+            low    = float(future["low"])
+
+            if direction == "BUY":
+                if low <= sl:
+                    exit_price  = sl
+                    exit_reason = "SL"
+                    exit_candle = j - i
+                    break
+                elif high >= tp1:
+                    exit_price  = tp1
+                    exit_reason = "TP1"
+                    exit_candle = j - i
+                    break
+            else:
+                if high >= sl:
+                    exit_price  = sl
+                    exit_reason = "SL"
+                    exit_candle = j - i
+                    break
+                elif low <= tp1:
+                    exit_price  = tp1
+                    exit_reason = "TP1"
+                    exit_candle = j - i
+                    break
+
+        # Jika tidak kena SL/TP dalam 50 candle = exit di harga terakhir
+        if exit_price is None:
+            exit_price  = float(df_test.iloc[min(i + 50, len(df_test) - 1)]["close"])
+            exit_reason = "TIMEOUT"
+            exit_candle = 50
+
+        if direction == "BUY":
+            pnl_pct = (exit_price - entry) / entry * 100
+        else:
+            pnl_pct = (entry - exit_price) / entry * 100
+
+        trades.append({
+            "candle"      : i,
+            "signal"      : signal,
+            "direction"   : direction,
+            "confidence"  : round(conf, 1),
+            "entry"       : round(entry, 8),
+            "sl"          : round(sl, 8),
+            "tp1"         : round(tp1, 8),
+            "exit_price"  : round(exit_price, 8),
+            "exit_reason" : exit_reason,
+            "exit_candle" : exit_candle,
+            "pnl_pct"     : round(pnl_pct, 4),
+            "win"         : exit_reason in ("TP1", "TP2", "TP3"),
+        })
+
+    if not trades:
+        return {
+            "symbol"    : symbol,
+            "timeframe" : timeframe,
+            "days"      : days,
+            "trades"    : [],
+            "total"     : 0,
+            "wins"      : 0,
+            "losses"    : 0,
+            "win_rate"  : 0,
+            "total_pnl" : 0,
+            "avg_pnl"   : 0,
+            "max_win"   : 0,
+            "max_loss"  : 0,
+            "profit_factor": 0,
+            "avg_candles_to_exit": 0,
+        }
+
+    df_trades = pd.DataFrame(trades)
+
+    total      = len(df_trades)
+    wins       = df_trades["win"].sum()
+    losses     = total - wins
+    win_rate   = round(wins / total * 100, 1) if total > 0 else 0
+    total_pnl  = round(df_trades["pnl_pct"].sum(), 2)
+    avg_pnl    = round(df_trades["pnl_pct"].mean(), 2)
+    max_win    = round(df_trades["pnl_pct"].max(), 2)
+    max_loss   = round(df_trades["pnl_pct"].min(), 2)
+
+    gross_profit = df_trades[df_trades["pnl_pct"] > 0]["pnl_pct"].sum()
+    gross_loss   = abs(df_trades[df_trades["pnl_pct"] < 0]["pnl_pct"].sum())
+    profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else 0
+
+    avg_candles = round(df_trades["exit_candle"].mean(), 1)
+
+    # Breakdown per tipe sinyal
+    breakdown = {}
+    for sig in df_trades["signal"].unique():
+        sub = df_trades[df_trades["signal"] == sig]
+        breakdown[sig] = {
+            "total"   : len(sub),
+            "wins"    : int(sub["win"].sum()),
+            "win_rate": round(sub["win"].mean() * 100, 1),
+            "avg_pnl" : round(sub["pnl_pct"].mean(), 2),
+        }
+
+    return {
+        "symbol"              : symbol,
+        "timeframe"           : timeframe,
+        "days"                : days,
+        "trades"              : trades,
+        "total"               : total,
+        "wins"                : int(wins),
+        "losses"              : int(losses),
+        "win_rate"            : win_rate,
+        "total_pnl"           : total_pnl,
+        "avg_pnl"             : avg_pnl,
+        "max_win"             : max_win,
+        "max_loss"            : max_loss,
+        "profit_factor"       : profit_factor,
+        "avg_candles_to_exit" : avg_candles,
+        "breakdown"           : breakdown,
+        "df_trades"           : df_trades,
+    }
+
+
+# ------------------------------------------------------------------
+#  Multi-Symbol Backtest
+# ------------------------------------------------------------------
+def run_backtest_multi(
+    symbols   : list,
+    timeframe : str   = "1h",
+    days      : int   = 90,
+    min_confidence: float = 50.0,
+) -> pd.DataFrame:
+    """
+    Backtest banyak symbol sekaligus.
+    Return DataFrame ringkasan.
+    """
+    rows = []
+    for sym in symbols:
+        try:
+            result = run_backtest(sym, timeframe, days, min_confidence=min_confidence)
+            if result and result["total"] > 0:
+                rows.append({
+                    "symbol"        : sym,
+                    "timeframe"     : timeframe,
+                    "total_trades"  : result["total"],
+                    "win_rate"      : result["win_rate"],
+                    "total_pnl_pct" : result["total_pnl"],
+                    "avg_pnl_pct"   : result["avg_pnl"],
+                    "profit_factor" : result["profit_factor"],
+                    "max_win"       : result["max_win"],
+                    "max_loss"      : result["max_loss"],
+                })
+                logger.info(
+                    f"✅ {sym}/{timeframe} | "
+                    f"Trades: {result['total']} | "
+                    f"WR: {result['win_rate']}% | "
+                    f"PnL: {result['total_pnl']}%"
+                )
+        except Exception as e:
+            logger.warning(f"Backtest error {sym}: {e}")
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values("profit_factor", ascending=False)
+    return df
+
+
+# ------------------------------------------------------------------
+#  Print Report
+# ------------------------------------------------------------------
+def print_report(result: dict):
+    """Print laporan backtest yang mudah dibaca."""
+    if not result or result["total"] == 0:
+        print("❌ Tidak ada trade dalam periode backtest.")
+        return
+
+    sym = result["symbol"]
+    tf  = result["timeframe"]
+
+    print(f"\n{'='*55}")
+    print(f"  BACKTEST REPORT: {sym} / {tf} ({result['days']} hari)")
+    print(f"{'='*55}")
+    print(f"  Total Trade      : {result['total']}")
+    print(f"  Win / Loss       : {result['wins']} / {result['losses']}")
+    print(f"  Win Rate         : {result['win_rate']}%")
+    print(f"  Total PnL        : {result['total_pnl']}%")
+    print(f"  Avg PnL/Trade    : {result['avg_pnl']}%")
+    print(f"  Max Win          : +{result['max_win']}%")
+    print(f"  Max Loss         : {result['max_loss']}%")
+    print(f"  Profit Factor    : {result['profit_factor']}")
+    print(f"  Avg Candle Exit  : {result['avg_candles_to_exit']} candle")
+    print(f"\n  Breakdown per Signal Type:")
+    print(f"  {'-'*45}")
+    for sig, info in result.get("breakdown", {}).items():
+        print(
+            f"  {sig:<22} | "
+            f"Total: {info['total']:>3} | "
+            f"WR: {info['win_rate']:>5}% | "
+            f"Avg PnL: {info['avg_pnl']:>6}%"
+        )
+    print(f"{'='*55}\n")
+
+
+# ------------------------------------------------------------------
+#  Entry Point (jalankan langsung untuk test)
+# ------------------------------------------------------------------
+if __name__ == "__main__":
+    from config import WATCHLIST
+
+    print("🔍 Menjalankan backtest untuk 5 pair pertama...\n")
+    test_symbols = WATCHLIST[:5]
+
+    for sym in test_symbols:
+        result = run_backtest(sym, timeframe="1h", days=30)
+        if result:
+            print_report(result)
+
+    print("\n📊 Ringkasan Multi-Symbol:")
+    summary = run_backtest_multi(test_symbols, timeframe="1h", days=30)
+    if not summary.empty:
+        print(summary.to_string(index=False))
