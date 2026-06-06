@@ -274,6 +274,15 @@ def main():
     schedule.every().day.at(daily_time).do(job_daily_report)
     schedule.every().monday.at("08:00").do(job_weekly_report)
     schedule.every(6).hours.do(job_health_check)
+
+    # Auto audit setiap 6 jam
+    def job_audit():
+        try:
+            from bot_auditor import run_audit
+            run_audit()
+        except Exception as e:
+            logger.error(f"Audit error: {e}")
+    schedule.every(6).hours.do(job_audit)
     schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
