@@ -884,8 +884,7 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
 
                     except Exception as e:
                         logger.debug(f"[REGIME] error — {e}")
-                        res["regime"]       = "UNKNOWN"
-                        res["regime_emoji"] = "❓"
+                        continue  # skip sinyal kalau regime error
 
                     results.append(res)
                     signal_counts[sig] = signal_counts.get(sig, 0) + 1
