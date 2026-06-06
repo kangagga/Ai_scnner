@@ -320,6 +320,16 @@ def main():
         except Exception as e:
             logger.error("Hourly summary error: " + str(e))
     schedule.every().hour.do(job_hourly_summary)
+
+    # Ringkasan virtual trading setiap 6 jam
+    def job_virtual_summary():
+        try:
+            from virtual_trader import send_virtual_summary
+            from telegram_sender import send_alert
+            send_virtual_summary(send_alert)
+        except Exception as e:
+            logger.error("Virtual summary error: " + str(e))
+    schedule.every(6).hours.do(job_virtual_summary)
     schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")

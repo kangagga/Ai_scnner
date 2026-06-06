@@ -121,6 +121,14 @@ def check_exits(send_alert_fn):
                 logger.info(f"✅ Performance tersimpan: {symbol} {label} @ {price}")
             except Exception as e:
                 logger.warning(f"Gagal simpan performance: {e}")
+
+            # Update virtual trading
+            try:
+                from virtual_trader import close_virtual_trade
+                new_bal, pnl_usd = close_virtual_trade(symbol, trade["signal"], price, pnl_pct)
+                logger.info(f"💰 Virtual balance: ${new_bal:.2f}")
+            except Exception as e:
+                logger.warning(f"Virtual trade error: {e}")
             with _lock:
                 if key in _active_trades:
                     if "TP1" in label:
