@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Heatmap</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050a0f;color:#c8e6f5;font-family:monospace;padding:16px}
+h1{color:#00ffe7;margin-bottom:16px;font-size:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.cell{padding:12px 8px;border-radius:6px;text-align:center;cursor:pointer;border:1px solid rgba(255,255,255,0.1)}
+.cell .symbol{font-size:13px;font-weight:bold}
+.cell .conf{font-size:11px;margin-top:4px;opacity:0.8}
+.cell .wr{font-size:11px;opacity:0.7}
+.sell-high{background:rgba(255,51,102,0.7);border-color:#ff3366}
+.sell-med{background:rgba(255,51,102,0.4);border-color:#ff3366}
+.sell-low{background:rgba(255,51,102,0.2);border-color:#ff3366}
+.buy-high{background:rgba(0,255,136,0.7);border-color:#00ff88}
+.buy-med{background:rgba(0,255,136,0.4);border-color:#00ff88}
+.buy-low{background:rgba(0,255,136,0.2);border-color:#00ff88}
+.neutral{background:rgba(255,170,0,0.2);border-color:#ffaa00}
+.refresh{background:#00ffe7;color:#050a0f;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin-bottom:16px;font-weight:bold}
+.stats{display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap}
+.stat{background:rgba(0,255,231,0.05);border:1px solid rgba(0,255,231,0.2);padding:8px 16px;border-radius:6px;font-size:13px}
+</style>
+</head>
+<body>
+<h1>🌡️ Market Heatmap</h1>
+<button class="refresh" onclick="load()">🔄 Refresh</button>
+<div class="stats" id="stats"></div>
+<div class="grid" id="grid"></div>
+<script>
+async function load() {
+    const r = await fetch('/api/signals');
+    const data = await r.json();
+    const signals = data.signals || [];
+
+    // Stats
+    const buy = signals.filter(s => s.signal && s.signal.startsWith('BUY')).length;
+    const sell = signals.filter(s => s.signal && s.signal.startsWith('SELL')).length;
+    const avgConf = signals.length ? (signals.reduce((a,s) => a + (s.confidence||0), 0) / signals.length).toFixed(1) : 0;
+    document.getElementById('stats').innerHTML = `
+        <div class="stat">📊 Total: ${signals.length}</div>
+        <div class="stat">🟢 BUY: ${buy}</div>
+        <div class="stat">🔴 SELL: ${sell}</div>
+        <div class="stat">🎯 Avg Conf: ${avgConf}</div>
+    `;
+
+    // Grid
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    signals.forEach(s => {
+        const isBuy = s.signal && s.signal.startsWith('BUY');
+        const conf = s.confidence || 0;
+        let cls = isBuy
+            ? (conf >= 65 ? 'buy-high' : conf >= 55 ? 'buy-med' : 'buy-low')
+            : (conf >= 65 ? 'sell-high' : conf >= 55 ? 'sell-med' : 'sell-low');
+        const cell = document.createElement('div');
+        cell.className = `cell ${cls}`;
+        cell.innerHTML = `
+            <div class="symbol">${s.symbol || '?'}</div>
+            <div class="conf">${s.signal || ''} ${s.timeframe || ''}</div>
+            <div class="wr">conf=${conf} wr=${s.win_rate || 0}%</div>
+        `;
+        grid.appendChild(cell);
+    });
+}
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

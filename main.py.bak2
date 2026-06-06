@@ -4,8 +4,8 @@
 # ============================================================
 
 import logging
-import time
 import threading
+import time
 import schedule
 from datetime import datetime, timezone
 
@@ -188,9 +188,6 @@ def job_daily_report():
             pass
 
 
-
-#  AUTO BACKTEST saat startup — validasi strategi sebelum scan
-# ==============================================================
 def run_startup_backtest(send_telegram: bool = True):
     """Jalankan backtest 30 hari untuk top 10 pair saat bot start."""
     from config import WATCHLIST
@@ -230,11 +227,10 @@ def run_startup_backtest(send_telegram: bool = True):
         print(report)
 
         if send_telegram:
-            send_alert(report)
+            send_alert(report, parse_mode="Markdown")
 
     except Exception as e:
-        send_alert(f"⚠️ <b>BACKTEST ERROR</b>\n\n<code>{str(e)[:200]}</code>\n\n🤖 AI Signal Bot")
-
+        print(f"❌ Backtest error: {e}")
 def main():
     logger.info("🤖 AI Crypto Signal Bot starting…")
     logger.info(f"   Interval scan   : {SCAN_INTERVAL}s")
@@ -274,57 +270,12 @@ def main():
     schedule.every().day.at(daily_time).do(job_daily_report)
     schedule.every().monday.at("08:00").do(job_weekly_report)
     schedule.every(6).hours.do(job_health_check)
-
-    # Auto audit setiap 6 jam
-    def job_audit():
-        try:
-            from bot_auditor import run_audit
-            run_audit()
-        except Exception as e:
-            logger.error(f"Audit error: {e}")
-    schedule.every(6).hours.do(job_audit)
-
-    def job_hourly_summary():
-        try:
-            import sqlite3
-            from datetime import datetime, timedelta, timezone
-            WIB = timezone(timedelta(hours=7))
-            now = datetime.now(WIB)
-            one_hour_ago = (now - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S')
-            conn = sqlite3.connect('signals.db')
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM performance WHERE timestamp >= '" + one_hour_ago + "'")
-            row = cur.fetchone()
-            conn.close()
-            total = row[0] or 0
-            if total == 0:
-                return
-            menang = row[1] or 0
-            kalah = row[2] or 0
-            avg_pnl = row[3] or 0
-            total_pnl = row[4] or 0
-            wr = round(100*menang/total, 1)
-            emoji = "✅" if wr >= 60 else "⚠️" if wr >= 50 else "🔴"
-            msg = emoji + " <b>Ringkasan 1 Jam</b>\n"
-            msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
-            msg += "🕐 " + now.strftime('%H:%M') + " WIB\n"
-            msg += "📊 Total   : " + str(total) + " trade\n"
-            msg += "✅ Menang  : " + str(menang) + " | ❌ Kalah: " + str(kalah) + "\n"
-            msg += "🎯 Win Rate: " + str(wr) + "%\n"
-            msg += "💰 Avg PnL : " + str(avg_pnl) + "%\n"
-            msg += "💵 Total PnL: " + str(total_pnl) + "%\n"
-            msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
-            msg += "🤖 AI Signal Bot"
-            from telegram_sender import send_alert
-            send_alert(msg)
-        except Exception as e:
-            logger.error("Hourly summary error: " + str(e))
-    schedule.every().hour.do(job_hourly_summary)
     schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
     try:
         # Jalankan command handler di thread terpisah
+        import threading
         import telegram_sender as _ts
         import requests as _req
         # Reset ke update terbaru supaya tidak proses pesan lama
@@ -350,5 +301,13 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Bot dihentikan.")
+
+
+if __name__ == "__main__":
+    main()
+
+# ==============================================================
+#  AUTO BACKTEST saat startup — validasi strategi sebelum scan
+# ==============================================================
 if __name__ == '__main__':
     main()

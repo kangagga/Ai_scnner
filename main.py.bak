@@ -5,7 +5,6 @@
 
 import logging
 import time
-import threading
 import schedule
 from datetime import datetime, timezone
 
@@ -188,7 +187,83 @@ def job_daily_report():
             pass
 
 
+def main():
+    logger.info("🤖 AI Crypto Signal Bot starting…")
+    logger.info(f"   Interval scan   : {SCAN_INTERVAL}s")
+    logger.info(f"   Min score       : {MIN_SCORE}")
+    logger.info(f"   Signal threshold: {SIGNAL_THRESHOLD}")
 
+    daily_time = f"{DAILY_REPORT_HOUR:02d}:{DAILY_REPORT_MINUTE:02d}"
+    logger.info(f"   Daily report    : {daily_time} WIB")
+
+    # ── Simpan config ke dashboard ─────────────────────────
+    set_config({
+        "scan_interval" : SCAN_INTERVAL,
+        "min_score"     : MIN_SCORE,
+        "threshold"     : SIGNAL_THRESHOLD,
+        "cooldown_min"  : COOLDOWN_MINUTES,
+        "daily_report"  : f"{daily_time} WIB",
+        "timeframes"    : ["1h", "4h", "1d"],
+    })
+
+    # ── Start Flask API (background thread) ────────────────
+    start_api(host="0.0.0.0", port=5000)
+    start_exit_monitor(lambda msg: send_alert(msg))
+    logger.info("🌐 Buka dashboard: http://localhost:5000  (atau http://<IP>:5000)")
+    add_log("🌐", "Dashboard API aktif di port 5000")
+
+    # ── Kirim test message & scan pertama ──────────────────
+    send_test_message()
+    add_log("✅", "Bot aktif, Telegram terhubung")
+
+    # ── Backtest startup ───────────────────────────────────
+    import threading
+    bt_thread = threading.Thread(target=run_startup_backtest, args=(True,), daemon=True)
+    bt_thread.start()
+    add_log("🔬", "Backtest startup berjalan di background")
+
+    # ── Schedule ───────────────────────────────────────────
+    schedule.every(SCAN_INTERVAL).seconds.do(job_scan)
+    schedule.every().day.at(daily_time).do(job_daily_report)
+    schedule.every().monday.at("08:00").do(job_weekly_report)
+    schedule.every(6).hours.do(job_health_check)
+    schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
+
+    logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
+    try:
+        # Jalankan command handler di thread terpisah
+        import threading
+        import telegram_sender as _ts
+        import requests as _req
+        # Reset ke update terbaru supaya tidak proses pesan lama
+        try:
+            _r = _req.get(f"https://api.telegram.org/bot{__import__('config').BOT_TOKEN}/getUpdates", params={"limit": 1, "offset": -1})
+            _res = _r.json().get("result", [])
+            if _res:
+                _ts._last_update_id = _res[-1]["update_id"]
+        except Exception:
+            pass
+
+        def _cmd_loop():
+            while True:
+                try:
+                    handle_commands(scan_fn=job_scan)
+                except Exception:
+                    pass
+                time.sleep(5)
+        threading.Thread(target=_cmd_loop, daemon=True).start()
+
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Bot dihentikan.")
+
+
+if __name__ == "__main__":
+    main()
+
+# ==============================================================
 #  AUTO BACKTEST saat startup — validasi strategi sebelum scan
 # ==============================================================
 def run_startup_backtest(send_telegram: bool = True):
@@ -230,125 +305,7 @@ def run_startup_backtest(send_telegram: bool = True):
         print(report)
 
         if send_telegram:
-            send_alert(report)
+            send_alert(report, parse_mode="Markdown")
 
     except Exception as e:
-        send_alert(f"⚠️ <b>BACKTEST ERROR</b>\n\n<code>{str(e)[:200]}</code>\n\n🤖 AI Signal Bot")
-
-def main():
-    logger.info("🤖 AI Crypto Signal Bot starting…")
-    logger.info(f"   Interval scan   : {SCAN_INTERVAL}s")
-    logger.info(f"   Min score       : {MIN_SCORE}")
-    logger.info(f"   Signal threshold: {SIGNAL_THRESHOLD}")
-
-    daily_time = f"{DAILY_REPORT_HOUR:02d}:{DAILY_REPORT_MINUTE:02d}"
-    logger.info(f"   Daily report    : {daily_time} WIB")
-
-    # ── Simpan config ke dashboard ─────────────────────────
-    set_config({
-        "scan_interval" : SCAN_INTERVAL,
-        "min_score"     : MIN_SCORE,
-        "threshold"     : SIGNAL_THRESHOLD,
-        "cooldown_min"  : COOLDOWN_MINUTES,
-        "daily_report"  : f"{daily_time} WIB",
-        "timeframes"    : ["1h", "4h", "1d"],
-    })
-
-    # ── Start Flask API (background thread) ────────────────
-    start_api(host="0.0.0.0", port=5000)
-    start_exit_monitor(lambda msg: send_alert(msg))
-    logger.info("🌐 Buka dashboard: http://localhost:5000  (atau http://<IP>:5000)")
-    add_log("🌐", "Dashboard API aktif di port 5000")
-
-    # ── Kirim test message & scan pertama ──────────────────
-    send_test_message()
-    add_log("✅", "Bot aktif, Telegram terhubung")
-
-    # ── Backtest startup ───────────────────────────────────
-    bt_thread = threading.Thread(target=run_startup_backtest, args=(True,), daemon=True)
-    bt_thread.start()
-    add_log("🔬", "Backtest startup berjalan di background")
-
-    # ── Schedule ───────────────────────────────────────────
-    schedule.every(SCAN_INTERVAL).seconds.do(job_scan)
-    schedule.every().day.at(daily_time).do(job_daily_report)
-    schedule.every().monday.at("08:00").do(job_weekly_report)
-    schedule.every(6).hours.do(job_health_check)
-
-    # Auto audit setiap 6 jam
-    def job_audit():
-        try:
-            from bot_auditor import run_audit
-            run_audit()
-        except Exception as e:
-            logger.error(f"Audit error: {e}")
-    schedule.every(6).hours.do(job_audit)
-
-    def job_hourly_summary():
-        try:
-            import sqlite3
-            from datetime import datetime, timedelta, timezone
-            WIB = timezone(timedelta(hours=7))
-            now = datetime.now(WIB)
-            one_hour_ago = (now - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S')
-            conn = sqlite3.connect('signals.db')
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM performance WHERE timestamp >= '" + one_hour_ago + "'")
-            row = cur.fetchone()
-            conn.close()
-            total = row[0] or 0
-            if total == 0:
-                return
-            menang = row[1] or 0
-            kalah = row[2] or 0
-            avg_pnl = row[3] or 0
-            total_pnl = row[4] or 0
-            wr = round(100*menang/total, 1)
-            emoji = "✅" if wr >= 60 else "⚠️" if wr >= 50 else "🔴"
-            msg = emoji + " <b>Ringkasan 1 Jam</b>\n"
-            msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
-            msg += "🕐 " + now.strftime('%H:%M') + " WIB\n"
-            msg += "📊 Total   : " + str(total) + " trade\n"
-            msg += "✅ Menang  : " + str(menang) + " | ❌ Kalah: " + str(kalah) + "\n"
-            msg += "🎯 Win Rate: " + str(wr) + "%\n"
-            msg += "💰 Avg PnL : " + str(avg_pnl) + "%\n"
-            msg += "💵 Total PnL: " + str(total_pnl) + "%\n"
-            msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
-            msg += "🤖 AI Signal Bot"
-            from telegram_sender import send_alert
-            send_alert(msg)
-        except Exception as e:
-            logger.error("Hourly summary error: " + str(e))
-    schedule.every().hour.do(job_hourly_summary)
-    schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
-
-    logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
-    try:
-        # Jalankan command handler di thread terpisah
-        import telegram_sender as _ts
-        import requests as _req
-        # Reset ke update terbaru supaya tidak proses pesan lama
-        try:
-            _r = _req.get(f"https://api.telegram.org/bot{__import__('config').BOT_TOKEN}/getUpdates", params={"limit": 1, "offset": -1})
-            _res = _r.json().get("result", [])
-            if _res:
-                _ts._last_update_id = _res[-1]["update_id"]
-        except Exception:
-            pass
-
-        def _cmd_loop():
-            while True:
-                try:
-                    handle_commands(scan_fn=job_scan)
-                except Exception:
-                    pass
-                time.sleep(5)
-        threading.Thread(target=_cmd_loop, daemon=True).start()
-
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Bot dihentikan.")
-if __name__ == '__main__':
-    main()
+        print(f"❌ Backtest error: {e}")
