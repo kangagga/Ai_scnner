@@ -42,7 +42,7 @@ from config import (
 from data_fetcher import fetch_ohlcv, fetch_symbols, get_new_listings, get_volume_spike_pairs, get_top_gainers_losers
 from blacklist    import is_blacklisted, get_blacklist
 from indicators import institutional_ai_v4
-from market_context     import get_market_context, is_btc_dump
+from market_context     import get_market_context, is_btc_dump, detect_market_regime
 from win_rate_predictor import predict_win_rate
 from risk_manager       import check_risk_approval, get_risk_status
 
@@ -56,7 +56,7 @@ BASE_DELAY              = 1.5
 RATE_LIMIT_PER_SEC      = 2
 
 MIN_VOLUME_RATIO        = 0.1
-MAX_SPREAD_PCT          = 2.5
+MAX_SPREAD_PCT          = 3.0
 ENABLE_MULTI_TF_CONFIRM = True
 
 SIGNAL_COOLDOWN = {
@@ -70,12 +70,14 @@ SIGNAL_COOLDOWN = {
 DEFAULT_COOLDOWN_MINUTES = 180
 
 MIN_MOMENTUM_SCORE            = 3
+RSI_SELL_MIN                  = 35  # Jangan SELL kalau RSI sudah oversold < 35
+RSI_BUY_MAX                   = 65  # Jangan BUY kalau RSI sudah overbought > 65
 BB_WIDTH_PERCENTILE_THRESHOLD = 0.25
 ADX_TREND_THRESHOLD           = 25
 VOLUME_SPIKE_RATIO            = 1.4
 
-MAX_WORKERS      = 8
-TASK_TIMEOUT_SEC = 45
+MAX_WORKERS      = 16
+TASK_TIMEOUT_SEC = 60
 
 VALID_SIGNALS = {
     "BUY", "SELL",
@@ -91,7 +93,7 @@ _signal_state_lock = threading.Lock()
 
 _fetch_cache: Dict[str, tuple] = {}
 _cache_lock   = threading.Lock()
-CACHE_TTL_SEC = 300
+CACHE_TTL_SEC = 600
 
 
 # ------------------------------------------------------------------
@@ -446,6 +448,15 @@ def _check_trend_confirmation(symbol: str, signal: str, current_tf: str) -> bool
         ema50_h   = _safe(last_h.get("ema50",  0))
         ema200_h  = _safe(last_h.get("ema200", 0))
 
+        # Filter RSI higher TF
+        rsi_h = float(last_h.get("rsi", 50))
+        if signal.startswith("SELL") and rsi_h < 30:
+            logger.warning(f"[TF RSI BLOCK] {symbol}/{current_tf} → {higher_tf}: RSI {rsi_h:.1f} oversold, skip SELL")
+            return False
+        if signal.startswith("BUY") and rsi_h > 70:
+            logger.warning(f"[TF RSI BLOCK] {symbol}/{current_tf} → {higher_tf}: RSI {rsi_h:.1f} overbought, skip BUY")
+            return False
+
         if signal.startswith("BUY"):
             result = ema50_h > ema200_h
         else:
@@ -500,6 +511,15 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         return None
 
     momentum = _calculate_momentum_score(df)
+    # Filter RSI — hindari entry saat oversold/overbought
+    rsi_val = float(last.get("rsi", 50))
+    if signal.startswith("SELL") and rsi_val < RSI_SELL_MIN:
+        logger.warning(f"[RSI BLOCK] {symbol}/{timeframe} → RSI {rsi_val:.1f} oversold, skip SELL")
+        return None
+    if signal.startswith("BUY") and rsi_val > RSI_BUY_MAX:
+        logger.warning(f"[RSI BLOCK] {symbol}/{timeframe} → RSI {rsi_val:.1f} overbought, skip BUY")
+        return None
+
     if momentum < MIN_MOMENTUM_SCORE:
         logger.debug(f"[F3:MOMENTUM] {symbol}/{timeframe}: {momentum:.1f} < {MIN_MOMENTUM_SCORE}")
         return None
@@ -518,6 +538,16 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
     tp1 = tp_levels.get("tp1", entry)
     tp2 = tp_levels.get("tp2", entry)
     tp3 = tp_levels.get("tp3", entry)
+
+    # Filter: jangan entry SELL terlalu dekat resistance
+    too_close_res = bool(last.get("too_close_resistance", False))
+    too_close_sup = bool(last.get("too_close_support", False))
+    if signal.startswith("SELL") and too_close_res:
+        logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → harga terlalu dekat resistance, skip entry")
+        return None
+    if signal.startswith("BUY") and too_close_sup:
+        logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → harga terlalu dekat support, skip entry")
+        return None
 
     if not _validate_signal_quality(last, signal, entry, sl, tp1, tp2, tp3):
         return None
@@ -539,12 +569,42 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         return None
 
     pos_size      = _calculate_position_size(entry, sl, RISK_PER_TRADE, ACCOUNT_BALANCE)
+
+    # ── Dynamic Position Sizing berdasarkan Regime ────────
+    try:
+        from market_context import detect_market_regime
+        _regime_check = detect_market_regime(symbol, timeframe)
+        _reg = _regime_check.get("regime", "NEUTRAL")
+        _regime_multiplier = {
+            "TRENDING" : 1.0,
+            "BREAKOUT" : 1.2,
+            "NEUTRAL"  : 0.8,
+            "RANGING"  : 0.5,
+            "VOLATILE" : 0.25,
+            "UNKNOWN"  : 0.5,
+        }.get(_reg, 0.8)
+        pos_size = round(pos_size * _regime_multiplier, 4)
+        logger.debug(f"[REGIME SIZE] {symbol}/{timeframe}: regime={_reg} multiplier={_regime_multiplier}x → pos_size={pos_size}")
+    except Exception as _e:
+        logger.debug(f"[REGIME SIZE] error — {_e}")
     risk_distance = abs(entry - sl)
     if risk_distance > 0:
         avg_reward = (abs(tp1 - entry) + abs(tp2 - entry) + abs(tp3 - entry)) / 3.0
         rr_ratio   = round(avg_reward / risk_distance, 2)
     else:
         rr_ratio = 0
+
+    # R:R filter — skip sinyal kalau R:R < 1.5
+    if rr_ratio > 0 and rr_ratio < 1.5:
+        logger.debug(f"[RR FILTER] {symbol}/{timeframe}: R:R={rr_ratio} < 1.5, skip")
+        return None
+
+    # Volume filter — skip SETUP kalau volume dry-up
+    vol_dry = bool(last.get("vol_dry_up", False))
+    vol_r   = float(_safe(last.get("vol_ratio", 1)))
+    if "(SETUP)" in signal and vol_dry and vol_r < 1.0:
+        logger.debug(f"[VOL FILTER] {symbol}/{timeframe}: SETUP + volume dry-up, skip")
+        return None
 
     rsi        = round(_safe(last.get("rsi",        0)), 2)
     macd_hist  = round(_safe(last.get("macd_hist",  0)), 6)
@@ -613,6 +673,7 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         "tp1"           : tp1,
         "tp2"           : tp2,
         "tp3"           : tp3,
+        "trailing_stop" : round(float(last.get("trailing_stop", 0)), 8),
         "rr_ratio"      : rr_ratio,
         "position_size" : pos_size,
         "rsi"           : rsi,
@@ -761,6 +822,57 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
                         res["funding_rate_label"] = "N/A"
                         res["funding_rate_emoji"] = "❓"
 
+
+                    # ── Market Regime Filter ──────────────────────
+                    try:
+                        from market_context import detect_market_regime
+                        regime = detect_market_regime(sym, tf)
+                        reg    = regime["regime"]
+
+                        if reg == "RANGING":
+                            if res.get("signal_type") == "TREND":
+                                logger.debug(f"[REGIME] {sym}/{tf}: TREND diblokir — market RANGING")
+                                blocked_ctx += 1
+                                block_reasons["regime"] = block_reasons.get("regime", 0) + 1
+                                continue
+                            if sig.startswith("BUY") and not regime["bias_buy"]:
+                                logger.debug(f"[REGIME] {sym}/{tf}: BUY diblokir — bias SELL di RANGING")
+                                blocked_ctx += 1
+                                block_reasons["regime"] = block_reasons.get("regime", 0) + 1
+                                continue
+                            if sig.startswith("SELL") and not regime["bias_sell"]:
+                                logger.debug(f"[REGIME] {sym}/{tf}: SELL diblokir — bias BUY di RANGING")
+                                blocked_ctx += 1
+                                block_reasons["regime"] = block_reasons.get("regime", 0) + 1
+                                continue
+
+                        elif reg == "VOLATILE":
+                            if res["confidence"] < 70:
+                                logger.debug(f"[REGIME] {sym}/{tf}: diblokir — VOLATILE conf={res['confidence']:.1f} < 70")
+                                blocked_ctx += 1
+                                block_reasons["regime"] = block_reasons.get("regime", 0) + 1
+                                continue
+
+                        elif reg == "BREAKOUT":
+                            if sig.startswith("BUY") and not regime["bias_buy"]:
+                                blocked_ctx += 1
+                                block_reasons["regime"] = block_reasons.get("regime", 0) + 1
+                                continue
+                            elif sig.startswith("SELL") and not regime["bias_sell"]:
+                                blocked_ctx += 1
+                                block_reasons["regime"] = block_reasons.get("regime", 0) + 1
+                                continue
+
+                        res["regime"]        = reg
+                        res["regime_emoji"]  = regime.get("emoji", "➡️")
+                        res["regime_adx"]    = regime.get("adx", 0)
+                        res["regime_advice"] = regime.get("advice", "")
+
+                    except Exception as e:
+                        logger.debug(f"[REGIME] error — {e}")
+                        res["regime"]       = "UNKNOWN"
+                        res["regime_emoji"] = "❓"
+
                     results.append(res)
                     signal_counts[sig] = signal_counts.get(sig, 0) + 1
 
@@ -798,9 +910,25 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
 
 
 def get_dynamic_threshold(ctx: dict) -> float:
-    """Auto-adjust threshold berdasarkan kondisi market."""
+    """Auto-adjust threshold berdasarkan kondisi market + win rate aktual."""
     from config import SIGNAL_THRESHOLD
+    from database import get_realtime_winrate
     base = SIGNAL_THRESHOLD
+
+    # Auto-optimize berdasarkan win rate aktual
+    try:
+        wr_data = get_realtime_winrate()
+        actual_wr = wr_data.get("win_rate", 0)
+        total = wr_data.get("total", 0)
+        if total >= 10:  # minimal 10 trade sebelum adjust
+            if actual_wr >= 70:
+                base -= 5  # performing well — lebih agresif
+                logger.info(f"[AUTO-OPT] WR={actual_wr}% bagus — threshold -{5}")
+            elif actual_wr < 45:
+                base += 5  # performing badly — lebih selektif
+                logger.info(f"[AUTO-OPT] WR={actual_wr}% buruk — threshold +{5}")
+    except Exception:
+        pass
 
     # Market extreme fear — naikkan threshold, hanya ambil sinyal kuat
     fg_raw = ctx.get("fear_greed", 50)

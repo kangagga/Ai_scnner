@@ -126,3 +126,17 @@ def get_realtime_winrate(symbol: str = None) -> dict:
     except Exception as e:
         logger.warning(f"get_realtime_winrate error: {e}")
         return {"total": 0, "win_rate": 0}
+
+def cleanup_old_data(days: int = 30):
+    """Hapus data lama lebih dari N hari."""
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute("DELETE FROM signals WHERE timestamp < datetime('now', ?)", (f'-{days} days',))
+        c.execute("DELETE FROM performance WHERE timestamp < datetime('now', ?)", (f'-{days} days',))
+        deleted = conn.total_changes
+        conn.commit()
+        conn.close()
+        logger.info(f"🧹 Cleanup: {deleted} record lama dihapus")
+    except Exception as e:
+        logger.warning(f"cleanup error: {e}")

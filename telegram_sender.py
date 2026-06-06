@@ -26,7 +26,7 @@ TF_LABEL = {"1h": "1 Jam", "4h": "4 Jam", "1d": "Daily"}
 
 def should_send_signal(symbol: str, signal: str, score: int) -> bool:
     """Cek apakah sinyal ini boleh dikirim (cooldown 30 menit)"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone(timedelta(hours=7)))
     key = symbol
 
     if key not in LAST_SIGNALS:
@@ -88,11 +88,29 @@ def _chunks(text: str, limit=4000) -> list:
     return chunks
 
 
+def fmt_price(val) -> str:
+    """Format harga agar mudah dibaca."""
+    try:
+        v = float(val)
+        if v == 0:
+            return "N/A"
+        if v >= 1000:
+            return f"{v:,.2f}"
+        elif v >= 1:
+            return f"{v:.4f}"
+        elif v >= 0.0001:
+            return f"{v:.6f}"
+        else:
+            # Tampilkan desimal signifikan
+            return f"{v:.8f}".rstrip('0')
+    except:
+        return str(val)
+
 def format_signal(s: dict) -> str:
     """Format sinyal dengan aman (semua key pakai .get)"""
     emoji = SIGNAL_EMOJI.get(s.get("signal", "NEUTRAL"), "⚪")
     tf = TF_LABEL.get(s.get("timeframe", "1h"), s.get("timeframe", "1h"))
-    now = datetime.now().strftime("%d/%m %H:%M")
+    now = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m %H:%M")
     score = s.get("score", 0)
     conf  = s.get("confidence", 0)
     wr    = s.get("win_rate", 0)
@@ -119,16 +137,18 @@ def format_signal(s: dict) -> str:
         f"{emoji} <b>{s.get('symbol', '???')}</b> | {tf} | {now}\n"
         f"{'━'*30}\n"
         f"⚠️ Level   : <b>{alert_level}</b>\n"
+        f"🌍 Regime  : {s.get('regime_emoji', '➡️')} <b>{s.get('regime', 'UNKNOWN')}</b> | ADX:{s.get('regime_adx', 0)} | {s.get('regime_advice', '')}\n"
         f"📊 Sinyal  : <b>{s.get('signal', 'NEUTRAL')}</b>\n"
         f"🎯 Score   : {score}/100  [{bar}]\n"
         f"📈 WinRate : <b>{win_rate}%</b>\n\n"
-        f"💰 Entry   : <code>{s.get('entry', 'N/A')}</code>\n"
-        f"🛑 SL      : <code>{s.get('sl', 'N/A')}</code>\n"
-        f"✅ TP1     : <code>{s.get('tp1', 'N/A')}</code>\n"
-        f"✅ TP2     : <code>{s.get('tp2', 'N/A')}</code>\n"
-        f"✅ TP3     : <code>{s.get('tp3', 'N/A')}</code>\n"
-        f"🔄 Trailing: <code>{s.get('trailing_stop', 'N/A')}</code>\n"
+        f"💰 Entry   : <code>{fmt_price(s.get('entry', 0))}</code>\n"
+        f"🛑 SL      : <code>{fmt_price(s.get('sl', 0))}</code>\n"
+        f"✅ TP1     : <code>{fmt_price(s.get('tp1', 0))}</code> (50% close)\n"
+        f"✅ TP2     : <code>{fmt_price(s.get('tp2', 0))}</code> (30% close)\n"
+        f"✅ TP3     : <code>{fmt_price(s.get('tp3', 0))}</code> (20% close)\n"
+        f"🔄 Trailing: <code>{fmt_price(s.get('trailing_stop', 0))}</code>\n"
         f"⚖️  R:R    : 1:{s.get('rr_ratio', 0)}\n\n"
+        f"🕯️ Pattern : {s.get('candle_pattern', 'None')}\n"
         f"📉 RSI     : {rsi_s}\n"
         f"⚡ MACD    : {s.get('macd_cross', 'N/A')} | Hist:{s.get('macd_hist', 'N/A')}\n"
         f"📐 EMA     : {s.get('ema_trend', 'N/A')}\n"
@@ -165,7 +185,7 @@ def send_top_signals(signals: list, delay: float = 1.5) -> int:
         return 0
 
     # Kirim header ringkasan
-    now = datetime.now().strftime("%A, %d %B %Y %H:%M WIB")
+    now = datetime.now(timezone(timedelta(hours=7))).strftime("%A, %d %B %Y %H:%M WIB")
     buy = sum(1 for s in filtered if "BUY" in s.get("signal", ""))
     sell = sum(1 for s in filtered if "SELL" in s.get("signal", ""))
     
@@ -198,7 +218,7 @@ def send_top_signals(signals: list, delay: float = 1.5) -> int:
 
 
 def send_daily_report(signals: list, ai_analysis: str) -> bool:
-    now = datetime.now().strftime("%A, %d %B %Y")
+    now = datetime.now(timezone(timedelta(hours=7))).strftime("%A, %d %B %Y")
     if not signals:
         _send(f"📋 <b>Laporan Harian {now}</b>\n\n📭 Tidak ada sinyal aktif.")
         return True
@@ -259,7 +279,7 @@ def send_test_message() -> bool:
     return _send(
         f"✅ <b>AI Crypto Signal Bot Aktif!</b>\n\n"
         f"🤖 Terhubung ke Telegram.\n"
-        f"⏰ {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n"
+        f"⏰ {datetime.now(timezone(timedelta(hours=7))).strftime('%d/%m/%Y %H:%M:%S')}\n"
         f"🔍 Memulai scan pasar crypto…"
     )
 

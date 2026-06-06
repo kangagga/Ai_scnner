@@ -16,7 +16,7 @@ CMC_API_KEY = "80fcb8071c08424098840bd02df5f0c9"
 CMC_LATEST  = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
 
 INTERVAL_GATE = {"1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1h": "1h", "4h": "4h", "1d": "1d"}
-TIMEOUT       = 20
+TIMEOUT       = 30
 
 _gate_symbols: set = set()
 
@@ -91,7 +91,7 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 300):
 
         df = df[["open", "high", "low", "close", "volume"]].astype(float)
 
-        return df if len(df) >= 50 else None
+        return df if len(df) >= 30 else None
 
     except requests.exceptions.Timeout:
         logger.warning(f"Timeout Gate.io: {sym}/{timeframe}")
@@ -331,7 +331,7 @@ def get_new_listings(min_volume_usdt: float = 500000) -> list:
 # ------------------------------------------------------------------
 #  Batch Fetcher
 # ------------------------------------------------------------------
-def fetch_batch(symbols: list, timeframe: str, delay: float = 0.05) -> dict:
+def fetch_batch(symbols: list, timeframe: str, delay: float = 0.3) -> dict:
     result = {}
 
     def _fetch(sym):
@@ -356,7 +356,7 @@ _async_session: aiohttp.ClientSession = None
 async def _get_session() -> aiohttp.ClientSession:
     global _async_session
     if _async_session is None or _async_session.closed:
-        connector = aiohttp.TCPConnector(limit=10, ttl_dns_cache=300)
+        connector = aiohttp.TCPConnector(limit=5, ttl_dns_cache=300)
         timeout   = aiohttp.ClientTimeout(total=TIMEOUT)
         _async_session = aiohttp.ClientSession(connector=connector, timeout=timeout)
     return _async_session
@@ -390,7 +390,7 @@ async def async_fetch_ohlcv(symbol: str, timeframe: str, limit: int = 300):
                 df = df.iloc[:-1]
 
         df = df[["open", "high", "low", "close", "volume"]].astype(float)
-        return df if len(df) >= 50 else None
+        return df if len(df) >= 30 else None
 
     except asyncio.TimeoutError:
         logger.warning(f"Timeout Gate.io async: {sym}/{timeframe}")

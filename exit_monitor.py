@@ -8,13 +8,35 @@ from database import update_signal_result
 logger = logging.getLogger(__name__)
 _active_trades = {}
 _lock = threading.Lock()
+_TRADES_FILE = "active_trades.json"
+
+def _save_trades():
+    import json
+    try:
+        with open(_TRADES_FILE, "w") as f:
+            json.dump(_active_trades, f)
+    except: pass
+
+def _load_trades():
+    import json, os
+    global _active_trades
+    if os.path.exists(_TRADES_FILE):
+        try:
+            with open(_TRADES_FILE) as f:
+                _active_trades = json.load(f)
+            logger.info(f"✅ {len(_active_trades)} trade dimuat dari file")
+        except: pass
+
+_load_trades()
 
 def add_trade(signal: dict):
     symbol = signal.get("symbol")
+    tf = signal.get("timeframe", "")
     if not symbol:
         return
+    key = f"{symbol}_{tf}"
     with _lock:
-        _active_trades[symbol] = {
+        _active_trades[key] = {
             "entry": signal.get("entry", 0),
             "sl": signal.get("sl", 0),
             "tp1": signal.get("tp1", 0),
@@ -22,8 +44,10 @@ def add_trade(signal: dict):
             "tp3": signal.get("tp3", 0),
             "signal": signal.get("signal", ""),
             "timeframe": signal.get("timeframe", ""),
+            "symbol": symbol,
         }
     logger.info(f"Monitoring exit: {symbol}")
+    _save_trades()
 
 def get_current_price(symbol: str) -> float:
     try:
@@ -39,7 +63,8 @@ def get_current_price(symbol: str) -> float:
 def check_exits(send_alert_fn):
     with _lock:
         trades = dict(_active_trades)
-    for symbol, trade in trades.items():
+    for key, trade in trades.items():
+        symbol = trade.get("symbol", key.split("_")[0])
         price = get_current_price(symbol)
         if not price:
             continue
@@ -96,8 +121,27 @@ def check_exits(send_alert_fn):
             except Exception as e:
                 logger.warning(f"Gagal simpan performance: {e}")
             with _lock:
-                if symbol in _active_trades:
-                    del _active_trades[symbol]
+                if key in _active_trades:
+                    if "TP1" in label:
+                        # Setelah TP1 kena — pindah SL ke entry (breakeven), aktifkan TP2
+                        _active_trades[key]["sl"] = trade["entry"]
+                        _active_trades[key]["tp1_original"] = trade["tp1"]
+                        _active_trades[key]["tp1"] = trade["tp2"]  # aktifkan TP2 sebagai target
+                        _active_trades[key]["monitoring_tp"] = "TP2"
+                        _save_trades()
+                        logger.info(f"TP1 hit {symbol} — SL dipindah ke entry, pantau TP2")
+                    elif "TP2" in label:
+                        # Setelah TP2 kena — pindah SL ke TP1 lama, aktifkan TP3
+                        _active_trades[key]["sl"] = trade.get("tp1_original", trade["entry"])
+                        _active_trades[key]["tp1"] = trade["tp3"]  # aktifkan TP3 sebagai target
+                        _active_trades[key]["monitoring_tp"] = "TP3"
+                        _active_trades[key]["tp2"] = 0
+                        _save_trades()
+                        logger.info(f"TP2 hit {symbol} — lanjut pantau TP3")
+                    else:
+                        # TP3 atau SL — hapus trade
+                        del _active_trades[key]
+                        _save_trades()
 
 def start_exit_monitor(send_alert_fn, interval: int = 60):
     def _run():

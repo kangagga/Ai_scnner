@@ -312,8 +312,7 @@ def institutional_ai_v4(df):
     data['atr'] = atr(data)
 
     # ── BOLLINGER BANDS ────────────────────────────────────
-    data['bb_mid'], data['bb_upper'], data['bb_lower'], \
-        data['bb_width'], data['bb_pct'] = bollinger_bands(data['close'])
+    data['bb_mid'], data['bb_upper'], data['bb_lower'], data['bb_width'], data['bb_pct'] = bollinger_bands(data['close'])
     data['bb_bw'] = data['bb_width']
 
     # ── STOCHASTIC ─────────────────────────────────────────
@@ -329,8 +328,10 @@ def institutional_ai_v4(df):
 
     # ── SUPPORT / RESISTANCE ───────────────────────────────
     data = support_resistance(data)
-    data['near_support']     = (abs(data['close'] - data['support'])    / data['close']) < 0.008
-    data['near_resistance']  = (abs(data['close'] - data['resistance']) / data['close']) < 0.008
+    data['near_support']     = (abs(data['close'] - data['support'])    / data['close']) < 0.005
+    data['near_resistance']  = (abs(data['close'] - data['resistance']) / data['close']) < 0.005
+    data['too_close_resistance'] = (abs(data['close'] - data['resistance']) / data['close']) < 0.005
+    data['too_close_support']    = (abs(data['close'] - data['support'])    / data['close']) < 0.005
     data['broke_resistance'] = (
         (data['close'] > data['resistance'].shift()) &
         (data['close'].shift() <= data['resistance'].shift())

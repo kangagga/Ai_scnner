@@ -77,6 +77,22 @@ def index():
 
 @app.route("/api/signals")
 def api_signals():
+    from database import get_recent_signals
+    with _state_lock:
+        signals = _dashboard_data["signals"]
+    if not signals:
+        signals = get_recent_signals(limit=20)
+    return jsonify(signals)
+    # Kalau tidak ada sinyal live, ambil dari database
+    from database import get_recent_signals
+    with _state_lock:
+        signals = _dashboard_data["signals"]
+    if not signals:
+        signals = get_recent_signals(limit=20)
+    return jsonify(signals)
+
+@app.route("/api/signals_orig")
+def api_signals_orig():
     with _state_lock:
         return jsonify(_dashboard_data["signals"])
 
@@ -143,3 +159,7 @@ def manifest():
 @app.route("/sw.js")
 def service_worker():
     return send_file("static/sw.js", mimetype="application/javascript")
+
+@app.route("/heatmap")
+def heatmap():
+    return send_file("static/heatmap.html")

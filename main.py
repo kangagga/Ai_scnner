@@ -5,12 +5,14 @@
 
 import logging
 import time
+import threading
 import schedule
 from datetime import datetime, timezone
 
 from config          import SCAN_INTERVAL, SIGNAL_THRESHOLD, MIN_SCORE, MAX_SIGNALS_PER_DAY, \
                             DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE
 from scanner         import scan_all, scan_all_fast, get_top_signals, get_dynamic_threshold
+from backtester      import run_backtest_multi
 from ai_analyst      import analyse_market_sentiment, filter_signals_ai
 from market_context  import get_market_context
 from telegram_sender import send_top_signals, send_daily_report, send_test_message, send_alert, handle_commands, \
@@ -68,7 +70,7 @@ def job_scan():
         _last_signals = top_sig
 
         # ── Update dashboard ───────────────────────────────
-        update_signals(top_sig)
+        update_signals(top_sig if top_sig else _last_signals)
         update_cooldowns(_build_cooldown_info())
 
         # Reset counter tiap hari baru
@@ -79,7 +81,10 @@ def job_scan():
             _daily_reset_date = today
 
         if top_sig:
-            top_sig = filter_signals_ai(top_sig, get_market_context())
+            pass  # AI filter dinonaktifkan sementara
+        # Update dashboard selalu, meski tidak ada sinyal
+        update_signals(top_sig if top_sig else _last_signals)
+
         if top_sig:
             # Cek max sinyal per hari
             sisa = MAX_SIGNALS_PER_DAY - _daily_signal_count
@@ -111,6 +116,52 @@ def job_scan():
             pass
 
 
+def job_health_check():
+    """Kirim status bot ke Telegram setiap 6 jam."""
+    try:
+        from database import get_recent_signals
+        from risk_manager import get_risk_status
+        signals = get_recent_signals(limit=50)
+        risk = get_risk_status()
+        msg = (
+            f"🤖 HEALTH CHECK\n"
+            f"{'='*25}\n"
+            f"⏱️ Uptime    : OK\n"
+            f"📊 Sinyal 24h: {len(signals)}\n"
+            f"💰 Balance   : ${risk.get('balance', 0):.2f}\n"
+            f"📉 Drawdown  : {risk.get('drawdown_pct', 0):.1f}%\n"
+            f"🔥 Heat      : {risk.get('heat_pct', 0):.1f}%\n"
+            f"{'='*25}"
+        )
+        send_alert(msg)
+        logger.info("✅ Health check terkirim")
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+
+def job_weekly_report():
+    """Laporan mingguan setiap Senin."""
+    try:
+        from database import get_recent_signals
+        signals = get_recent_signals(limit=500)
+        total = len(signals)
+        if not total:
+            return
+        wins  = sum(1 for s in signals if s.get("win_rate", 0) >= 50)
+        avg_conf = sum(s.get("confidence", 0) for s in signals) / total
+        avg_wr   = sum(s.get("win_rate", 0) for s in signals) / total
+        msg = (
+            f"📊 WEEKLY REPORT\n"
+            f"{'='*30}\n"
+            f"Total Sinyal : {total}\n"
+            f"Avg Conf     : {avg_conf:.1f}\n"
+            f"Avg WinRate  : {avg_wr:.1f}%\n"
+            f"{'='*30}"
+        )
+        send_alert(msg)
+        logger.info("📊 Weekly report terkirim")
+    except Exception as e:
+        logger.error(f"Weekly report error: {e}")
+
 def job_daily_report():
     global _last_signals
     logger.info("📋 Membuat laporan harian…")
@@ -136,6 +187,53 @@ def job_daily_report():
         except Exception:
             pass
 
+
+
+#  AUTO BACKTEST saat startup — validasi strategi sebelum scan
+# ==============================================================
+def run_startup_backtest(send_telegram: bool = True):
+    """Jalankan backtest 30 hari untuk top 10 pair saat bot start."""
+    from config import WATCHLIST
+    from telegram_sender import send_alert
+
+    symbols = WATCHLIST[:10]
+    print("\n🔬 Menjalankan backtest startup...")
+
+    try:
+        df = run_backtest_multi(symbols, timeframe="1h", days=30, min_confidence=45)
+
+        if df is None or len(df) == 0:
+            print("⚠️  Backtest: tidak ada trade ditemukan")
+            return
+
+        avg_wr  = round(df["win_rate"].mean(), 1)
+        avg_pnl = round(df["total_pnl_pct"].mean(), 2)
+        best    = df.sort_values("win_rate", ascending=False).iloc[0]
+        worst   = df.sort_values("win_rate").iloc[0]
+
+        report = (
+            f"🔬 *Backtest Startup (30 hari, 1h)*\n"
+            f"{'─'*30}\n"
+            f"📊 Pair diuji : {len(df)}\n"
+            f"🎯 Avg Win Rate : {avg_wr}%\n"
+            f"💰 Avg PnL : {avg_pnl:+.2f}%\n\n"
+            f"🏆 Best : {best['symbol']} WR={best['win_rate']}% PnL={best['total_pnl_pct']:+.2f}%\n"
+            f"⚠️  Worst: {worst['symbol']} WR={worst['win_rate']}% PnL={worst['total_pnl_pct']:+.2f}%\n"
+            f"{'─'*30}\n"
+        )
+
+        # Top 5 pair
+        report += "*Top 5 Pair:*\n"
+        for _, row in df.sort_values("win_rate", ascending=False).head(5).iterrows():
+            report += f"  • {row['symbol']}: WR={row['win_rate']}% | {row['total_trades']} trades | PnL={row['total_pnl_pct']:+.2f}%\n"
+
+        print(report)
+
+        if send_telegram:
+            send_alert(report)
+
+    except Exception as e:
+        send_alert(f"⚠️ <b>BACKTEST ERROR</b>\n\n<code>{str(e)[:200]}</code>\n\n🤖 AI Signal Bot")
 
 def main():
     logger.info("🤖 AI Crypto Signal Bot starting…")
@@ -166,14 +264,21 @@ def main():
     send_test_message()
     add_log("✅", "Bot aktif, Telegram terhubung")
 
+    # ── Backtest startup ───────────────────────────────────
+    bt_thread = threading.Thread(target=run_startup_backtest, args=(True,), daemon=True)
+    bt_thread.start()
+    add_log("🔬", "Backtest startup berjalan di background")
+
     # ── Schedule ───────────────────────────────────────────
     schedule.every(SCAN_INTERVAL).seconds.do(job_scan)
     schedule.every().day.at(daily_time).do(job_daily_report)
+    schedule.every().monday.at("08:00").do(job_weekly_report)
+    schedule.every(6).hours.do(job_health_check)
+    schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
     try:
         # Jalankan command handler di thread terpisah
-        import threading
         import telegram_sender as _ts
         import requests as _req
         # Reset ke update terbaru supaya tidak proses pesan lama
@@ -199,7 +304,5 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Bot dihentikan.")
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

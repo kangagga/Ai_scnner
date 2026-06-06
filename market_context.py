@@ -312,7 +312,7 @@ def get_btc_trend() -> dict:
         return result
 
     except Exception as e:
-        logger.warning(f"BTC trend fetch error: {e}")
+        import traceback; logger.warning(f"BTC trend fetch error: {e}\n{traceback.format_exc()}")
         return {
             "trend"     : "SIDEWAYS",
             "strength"  : "WEAK",
@@ -359,12 +359,21 @@ def get_market_context() -> dict:
         allow_sell = True
     elif btc_down and (fg_bearish or fg["signal"] in ("CAUTION_BUY", "NEUTRAL")):
         overall    = "BEARISH"
-        allow_buy  = True
+        allow_buy  = False
         allow_sell = True
     elif btc_down:
         overall    = "BEARISH"
-        allow_buy  = True
+        allow_buy  = False
         allow_sell = True
+
+    # Circuit breaker — BTC pump mendadak → blokir semua SELL baru
+    btc_change = get_btc_change_pct()
+    if btc_change >= 3.0:
+        allow_sell = False
+        logger.warning(f"🚨 CIRCUIT BREAKER: BTC pump {btc_change:.2f}% — SELL diblokir sementara")
+    if btc_change <= -3.0:
+        allow_buy = False
+        logger.warning(f"⚠️ CIRCUIT BREAKER: BTC dump {btc_change:.2f}% — BUY diblokir sementara")
     else:
         overall    = "NEUTRAL"
         allow_buy  = True
@@ -413,3 +422,146 @@ def is_btc_dump(threshold: float = -3.0) -> bool:
         logger.warning(f"⚠️ BTC DUMP terdeteksi: {change:.2f}% — BUY altcoin diblokir sementara")
         return True
     return False
+
+def is_btc_pump(threshold: float = 3.0) -> bool:
+    """Return True jika BTC naik lebih dari threshold% dalam 1 jam — circuit breaker SELL."""
+    change = get_btc_change_pct()
+    if change >= threshold:
+        logger.warning(f"🚨 BTC PUMP terdeteksi: {change:.2f}% — SELL altcoin diblokir sementara")
+        return True
+    return False
+
+# ==============================================================
+#  MARKET REGIME DETECTION — per pair & global
+# ==============================================================
+_regime_cache: dict = {}
+_regime_cache_ttl = 600  # 10 menit
+
+def detect_market_regime(symbol: str, timeframe: str = "1h") -> dict:
+    """
+    Deteksi regime market untuk 1 pair:
+    - TRENDING   : ADX > 25, harga jauh dari BB middle
+    - RANGING    : ADX < 20, harga bolak-balik di BB
+    - BREAKOUT   : Volume spike + harga tembus BB upper/lower
+    - VOLATILE   : ATR tinggi relative to price
+    """
+    import time
+    cache_key = f"{symbol}_{timeframe}"
+    now = time.time()
+
+    if cache_key in _regime_cache:
+        ts, result = _regime_cache[cache_key]
+        if now - ts < _regime_cache_ttl:
+            return result
+
+    try:
+        from data_fetcher import fetch_ohlcv
+        from indicators   import institutional_ai_v4
+        import pandas as pd
+
+        df = fetch_ohlcv(symbol, timeframe, limit=100)
+        if df is None or len(df) < 50:
+            raise ValueError("Data tidak cukup")
+
+        for col in ["open","high","low","close","volume"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = df.dropna()
+        df = institutional_ai_v4(df)
+        last = df.iloc[-1]
+
+        adx        = float(last.get("adx", 0))
+        atr        = float(last.get("atr", 0))
+        price      = float(last["close"])
+        bb_upper   = float(last.get("bb_upper", price))
+        bb_lower   = float(last.get("bb_lower", price))
+        bb_middle  = float(last.get("bb_mid", price))
+        vol_ratio  = float(last.get("volume_ratio", 1.0))
+        atr_pct    = (atr / price * 100) if price > 0 else 0
+        bb_width   = (bb_upper - bb_lower) / bb_middle * 100 if bb_middle > 0 else 0
+
+        # Deteksi regime
+        if vol_ratio > 2.0 and (price > bb_upper or price < bb_lower):
+            regime   = "BREAKOUT"
+            emoji    = "🚀"
+            advice   = "Volume spike + harga tembus BB — momentum kuat"
+            bias_buy  = price > bb_upper
+            bias_sell = price < bb_lower
+
+        elif adx > 25 and bb_width > 3.0:
+            regime   = "TRENDING"
+            emoji    = "📈" if price > bb_middle else "📉"
+            advice   = f"ADX={adx:.1f} — trend kuat, ikuti arah"
+            bias_buy  = price > bb_middle
+            bias_sell = price < bb_middle
+
+        elif adx < 20 and bb_width < 2.0:
+            regime   = "RANGING"
+            emoji    = "↔️"
+            advice   = f"ADX={adx:.1f} — market sideways, hati-hati false signal"
+            bias_buy  = price < bb_middle
+            bias_sell = price > bb_middle
+
+        elif atr_pct > 3.0:
+            regime   = "VOLATILE"
+            emoji    = "⚡"
+            advice   = f"ATR={atr_pct:.1f}% — volatilitas tinggi, perkecil posisi"
+            bias_buy  = False
+            bias_sell = False
+
+        else:
+            regime   = "NEUTRAL"
+            emoji    = "➡️"
+            advice   = "Tidak ada regime dominan"
+            bias_buy  = True
+            bias_sell = True
+
+        result = {
+            "regime"    : regime,
+            "emoji"     : emoji,
+            "advice"    : advice,
+            "adx"       : round(adx, 1),
+            "atr_pct"   : round(atr_pct, 2),
+            "bb_width"  : round(bb_width, 2),
+            "vol_ratio" : round(vol_ratio, 2),
+            "bias_buy"  : bias_buy,
+            "bias_sell" : bias_sell,
+        }
+
+        _regime_cache[cache_key] = (now, result)
+        return result
+
+    except Exception as e:
+        return {
+            "regime"   : "UNKNOWN",
+            "emoji"    : "❓",
+            "advice"   : f"Error: {e}",
+            "adx"      : 0, "atr_pct": 0, "bb_width": 0, "vol_ratio": 0,
+            "bias_buy" : True, "bias_sell": True,
+        }
+
+
+def get_global_regime(symbols: list = None, timeframe: str = "1h") -> dict:
+    """Regime agregat dari beberapa pair — gambaran market secara keseluruhan."""
+    from config import WATCHLIST
+    if symbols is None:
+        symbols = WATCHLIST[:20]
+
+    counts = {"TRENDING": 0, "RANGING": 0, "BREAKOUT": 0, "VOLATILE": 0, "NEUTRAL": 0, "UNKNOWN": 0}
+
+    for sym in symbols:
+        r = detect_market_regime(sym, timeframe)
+        counts[r["regime"]] = counts.get(r["regime"], 0) + 1
+
+    total    = len(symbols)
+    dominant = max(counts, key=counts.get)
+    pct      = round(counts[dominant] / total * 100, 1)
+
+    emoji_map = {"TRENDING":"📈","RANGING":"↔️","BREAKOUT":"🚀","VOLATILE":"⚡","NEUTRAL":"➡️","UNKNOWN":"❓"}
+
+    return {
+        "dominant"  : dominant,
+        "emoji"     : emoji_map.get(dominant, "❓"),
+        "pct"       : pct,
+        "counts"    : counts,
+        "summary"   : f"{emoji_map.get(dominant,'❓')} {dominant} ({pct}% dari {total} pair)",
+    }

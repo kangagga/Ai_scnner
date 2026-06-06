@@ -20,14 +20,14 @@ EMAIL_RECEIVER  = "ranggazainalmahrez@gmail.com"
 # Scanner settings
 SCAN_INTERVAL     = 60        # interval scan dalam detik
 MIN_SCORE         = 35        # minimal score indikator
-SIGNAL_THRESHOLD  = 45        # minimal confidence untuk kirim sinyal
-MAX_SIGNALS_PER_DAY = 20   # maksimal sinyal per hari
+SIGNAL_THRESHOLD  = 35        # minimal confidence untuk kirim sinyal
+MAX_SIGNALS_PER_DAY = 50   # maksimal sinyal per hari
 
 # Timeframes
-TIMEFRAMES = ["5m", "15m", "1h"]
+TIMEFRAMES = ["15m", "1h", "4h"]
 
 # Pair limit
-PAIR_LIMIT = 50
+PAIR_LIMIT = 100
 
 # Risk management — [FIX] dipindahkan dari scanner.py & risk_manager.py
 RISK_PER_TRADE   = 1.0        # % risiko per trade
@@ -41,12 +41,12 @@ RSI_PERIOD  = 14
 VOLUME_MA   = 20
 
 # Jadwal laporan harian
-DAILY_REPORT_HOUR   = 7
+DAILY_REPORT_HOUR   = 0
 DAILY_REPORT_MINUTE = 0
 
 # Watchlist (100 crypto pair likuid)
 WATCHLIST = [
-    "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","AVAXUSDT","DOTUSDT","MATICUSDT","LTCUSDT",
+    "BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","AVAXUSDT","DOTUSDT","LTCUSDT",
     "BCHUSDT","ATOMUSDT","NEARUSDT","APTUSDT","SUIUSDT","INJUSDT","SEIUSDT","TIAUSDT","ICPUSDT","XLMUSDT",
     "ALGOUSDT","EGLDUSDT","VETUSDT","FTMUSDT","ONEUSDT",
     "UNIUSDT","AAVEUSDT","MKRUSDT","LDOUSDT","GMXUSDT","RUNEUSDT","CRVUSDT","SNXUSDT","COMPUSDT","DYDXUSDT",
