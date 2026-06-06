@@ -61,8 +61,9 @@ def get_current_price(symbol: str) -> float:
     return 0.0
 
 def check_exits(send_alert_fn):
+    import copy
     with _lock:
-        trades = dict(_active_trades)
+        trades = copy.deepcopy(_active_trades)
     for key, trade in trades.items():
         symbol = trade.get("symbol", key.split("_")[0])
         price = get_current_price(symbol)
@@ -92,7 +93,7 @@ def check_exits(send_alert_fn):
             label, target = hit
             is_profit = "SL" not in label
             emoji_result = "✅" if is_profit else "❌"
-            pnl_pct = round((price - trade["entry"]) / trade["entry"] * 100, 2)
+            pnl_pct = round((target - trade["entry"]) / trade["entry"] * 100, 2)
             if not trade["signal"].startswith("BUY"):
                 pnl_pct = -pnl_pct
 
@@ -125,7 +126,8 @@ def check_exits(send_alert_fn):
                     if "TP1" in label:
                         # Setelah TP1 kena — pindah SL ke entry (breakeven), aktifkan TP2
                         _active_trades[key]["sl"] = trade["entry"]
-                        _active_trades[key]["tp1_original"] = trade["tp1"]
+                        if "tp1_original" not in _active_trades[key]:
+                            _active_trades[key]["tp1_original"] = trade["tp1"]  # simpan hanya sekali
                         _active_trades[key]["tp1"] = trade["tp2"]  # aktifkan TP2 sebagai target
                         _active_trades[key]["monitoring_tp"] = "TP2"
                         _save_trades()

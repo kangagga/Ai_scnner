@@ -433,7 +433,10 @@ def _check_trend_confirmation(symbol: str, signal: str, current_tf: str) -> bool
     tfs_above = []
     tf = tf_hierarchy.get(current_tf)
     if tf:
-        tfs_above.append(tf)  # hanya 1 level di atas
+        tfs_above.append(tf)  # level 1 di atas
+        tf2 = tf_hierarchy.get(tf)
+        if tf2:
+            tfs_above.append(tf2)  # level 2 di atas (misal 15m → 1h → 4h)
 
     if not tfs_above:
         return True
@@ -539,14 +542,22 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
     tp2 = tp_levels.get("tp2", entry)
     tp3 = tp_levels.get("tp3", entry)
 
-    # Filter: jangan entry SELL terlalu dekat resistance
+    # Filter: jangan entry SELL terlalu dekat atau di atas resistance
     too_close_res = bool(last.get("too_close_resistance", False))
     too_close_sup = bool(last.get("too_close_support", False))
+    resistance = float(last.get("resistance", 0))
+    support = float(last.get("support", 0))
     if signal.startswith("SELL") and too_close_res:
         logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → harga terlalu dekat resistance, skip entry")
         return None
+    if signal.startswith("SELL") and resistance > 0 and entry > resistance:
+        logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → entry {entry} di atas resistance {resistance}, skip SELL")
+        return None
     if signal.startswith("BUY") and too_close_sup:
         logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → harga terlalu dekat support, skip entry")
+        return None
+    if signal.startswith("BUY") and support > 0 and entry < support:
+        logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → entry {entry} di bawah support {support}, skip BUY")
         return None
 
     if not _validate_signal_quality(last, signal, entry, sl, tp1, tp2, tp3):
@@ -581,8 +592,11 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
             "NEUTRAL"  : 0.8,
             "RANGING"  : 0.5,
             "VOLATILE" : 0.25,
-            "UNKNOWN"  : 0.5,
+            "UNKNOWN"  : 0.0,  # blokir — regime tidak dikenal
         }.get(_reg, 0.8)
+        if _regime_multiplier == 0.0:
+            logger.warning(f"[REGIME BLOCK] {symbol}/{timeframe}: regime UNKNOWN, skip entry")
+            return None
         pos_size = round(pos_size * _regime_multiplier, 4)
         logger.debug(f"[REGIME SIZE] {symbol}/{timeframe}: regime={_reg} multiplier={_regime_multiplier}x → pos_size={pos_size}")
     except Exception as _e:
