@@ -70,8 +70,8 @@ SIGNAL_COOLDOWN = {
 DEFAULT_COOLDOWN_MINUTES = 180
 
 MIN_MOMENTUM_SCORE            = 3
-RSI_SELL_MIN                  = 35  # Jangan SELL kalau RSI sudah oversold < 35
-RSI_BUY_MAX                   = 65  # Jangan BUY kalau RSI sudah overbought > 65
+RSI_SELL_MIN                  = 28  # Jangan SELL kalau RSI sudah oversold < 35
+RSI_BUY_MAX                   = 72  # Jangan BUY kalau RSI sudah overbought > 65
 BB_WIDTH_PERCENTILE_THRESHOLD = 0.25
 ADX_TREND_THRESHOLD           = 25
 VOLUME_SPIKE_RATIO            = 1.4
@@ -453,10 +453,10 @@ def _check_trend_confirmation(symbol: str, signal: str, current_tf: str) -> bool
 
         # Filter RSI higher TF
         rsi_h = float(last_h.get("rsi", 50))
-        if signal.startswith("SELL") and rsi_h < 30:
+        if signal.startswith("SELL") and rsi_h < 22:
             logger.warning(f"[TF RSI BLOCK] {symbol}/{current_tf} → {higher_tf}: RSI {rsi_h:.1f} oversold, skip SELL")
             return False
-        if signal.startswith("BUY") and rsi_h > 70:
+        if signal.startswith("BUY") and rsi_h > 78:
             logger.warning(f"[TF RSI BLOCK] {symbol}/{current_tf} → {higher_tf}: RSI {rsi_h:.1f} overbought, skip BUY")
             return False
 
@@ -521,6 +521,15 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         return None
     if signal.startswith("BUY") and rsi_val > RSI_BUY_MAX:
         logger.warning(f"[RSI BLOCK] {symbol}/{timeframe} → RSI {rsi_val:.1f} overbought, skip BUY")
+        return None
+
+    # Filter Stochastic
+    stoch_val = float(last.get("stoch_k", 50))
+    if signal.startswith("BUY") and stoch_val > 80:
+        logger.warning(f"[STOCH BLOCK] {symbol}/{timeframe} → Stoch {stoch_val:.1f} overbought, skip BUY")
+        return None
+    if signal.startswith("SELL") and stoch_val < 20:
+        logger.warning(f"[STOCH BLOCK] {symbol}/{timeframe} → Stoch {stoch_val:.1f} oversold, skip SELL")
         return None
 
     if momentum < MIN_MOMENTUM_SCORE:
