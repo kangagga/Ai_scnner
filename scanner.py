@@ -571,6 +571,9 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
     if signal.startswith("BUY") and too_close_res:
         logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → BUY terlalu dekat resistance, potensi bounce, skip entry")
         return None
+    if signal.startswith("BUY") and too_close_res:
+        logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → BUY terlalu dekat resistance, potensi bounce, skip entry")
+        return None
 
     if not _validate_signal_quality(last, signal, entry, sl, tp1, tp2, tp3):
         return None
