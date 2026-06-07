@@ -375,6 +375,50 @@ def handle_commands(scan_fn=None):
                 import threading
                 threading.Thread(target=scan_fn, daemon=True).start()
 
+        elif text == "/health":
+            try:
+                import sys
+                sys.path.insert(0, '/home/userland/ai-scanner')
+                from bot_auditor import audit_win_rate, audit_active_trades, audit_consecutive_loss, audit_log_errors, get_summary_today
+                issues = audit_win_rate() + audit_active_trades() + audit_consecutive_loss() + audit_log_errors()
+                status = "✅ SEHAT" if not issues else "⚠️ " + str(len(issues)) + " MASALAH"
+                msg = "<b>🔍 CEK KESEHATAN BOT</b>\n"
+                msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                msg += "Status: " + status + "\n\n"
+                if issues:
+                    msg += "<b>Masalah:</b>\n"
+                    for i in issues:
+                        msg += "- " + i + "\n"
+                else:
+                    msg += "✅ Semua sistem normal\n"
+                msg += "\n🤖 AI Signal Bot"
+                _send(msg)
+            except Exception as e:
+                _send("❌ Health check error: " + str(e))
+
+        elif text == "/virtual":
+            try:
+                import sys
+                sys.path.insert(0, '/home/userland/ai-scanner')
+                from virtual_trader import get_summary
+                s = get_summary()
+                emoji = "📈" if s["profit"] >= 0 else "📉"
+                msg = emoji + " <b>Virtual Trading</b>\n"
+                msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                msg += "💰 Balance  : $" + str(round(s["balance"],2)) + "\n"
+                msg += "📊 Profit   : $" + str(round(s["profit"],2)) + " (" + str(s["profit_pct"]) + "%)\n"
+                msg += "🏔️  Peak     : $" + str(round(s["peak"],2)) + "\n"
+                msg += "📉 Drawdown : " + str(s["drawdown"]) + "%\n"
+                msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                msg += "🎯 Total : " + str(s["total"]) + " trade\n"
+                msg += "✅ Menang: " + str(s["wins"]) + " | ❌ Kalah: " + str(s["losses"]) + "\n"
+                msg += "📈 Win Rate: " + str(s["wr"]) + "%\n"
+                msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                msg += "🤖 AI Signal Bot"
+                _send(msg)
+            except Exception as e:
+                _send("❌ Virtual error: " + str(e))
+
         elif text == "/help":
             _send(
                 f"🤖 <b>COMMAND TERSEDIA</b>\n{'═'*25}\n"
@@ -382,5 +426,9 @@ def handle_commands(scan_fn=None):
                 "/winrate — Win rate aktual\n"
                 "/sinyal  — 3 sinyal terakhir\n"
                 "/scan    — Trigger scan manual\n"
-                "/help    — Daftar command"
+                "/health  — Cek kesehatan bot\
+"
+                         "/virtual — Virtual balance\
+"
+                         "/help    — Daftar command"
             )
