@@ -170,7 +170,8 @@ def job_daily_report():
     try:
         if not _last_signals:
             all_sig       = scan_all_fast(min_score=MIN_SCORE)
-            _last_signals = get_top_signals(all_sig, threshold=dyn_threshold)
+            _dyn = get_dynamic_threshold(get_market_context())
+                _last_signals = get_top_signals(all_sig, threshold=_dyn)
             update_signals(_last_signals)
 
         ai_text = analyse_market_sentiment(_last_signals) if _last_signals else ""
