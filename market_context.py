@@ -274,14 +274,14 @@ def get_btc_trend() -> dict:
                 trend    = "DOWNTREND"
                 strength = "STRONG"
                 emoji    = "🔴"
-                allow_buy  = True    # BUY diizinkan semua kondisi
+                allow_buy  = False   # BUY diblokir saat strong downtrend
                 allow_sell = True
                 advice   = "BTC strong downtrend — BUY altcoin DIBLOKIR"
             else:
                 trend    = "DOWNTREND"
                 strength = "MODERATE"
                 emoji    = "🔴"
-                allow_buy  = True
+                allow_buy  = False  # BUY diblokir saat downtrend
                 allow_sell = True
                 advice   = "BTC downtrend — BUY altcoin DIBLOKIR"
 
@@ -348,22 +348,21 @@ def get_market_context() -> dict:
     btc = get_btc_trend()
 
     # Tentukan overall context
-    fg_bullish  = fg["signal"] in ("STRONG_BUY", "BUY")
-    fg_bearish  = fg["signal"] in ("CAUTION_SELL",)
     btc_up      = btc["trend"] == "UPTREND"
     btc_down    = btc["trend"] == "DOWNTREND"
 
-    if btc_up and (fg_bullish or fg["signal"] == "NEUTRAL"):
+    # BTC trend prioritas utama — F&G tidak override trend
+    if btc_down:
+        overall    = "BEARISH"
+        allow_buy  = False
+        allow_sell = True
+    elif btc_up:
         overall    = "BULLISH"
         allow_buy  = True
         allow_sell = True
-    elif btc_down and (fg_bearish or fg["signal"] in ("CAUTION_BUY", "NEUTRAL")):
-        overall    = "BEARISH"
-        allow_buy  = False
-        allow_sell = True
-    elif btc_down:
-        overall    = "BEARISH"
-        allow_buy  = False
+    else:
+        overall    = "NEUTRAL"
+        allow_buy  = True
         allow_sell = True
 
     # Circuit breaker — BTC pump mendadak → blokir semua SELL baru
@@ -374,10 +373,6 @@ def get_market_context() -> dict:
     if btc_change <= -3.0:
         allow_buy = False
         logger.warning(f"⚠️ CIRCUIT BREAKER: BTC dump {btc_change:.2f}% — BUY diblokir sementara")
-    else:
-        overall    = "NEUTRAL"
-        allow_buy  = True
-        allow_sell = True
 
     summary = (
         f"BTC: {btc['emoji']} {btc['trend']} ({btc['strength']}) | "

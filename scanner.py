@@ -322,6 +322,14 @@ def _is_duplicate(symbol: str, timeframe: str, signal_type: str,
             _last_signal_state[key] = (signal_type, now)
             return False
 
+        # Cooldown ekstra setelah LOSS — cek blacklist
+        try:
+            from blacklist import is_blacklisted
+            if is_blacklisted(symbol):
+                logger.debug(f"[BLACKLIST] {symbol} diblokir")
+                return True
+        except: pass
+
         prev_signal_type, last_time = state
         delta_minutes = (now - last_time).total_seconds() / 60.0
 
@@ -567,9 +575,6 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         return None
     if signal.startswith("BUY") and support > 0 and entry < support:
         logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → entry {entry} di bawah support {support}, skip BUY")
-        return None
-    if signal.startswith("BUY") and too_close_res:
-        logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → BUY terlalu dekat resistance, potensi bounce, skip entry")
         return None
     if signal.startswith("BUY") and too_close_res:
         logger.warning(f"[SR BLOCK] {symbol}/{timeframe} → BUY terlalu dekat resistance, potensi bounce, skip entry")
@@ -899,7 +904,10 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
 
                     except Exception as e:
                         logger.debug(f"[REGIME] error — {e}")
-                        continue  # skip sinyal kalau regime error
+                        res["regime"]        = "UNKNOWN"
+                        res["regime_emoji"]  = "❓"
+                        res["regime_adx"]    = 0
+                        res["regime_advice"] = "Regime tidak tersedia"
 
                     results.append(res)
                     signal_counts[sig] = signal_counts.get(sig, 0) + 1
