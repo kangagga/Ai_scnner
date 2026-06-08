@@ -8,8 +8,9 @@ from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 BLACKLIST_FILE = "blacklist.json"
-MAX_FALSE_SIGNALS = 3      # blacklist setelah 3x false signal
+MAX_FALSE_SIGNALS = 2      # blacklist setelah 2x false signal
 BLACKLIST_DURATION = 24    # jam
+LOSS_COOLDOWN_HOURS = 2    # cooldown setelah 1x loss
 
 def _load() -> dict:
     if os.path.exists(BLACKLIST_FILE):
@@ -49,6 +50,34 @@ def report_false_signal(symbol: str):
         logger.warning(f"⛔ {symbol} di-blacklist selama {BLACKLIST_DURATION} jam")
 
     _save(data)
+
+def add_loss_cooldown(symbol: str):
+    """Tambah cooldown 2 jam setelah 1x loss."""
+    from datetime import datetime, timedelta, timezone
+    data = _load()
+    now = datetime.now(timezone.utc)
+    until = (now + timedelta(hours=LOSS_COOLDOWN_HOURS)).isoformat()
+    data["blacklist"][symbol + "_cooldown"] = {"until": until, "reason": "loss_cooldown"}
+    _save(data)
+    logger.info(f"⏳ {symbol} cooldown {LOSS_COOLDOWN_HOURS} jam setelah loss")
+
+def is_in_cooldown(symbol: str) -> bool:
+    """Cek apakah pair sedang dalam cooldown loss."""
+    from datetime import datetime, timezone
+    data = _load()
+    key = symbol + "_cooldown"
+    cd = data["blacklist"].get(key)
+    if not cd:
+        return False
+    now = datetime.now(timezone.utc)
+    until = datetime.fromisoformat(cd["until"])
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    if now >= until:
+        del data["blacklist"][key]
+        _save(data)
+        return False
+    return True
 
 def get_blacklist() -> list:
     data = _load()

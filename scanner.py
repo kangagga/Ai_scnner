@@ -491,6 +491,15 @@ def _check_trend_confirmation(symbol: str, signal: str, current_tf: str) -> bool
 def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
     if is_blacklisted(symbol):
         return None
+
+    # Cek cooldown setelah loss
+    try:
+        from blacklist import is_in_cooldown
+        if is_in_cooldown(symbol):
+            logger.debug(f"[COOLDOWN] {symbol} masih dalam cooldown loss, skip")
+            return None
+    except Exception:
+        pass
     _apply_rate_limit()
 
     df = _fetch_with_retry(symbol, timeframe, limit=300)

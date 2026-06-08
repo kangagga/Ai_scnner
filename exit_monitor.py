@@ -119,6 +119,13 @@ def check_exits(send_alert_fn):
                     exit_price = price,
                 )
                 logger.info(f"✅ Performance tersimpan: {symbol} {label} @ {price}")
+                # Auto-blacklist setelah SL
+                if "STOP LOSS" in label:
+                    try:
+                        from blacklist import report_false_signal
+                        report_false_signal(symbol)
+                        logger.info(f"⚠️ {symbol} dilaporkan ke blacklist setelah SL")
+                    except: pass
             except Exception as e:
                 logger.warning(f"Gagal simpan performance: {e}")
 
@@ -129,6 +136,14 @@ def check_exits(send_alert_fn):
                 logger.info(f"💰 Virtual balance: ${new_bal:.2f}")
             except Exception as e:
                 logger.warning(f"Virtual trade error: {e}")
+
+            # Cooldown setelah loss
+            try:
+                if not is_profit:
+                    from blacklist import add_loss_cooldown
+                    add_loss_cooldown(symbol)
+            except Exception as e:
+                logger.warning(f"Cooldown error: {e}")
             with _lock:
                 if key in _active_trades:
                     if "TP1" in label:
