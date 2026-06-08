@@ -549,6 +549,21 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         logger.warning(f"[STOCH BLOCK] {symbol}/{timeframe} → Stoch {stoch_val:.1f} oversold, skip SELL")
         return None
 
+    # Filter candle reversal — jangan SELL kalau candle terakhir bullish besar
+    try:
+        close_val = float(last.get("close", 0))
+        open_val  = float(last.get("open", 0))
+        if close_val > 0 and open_val > 0:
+            candle_body_pct = (close_val - open_val) / open_val * 100
+            if signal.startswith("SELL") and candle_body_pct > 1.0:
+                logger.warning(f"[CANDLE BLOCK] {symbol}/{timeframe} → candle bullish {candle_body_pct:.1f}%, skip SELL")
+                return None
+            if signal.startswith("BUY") and candle_body_pct < -1.0:
+                logger.warning(f"[CANDLE BLOCK] {symbol}/{timeframe} → candle bearish {candle_body_pct:.1f}%, skip BUY")
+                return None
+    except Exception:
+        pass
+
     if momentum < MIN_MOMENTUM_SCORE:
         logger.debug(f"[F3:MOMENTUM] {symbol}/{timeframe}: {momentum:.1f} < {MIN_MOMENTUM_SCORE}")
         return None
