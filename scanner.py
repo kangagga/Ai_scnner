@@ -501,6 +501,11 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         logger.debug(f"[HOUR BLOCK] {symbol} — jam {current_hour}:00 WIB berbahaya, skip")
         return None
 
+    # Blokir BUY (SETUP) — WR historis hanya 20%
+    if signal == "BUY (SETUP)":
+        logger.warning(f"[SIGNAL BLOCK] {symbol}/{timeframe} → BUY (SETUP) diblokir, WR historis rendah")
+        return None
+
     # Cek cooldown setelah loss
     try:
         from blacklist import is_in_cooldown

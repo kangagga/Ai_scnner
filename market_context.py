@@ -259,29 +259,29 @@ def get_btc_trend() -> dict:
                 strength = "STRONG"
                 emoji    = "🟢"
                 allow_buy  = True
-                allow_sell = True
-                advice   = "BTC strong uptrend — BUY altcoin diizinkan penuh"
+                allow_sell = False
+                advice   = "BTC strong uptrend — SELL diblokir, BUY penuh"
             else:
                 trend    = "UPTREND"
                 strength = "MODERATE"
                 emoji    = "🟢"
                 allow_buy  = True
-                allow_sell = True
-                advice   = "BTC uptrend moderat — BUY altcoin diizinkan"
+                allow_sell = False
+                advice   = "BTC uptrend moderat — SELL diblokir, BUY diizinkan"
 
         elif ema50 < ema200 and price < ema50:
             if adx > 25:
                 trend    = "DOWNTREND"
                 strength = "STRONG"
                 emoji    = "🔴"
-                allow_buy  = False   # BUY diblokir saat strong downtrend
+                allow_buy  = True    # BUY diizinkan, ikuti indikator
                 allow_sell = True
                 advice   = "BTC strong downtrend — BUY altcoin DIBLOKIR"
             else:
                 trend    = "DOWNTREND"
                 strength = "MODERATE"
                 emoji    = "🔴"
-                allow_buy  = False  # BUY diblokir saat downtrend
+                allow_buy  = True   # BUY diizinkan, ikuti indikator
                 allow_sell = True
                 advice   = "BTC downtrend — BUY altcoin DIBLOKIR"
 
@@ -351,10 +351,15 @@ def get_market_context() -> dict:
     btc_up      = btc["trend"] == "UPTREND"
     btc_down    = btc["trend"] == "DOWNTREND"
 
-    # BTC trend prioritas utama — F&G tidak override trend
-    if btc_down:
+    # BTC trend prioritas utama — adaptive berdasarkan ADX
+    adx_val = float(btc.get("adx", 0))
+    if btc_down and adx_val >= 40:
         overall    = "BEARISH"
-        allow_buy  = False
+        allow_buy  = False  # Downtrend kuat — blokir BUY
+        allow_sell = True
+    elif btc_down and adx_val < 40:
+        overall    = "BEARISH"
+        allow_buy  = True   # Downtrend lemah — izinkan BUY selektif
         allow_sell = True
     elif btc_up:
         overall    = "BULLISH"
