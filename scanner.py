@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 
 from config import (
-    WATCHLIST, TIMEFRAMES, PAIR_LIMIT,
+    WATCHLIST, TIMEFRAMES, PAIR_LIMIT, SIGNAL_THRESHOLD,
     ACCOUNT_BALANCE, RISK_PER_TRADE,
 )
 from data_fetcher import fetch_ohlcv, fetch_symbols, get_new_listings, get_volume_spike_pairs, get_top_gainers_losers
@@ -76,8 +76,8 @@ BB_WIDTH_PERCENTILE_THRESHOLD = 0.25
 ADX_TREND_THRESHOLD           = 25
 VOLUME_SPIKE_RATIO            = 1.4
 
-MAX_WORKERS      = 16
-TASK_TIMEOUT_SEC = 60
+MAX_WORKERS      = 10
+TASK_TIMEOUT_SEC = 90
 
 VALID_SIGNALS = {
     "BUY", "SELL",
@@ -492,6 +492,15 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
     if is_blacklisted(symbol):
         return None
 
+    # Filter jam trading — skip jam berbahaya
+    from datetime import datetime, timezone, timedelta
+    WIB = timezone(timedelta(hours=7))
+    current_hour = datetime.now(WIB).hour
+    DANGEROUS_HOURS = [0, 1, 6, 7, 8, 9, 20]
+    if current_hour in DANGEROUS_HOURS:
+        logger.debug(f"[HOUR BLOCK] {symbol} — jam {current_hour}:00 WIB berbahaya, skip")
+        return None
+
     # Cek cooldown setelah loss
     try:
         from blacklist import is_in_cooldown
@@ -549,6 +558,16 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         logger.warning(f"[STOCH BLOCK] {symbol}/{timeframe} → Stoch {stoch_val:.1f} oversold, skip SELL")
         return None
 
+    # Filter pattern — jangan SELL kalau pattern bullish, jangan BUY kalau pattern bearish
+    bullish_patterns = last.get("hammer") or last.get("bull_engulf") or last.get("morning_star")
+    bearish_patterns = last.get("shooting_star") or last.get("bear_engulf") or last.get("evening_star")
+    if signal.startswith("SELL") and bullish_patterns:
+        logger.warning(f"[PATTERN BLOCK] {symbol}/{timeframe} → pattern bullish, skip SELL")
+        return None
+    if signal.startswith("BUY") and bearish_patterns:
+        logger.warning(f"[PATTERN BLOCK] {symbol}/{timeframe} → pattern bearish, skip BUY")
+        return None
+
     # Filter candle reversal — jangan SELL kalau candle terakhir bullish besar
     try:
         close_val = float(last.get("close", 0))
@@ -577,6 +596,12 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
         else:
             sl_raw = entry * 0.98 if signal.startswith("BUY") else entry * 1.02
     sl = round(sl_raw, 8)
+    # Cap SL maksimal 3% dari entry
+    max_sl_dist = entry * 0.03
+    if signal.startswith("BUY") and (entry - sl) > max_sl_dist:
+        sl = round(entry - max_sl_dist, 8)
+    elif not signal.startswith("BUY") and (sl - entry) > max_sl_dist:
+        sl = round(entry + max_sl_dist, 8)
 
     tp_levels = _calculate_tp_levels(entry, sl, signal)
     tp1 = tp_levels.get("tp1", entry)
@@ -784,6 +809,71 @@ def _analyse_single(symbol: str, timeframe: str, min_score: float = 0):
 # ------------------------------------------------------------------
 #  Scanner utama
 # ------------------------------------------------------------------
+def _detect_prepump(symbol: str, timeframe: str = "1h") -> dict | None:
+    """Deteksi tanda-tanda awal sebelum pump:
+    - BB Squeeze ketat + Volume dry up + OBV naik = akumulasi diam
+    - RSI divergence positif = tekanan beli tersembunyi
+    """
+    try:
+        df = _fetch_with_retry(symbol, timeframe, limit=300)
+        if df is None or len(df) < 200:
+            return None
+        df   = _cast_df(df)
+        df   = institutional_ai_v4(df)
+        last = df.iloc[-1]
+
+        squeeze_score = float(last.get("squeeze_score", 0))
+        vol_dry_up    = bool(last.get("vol_dry_up", False))
+        obv_bull      = bool(last.get("obv_bull", False))
+        rsi_div       = int(last.get("rsi_div", 0))
+        rsi           = float(last.get("rsi", 50))
+        adx           = float(last.get("adx", 0))
+        price         = float(last.get("close", 0))
+
+        # Kondisi pre-pump:
+        # 1. Squeeze ketat (siap meledak)
+        # 2. Volume dry up (akumulasi diam)
+        # 3. OBV naik (smart money masuk)
+        # 4. RSI divergence positif atau RSI di zona netral-rendah
+        squeeze_ok  = squeeze_score > 65
+        accum_ok    = vol_dry_up and obv_bull
+        rsi_ok      = rsi_div == 1 or (rsi > 30 and rsi < 55)
+        adx_ok      = adx < 25  # market belum trending = masih ranging siap breakout
+
+        score = 0
+        if squeeze_ok : score += 35
+        if vol_dry_up : score += 20
+        if obv_bull   : score += 20
+        if rsi_div==1 : score += 15
+        if adx_ok     : score += 10
+
+        if score < 60:
+            return None
+
+        return {
+            "symbol"        : symbol,
+            "timeframe"     : timeframe,
+            "signal"        : "PRE-PUMP",
+            "signal_type"   : "PRE-PUMP",
+            "score"         : score,
+            "confidence"    : score,
+            "squeeze_score" : round(squeeze_score, 1),
+            "vol_dry_up"    : vol_dry_up,
+            "obv_bull"      : obv_bull,
+            "rsi_div"       : rsi_div,
+            "rsi"           : round(rsi, 2),
+            "adx"           : round(adx, 1),
+            "entry"         : price,
+            "win_rate"      : 0,
+            "sl"            : 0,
+            "tp1"           : 0,
+        }
+
+    except Exception as e:
+        logger.debug(f"[PREPUMP] {symbol}/{timeframe} error: {e}")
+        return None
+
+
 def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
     ctx = get_market_context()
     print(f"\n📊 Market Context: {ctx['summary']}")
@@ -796,9 +886,22 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
         f"BTC={ctx['btc_trend']['trend']} | F&G={ctx['fear_greed']['value']}"
     )
 
-    # Correlation filter — blokir BUY saat BTC dump
+    # Correlation filter — naikkan min confidence BUY saat downtrend/dump
+    btc_trend = ctx.get("btc_trend", {}).get("trend", "")
+    fg_value  = int(ctx.get("fear_greed", {}).get("value", 50))
+
     if is_btc_dump():
-        ctx["allow_buy"] = False
+        ctx["buy_min_conf"]   = 70     # dump = BUY butuh konfirmasi kuat
+        ctx["sell_min_conf"]  = 55
+    elif "DOWNTREND" in btc_trend and fg_value < 20:
+        ctx["buy_min_conf"]   = 65     # extreme fear
+        ctx["sell_min_conf"]  = 50
+    elif "DOWNTREND" in btc_trend:
+        ctx["buy_min_conf"]   = 55     # downtrend biasa
+        ctx["sell_min_conf"]  = 45
+    else:
+        ctx["buy_min_conf"]   = 40
+        ctx["sell_min_conf"]  = 40
 
     if not ctx["allow_buy"] and not ctx["allow_sell"]:
         logger.warning(
@@ -850,6 +953,24 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
                         blocked_ctx += 1
                         block_reasons["ctx_buy"] += 1
                         continue
+                    if sig.startswith("BUY"):
+                        min_conf = ctx.get("buy_min_conf", 40)
+                        if res.get("confidence", 0) < min_conf:
+                            blocked_ctx += 1
+                            block_reasons["ctx_buy"] = block_reasons.get("ctx_buy", 0) + 1
+                            logger.debug(f"[CTX BUY CONF] {sym}: conf={res['confidence']:.1f} < {min_conf}")
+                            continue
+                    if sig.startswith("SELL") and not ctx["allow_sell"]:
+                        blocked_ctx += 1
+                        block_reasons["ctx_sell"] += 1
+                        continue
+                    if sig.startswith("SELL"):
+                        min_conf = ctx.get("sell_min_conf", 40)
+                        if res.get("confidence", 0) < min_conf:
+                            blocked_ctx += 1
+                            block_reasons["ctx_sell"] = block_reasons.get("ctx_sell", 0) + 1
+                            logger.debug(f"[CTX SELL CONF] {sym}: conf={res['confidence']:.1f} < {min_conf}")
+                            continue
                     if sig.startswith("SELL") and not ctx["allow_sell"]:
                         blocked_ctx += 1
                         block_reasons["ctx_sell"] += 1
@@ -932,6 +1053,32 @@ def scan_all(symbols=None, timeframe: str = "all", min_score: float = 0):
                         res["regime_emoji"]  = "❓"
                         res["regime_adx"]    = 0
                         res["regime_advice"] = "Regime tidak tersedia"
+
+                    # Fix: assign regime kalau masih UNKNOWN
+                    if res.get("regime", "UNKNOWN") == "UNKNOWN":
+                        try:
+                            _r = detect_market_regime(sym, tf)
+                            res["regime"]        = _r.get("regime", "NEUTRAL")
+                            res["regime_emoji"]  = _r.get("emoji", "➡️")
+                            res["regime_adx"]    = _r.get("adx", 0)
+                            res["regime_advice"] = _r.get("advice", "")
+                        except Exception:
+                            res["regime"] = "NEUTRAL"
+                            res["regime_emoji"] = "➡️"
+
+                    # Fix regime UNKNOWN
+                    if not res.get("regime") or res.get("regime") == "UNKNOWN":
+                        try:
+                            _r = detect_market_regime(sym, tf)
+                            res["regime"]        = _r.get("regime", "NEUTRAL")
+                            res["regime_emoji"]  = _r.get("emoji", "➡️")
+                            res["regime_adx"]    = _r.get("adx", 0)
+                            res["regime_advice"] = _r.get("advice", "")
+                        except Exception:
+                            res["regime"]        = "NEUTRAL"
+                            res["regime_emoji"]  = "➡️"
+                            res["regime_adx"]    = 0
+                            res["regime_advice"] = ""
 
                     results.append(res)
                     signal_counts[sig] = signal_counts.get(sig, 0) + 1
@@ -1063,7 +1210,7 @@ async def scan_all_async(symbols=None, timeframe: str = "all", min_score: float 
     )
 
     if is_btc_dump():
-        ctx["allow_buy"] = False
+        ctx["buy_min_conf"] = ctx.get("buy_min_conf", 70)  # sudah diset di atas
 
     if not ctx["allow_buy"] and not ctx["allow_sell"]:
         logger.warning("⚠️  [CTX] SEMUA SINYAL DIBLOKIR!")
@@ -1245,7 +1392,7 @@ async def scan_all_async_v2(symbols=None, timeframe: str = "all", min_score: flo
     print_risk_status()
 
     if is_btc_dump():
-        ctx["allow_buy"] = False
+        ctx["buy_min_conf"] = ctx.get("buy_min_conf", 70)  # sudah diset di atas
 
     if symbols is None:
         try:
@@ -1318,8 +1465,34 @@ async def scan_all_async_v2(symbols=None, timeframe: str = "all", min_score: flo
         signal_counts[sig] = signal_counts.get(sig, 0) + 1
 
     logger.info(f"✅ Scan selesai — {len(results)} sinyal lolos | {blocked_ctx} diblokir")
-    return results
 
+    # Pre-pump scan
+    try:
+        from telegram_sender import send_alert
+        prepump_found = []
+        for sym in symbols[:50]:
+            for tf in ["1h", "15m"]:
+                pp = _detect_prepump(sym, tf)
+                if pp:
+                    prepump_found.append(pp)
+                    logger.info(f"[PREPUMP] {sym}/{tf} score={pp['score']}")
+
+        if prepump_found:
+            top_pp = sorted(prepump_found, key=lambda x: x["score"], reverse=True)[:3]
+            lines_msg = ["<b>PRE-PUMP DETECTOR</b>"]
+            for pp in top_pp:
+                lines_msg.append(f"Pair: {pp['symbol']} | {pp['timeframe']}")
+                lines_msg.append(f"Score: {pp['score']}/100")
+                lines_msg.append(f"Squeeze: {pp['squeeze_score']} | RSI: {pp['rsi']} | ADX: {pp['adx']}")
+                lines_msg.append(f"VolDry: {pp['vol_dry_up']} | OBV: {pp['obv_bull']} | RSIDiv: {pp['rsi_div']==1}")
+                lines_msg.append(f"Harga: {pp['entry']}")
+                lines_msg.append("---")
+            send_alert("\n".join(lines_msg))
+            logger.info(f"[PREPUMP] {len(prepump_found)} terdeteksi, top 3 dikirim")
+    except Exception as e:
+        logger.debug(f"[PREPUMP SCAN] error: {e}")
+
+    return results
 
 def scan_all_fast(symbols=None, timeframe: str = "all", min_score: float = 0):
     """Entry point sync untuk scan_all_async_v2 — pakai ini di main.py."""
