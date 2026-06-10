@@ -49,6 +49,13 @@ def add_trade(signal: dict):
     logger.info(f"Monitoring exit: {symbol}")
     _save_trades()
 
+    # Simpan ke virtual trading
+    try:
+        from virtual_trader import add_virtual_trade
+        add_virtual_trade(signal)
+    except Exception as e:
+        logger.warning(f"Virtual add trade error: {e}")
+
 def get_current_price(symbol: str) -> float:
     try:
         pair = symbol[:-4] + "_USDT"
@@ -59,6 +66,8 @@ def get_current_price(symbol: str) -> float:
     except:
         pass
     return 0.0
+
+_sent_exit_notif = set()  # tracking notif sudah dikirim
 
 def check_exits(send_alert_fn):
     import copy
@@ -93,9 +102,19 @@ def check_exits(send_alert_fn):
             label, target = hit
             is_profit = "SL" not in label
             emoji_result = "✅" if is_profit else "❌"
-            pnl_pct = round((target - trade["entry"]) / trade["entry"] * 100, 2)
+            pnl_pct = round((price - trade["entry"]) / trade["entry"] * 100, 2)
             if not trade["signal"].startswith("BUY"):
                 pnl_pct = -pnl_pct
+
+                # Normalisasi label
+                if abs(pnl_pct) < 0.1:
+                    label = "BREAKEVEN"
+                    pnl_pct = 0.0
+                elif "TP" in label and is_profit:
+                    emoji_result = "💰"
+                elif "STOP LOSS" in label and pnl_pct > 0:
+                    label = "TRAILING STOP"
+                    emoji_result = "✅"
 
             msg = (
                 f"{emoji_result} <b>{label}</b>\n"
@@ -109,6 +128,13 @@ def check_exits(send_alert_fn):
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 AI Signal Bot"
             )
+            # Cek duplikat notif
+            notif_key = f"{symbol}:{trade['entry']}:{label}"
+            if notif_key in _sent_exit_notif:
+                logger.debug(f"[EXIT DEDUP] Skip duplikat notif {notif_key}")
+                continue
+            _sent_exit_notif.add(notif_key)
+
             send_alert_fn(msg)
             # Simpan hasil ke database
             try:
@@ -168,7 +194,7 @@ def check_exits(send_alert_fn):
                         del _active_trades[key]
                         _save_trades()
 
-def start_exit_monitor(send_alert_fn, interval: int = 60):
+def start_exit_monitor(send_alert_fn, interval: int = 15):
     def _run():
         while True:
             try:
