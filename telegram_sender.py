@@ -5,7 +5,7 @@ import logging
 import time
 import requests
 from datetime import datetime, timedelta, timezone
-from config import BOT_TOKEN, CHAT_ID
+from config import BOT_TOKEN, CHAT_ID, SIGNAL_THRESHOLD
 
 logger = logging.getLogger(__name__)
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
@@ -159,7 +159,7 @@ def format_signal(s: dict) -> str:
         f"🛡️  Support: <code>{s.get('support', 'N/A')}</code>\n"
         f"📌 Pivot   : <code>{s.get('pivot', 'N/A')}</code>\n"
         f"{'━'*30}\n"
-        f"🤖 <i>AI Signal Bot • Threshold 85</i>"
+        f"🤖 <i>AI Signal Bot • Threshold {s.get('dynamic_threshold', SIGNAL_THRESHOLD)}</i>"
     )
 
 

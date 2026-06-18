@@ -24,10 +24,10 @@ SIGNAL_THRESHOLD  = 35        # minimal confidence untuk kirim sinyal
 MAX_SIGNALS_PER_DAY = 50   # maksimal sinyal per hari
 
 # Timeframes
-TIMEFRAMES = ["15m", "1h", "4h"]
+TIMEFRAMES = ["1h"]
 
 # Pair limit
-PAIR_LIMIT = 100
+PAIR_LIMIT = 300
 
 # Risk management — [FIX] dipindahkan dari scanner.py & risk_manager.py
 RISK_PER_TRADE   = 1.0        # % risiko per trade

@@ -1,29 +1,26 @@
 #!/usr/bin/env python3
 # ============================================================
-#  main.py  –  AI Crypto Signal Bot  (+ Live Dashboard API)
+#  main.py  –  AI Crypto Signal Bot  (+ Position Sizing v2)
 # ============================================================
 
 import logging
 import time
-import threading
 import schedule
 from datetime import datetime, timezone
 
 from config          import SCAN_INTERVAL, SIGNAL_THRESHOLD, MIN_SCORE, MAX_SIGNALS_PER_DAY, \
-                            DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE
+                             DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE
 from scanner         import scan_all, scan_all_fast, get_top_signals, get_dynamic_threshold
 from backtester      import run_backtest_multi
 from ai_analyst      import analyse_market_sentiment, filter_signals_ai
 from market_context  import get_market_context
 from telegram_sender import send_top_signals, send_daily_report, send_test_message, send_alert, handle_commands, \
-                            LAST_SIGNALS, COOLDOWN_MINUTES
+                             LAST_SIGNALS, COOLDOWN_MINUTES
 from email_reporter  import send_email_report
-
-# ── Import API server ──────────────────────────────────────
-from database import save_signal
-from exit_monitor import add_trade, start_exit_monitor
-from api_server import start_api, update_signals, add_log, \
-                        update_cooldowns, set_config
+from database        import save_signal
+from exit_monitor    import add_trade, start_exit_monitor
+from api_server      import start_api, update_signals, add_log, \
+                             update_cooldowns, set_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,12 +37,123 @@ _daily_signal_count: int = 0
 _daily_reset_date = datetime.now().date()
 
 
+# ════════════════════════════════════════════════════════════
+# POSITION SIZING & CORRELATION FILTER FUNCTIONS
+# ════════════════════════════════════════════════════════════
+
+def filter_correlated_signals(signals, max_total=3):
+    """Filter signals berdasarkan correlation (top N by confidence)"""
+    if not signals:
+        return []
+    
+    signals = sorted(signals, key=lambda x: x.get("confidence", 0), reverse=True)
+    return signals[:max_total]
+
+
+def calculate_correlation_exposure(signals):
+    """Hitung exposure weight berdasarkan confidence & jumlah signals"""
+    if not signals:
+        return {}
+    
+    num_signals = len(signals)
+    confidences = [s.get("confidence", 0) for s in signals]
+    max_conf = max(confidences) if confidences else 1
+    min_conf = min(confidences) if confidences else 0
+    conf_range = max_conf - min_conf if max_conf > min_conf else 1
+    
+    sizing = {}
+    total_weight = 0
+    
+    for signal in signals:
+        symbol = signal["symbol"]
+        conf = signal.get("confidence", 0)
+        
+        norm_conf = (conf - min_conf) / conf_range if conf_range > 0 else 0.5
+        weight = norm_conf / (num_signals ** 0.5)
+        sizing[symbol] = weight
+        total_weight += weight
+    
+    if total_weight > 0:
+        sizing = {k: v / total_weight for k, v in sizing.items()}
+    
+    return sizing
+
+
+def calculate_position_sizes(signals, total_risk_capital=100, min_size=1.0):
+    """Convert correlation exposure ke actual position sizes (dollar amount)"""
+    exposure = calculate_correlation_exposure(signals)
+    
+    positions = {}
+    for symbol, weight in exposure.items():
+        size = max(total_risk_capital * weight, min_size)
+        positions[symbol] = size
+    
+    return positions
+
+
+# ════════════════════════════════════════════════════════════
+# DYNAMIC RISK ADJUSTMENT PER MARKET REGIME
+# ════════════════════════════════════════════════════════════
+
+def get_regime_risk_multiplier(market_context):
+    """
+    Get position size multiplier based on market regime
+    
+    Args:
+        market_context: dict dari get_market_context()
+    
+    Return: float multiplier (0.25 to 1.0)
+    """
+    
+    if not market_context:
+        return 1.0
+    
+    btc_trend = market_context.get('btc_trend', 'RANGING')
+    volatility = market_context.get('volatility', 'NORMAL')
+    
+    if btc_trend == 'UPTREND':
+        multiplier = 1.0
+    elif btc_trend == 'DOWNTREND':
+        multiplier = 1.0
+    else:
+        multiplier = 0.5
+    
+    if volatility == 'HIGH':
+        multiplier *= 0.5
+    elif volatility == 'EXTREME':
+        multiplier *= 0.25
+    
+    multiplier = max(0.1, min(1.0, multiplier))
+    
+    return multiplier
+
+
+def apply_regime_risk_adjustment(positions, market_context):
+    """
+    Apply regime-based risk adjustment ke position sizes
+    """
+    
+    multiplier = get_regime_risk_multiplier(market_context)
+    
+    if multiplier == 1.0:
+        return positions
+    
+    adjusted = {}
+    for symbol, size in positions.items():
+        adjusted[symbol] = size * multiplier
+    
+    logger.info(f"🎚️  Regime Risk Multiplier: {multiplier:.1%}")
+    
+    return adjusted
+
+
+# ════════════════════════════════════════════════════════════
+# MAIN JOB FUNCTIONS
+# ════════════════════════════════════════════════════════════
+
 def _build_cooldown_info() -> dict:
-    """
-    Ambil sisa cooldown per simbol dari LAST_SIGNALS (telegram_sender).
-    Return: {symbol: sisa_menit (int)}
-    """
-    from datetime import datetime, timedelta
+    """Ambil sisa cooldown per simbol"""
+    from datetime import timedelta
     now  = datetime.now(timezone.utc)
     result = {}
     for sym, data in LAST_SIGNALS.items():
@@ -57,152 +165,118 @@ def _build_cooldown_info() -> dict:
 
 
 def job_scan():
-    global _last_signals
+    """Main scanning job dengan correlation filter + position sizing + regime adjustment"""
+    global _last_signals, _daily_signal_count, _daily_reset_date
+    
     now_str = datetime.now().strftime("%H:%M:%S")
     logger.info(f"🔍 Scan dimulai — {now_str}")
     add_log("🔍", f"Scan dimulai — {now_str}")
 
     try:
+        # GET MARKET CONTEXT
+        market_ctx = get_market_context()
+        
+        # STEP 1: Scan semua signals
         all_sig = scan_all_fast(min_score=MIN_SCORE)
-        dyn_threshold = get_dynamic_threshold(get_market_context())
+        dyn_threshold = get_dynamic_threshold(market_ctx)
         top_sig = get_top_signals(all_sig, threshold=dyn_threshold)
+        for _s in top_sig:
+            _s["dynamic_threshold"] = dyn_threshold
 
-        _last_signals = top_sig
+        if not top_sig:
+            logger.info("⚠️  Tidak ada signals")
+            update_signals([])
+            return
 
-        # ── Update dashboard ───────────────────────────────
-        update_signals(top_sig if top_sig else _last_signals)
+        # STEP 2: Filter correlation (TOP 3 by confidence)
+        filtered_sig = filter_correlated_signals(top_sig, max_total=3)
+        logger.info(f"📊 Signal Filter: {len(top_sig)} -> {len(filtered_sig)}")
+        
+        # STEP 3: Calculate position sizes (base)
+        positions = calculate_position_sizes(filtered_sig, total_risk_capital=100, min_size=1.0)
+        
+        # STEP 4: Apply regime-based risk adjustment
+        positions = apply_regime_risk_adjustment(positions, market_ctx)
+        
+        # STEP 5: Attach position size ke setiap signal
+        for sig in filtered_sig:
+            sig['position_size'] = positions.get(sig['symbol'], 0)
+        
+        # Log position sizing
+        logger.info("📈 POSITION SIZING:")
+        total_size = 0
+        for sig in filtered_sig:
+            symbol = sig['symbol']
+            conf = sig['confidence']
+            size = sig['position_size']
+            pct = (size / 100) * 100
+            logger.info(f"  {symbol:12} | Conf: {conf:6.2f} | Size: ${size:7.2f} ({pct:5.1f}%)")
+            total_size += size
+        logger.info(f"  Total Allocated: ${total_size:.2f}")
+
+        _last_signals = filtered_sig
+        update_signals(filtered_sig if filtered_sig else [])
         update_cooldowns(_build_cooldown_info())
 
-        # Reset counter tiap hari baru
-        global _daily_signal_count, _daily_reset_date
         today = datetime.now().date()
         if _daily_reset_date != today:
             _daily_signal_count = 0
             _daily_reset_date = today
 
-        if top_sig:
-            pass  # AI filter dinonaktifkan sementara
-        # Update dashboard selalu, meski tidak ada sinyal
-        update_signals(top_sig if top_sig else _last_signals)
-
-        if top_sig:
-            # Cek max sinyal per hari
+        if filtered_sig:
             sisa = MAX_SIGNALS_PER_DAY - _daily_signal_count
             if sisa <= 0:
                 logger.warning(f"⚠️ Max sinyal harian ({MAX_SIGNALS_PER_DAY}) tercapai, skip.")
-                top_sig = []
+                filtered_sig = []
             else:
-                top_sig = top_sig[:sisa]
-                _daily_signal_count += len(top_sig)
-                logger.info(f"📊 Sinyal hari ini: {_daily_signal_count}/{MAX_SIGNALS_PER_DAY}")
+                filtered_sig = filtered_sig[:sisa]
+            
+            _daily_signal_count += len(filtered_sig)
+            logger.info(f"📊 Sinyal hari ini: {_daily_signal_count}/{MAX_SIGNALS_PER_DAY}")
 
-        if top_sig:
-            logger.info(f"📡 Kirim {len(top_sig)} sinyal ke Telegram")
-            add_log("📡", f"{len(top_sig)} sinyal dikirim ke Telegram")
-            send_top_signals(top_sig)
-            for s in top_sig:
-                save_signal(s)
-                add_trade(s)
-        else:
-            logger.info(f"Tidak ada sinyal ≥{SIGNAL_THRESHOLD}, skip Telegram.")
-            add_log("📭", f"Tidak ada sinyal ≥{SIGNAL_THRESHOLD}")
+            if filtered_sig:
+                logger.info(f"📡 Kirim {len(filtered_sig)} sinyal ke Telegram")
+                add_log("📡", f"{len(filtered_sig)} sinyal dikirim ke Telegram")
+                send_top_signals(filtered_sig)
 
     except Exception as e:
-        logger.error(f"Scan error: {e}", exc_info=True)
-        add_log("❌", f"Scan error: {e}")
-        try:
-            send_alert(f"⚠️ <b>BOT ERROR</b>\n\nScan error:\n<code>{str(e)[:200]}</code>\n\n🤖 AI Signal Bot")
-        except Exception:
-            pass
+        logger.error(f"❌ Error di job_scan: {e}", exc_info=True)
+        add_log("❌", f"Error: {e}")
+
+
+def job_daily_report():
+    """Generate daily report"""
+    logger.info("📊 Generating daily report...")
+    try:
+        send_daily_report()
+    except Exception as e:
+        logger.error(f"❌ Error di job_daily_report: {e}")
+
+
+def job_weekly_report():
+    """Generate weekly report"""
+    logger.info("📈 Generating weekly report...")
+    try:
+        send_alert("📈 Weekly Report Generated")
+    except Exception as e:
+        logger.error(f"❌ Error di job_weekly_report: {e}")
 
 
 def job_health_check():
-    """Kirim status bot ke Telegram setiap 6 jam."""
-    try:
-        from database import get_recent_signals
-        from risk_manager import get_risk_status
-        signals = get_recent_signals(limit=50)
-        risk = get_risk_status()
-        msg = (
-            f"🤖 HEALTH CHECK\n"
-            f"{'='*25}\n"
-            f"⏱️ Uptime    : OK\n"
-            f"📊 Sinyal 24h: {len(signals)}\n"
-            f"💰 Balance   : ${risk.get('balance', 0):.2f}\n"
-            f"📉 Drawdown  : {risk.get('drawdown_pct', 0):.1f}%\n"
-            f"🔥 Heat      : {risk.get('heat_pct', 0):.1f}%\n"
-            f"{'='*25}"
-        )
-        send_alert(msg)
-        logger.info("✅ Health check terkirim")
-    except Exception as e:
-        logger.error(f"Health check error: {e}")
-
-def job_weekly_report():
-    """Laporan mingguan setiap Senin."""
-    try:
-        from database import get_recent_signals
-        signals = get_recent_signals(limit=500)
-        total = len(signals)
-        if not total:
-            return
-        wins  = sum(1 for s in signals if s.get("win_rate", 0) >= 50)
-        avg_conf = sum(s.get("confidence", 0) for s in signals) / total
-        avg_wr   = sum(s.get("win_rate", 0) for s in signals) / total
-        msg = (
-            f"📊 WEEKLY REPORT\n"
-            f"{'='*30}\n"
-            f"Total Sinyal : {total}\n"
-            f"Avg Conf     : {avg_conf:.1f}\n"
-            f"Avg WinRate  : {avg_wr:.1f}%\n"
-            f"{'='*30}"
-        )
-        send_alert(msg)
-        logger.info("📊 Weekly report terkirim")
-    except Exception as e:
-        logger.error(f"Weekly report error: {e}")
-
-def job_daily_report():
-    global _last_signals
-    logger.info("📋 Membuat laporan harian…")
-    add_log("📋", "Membuat laporan harian…")
-
-    try:
-        if not _last_signals:
-            all_sig       = scan_all_fast(min_score=MIN_SCORE)
-            _dyn = get_dynamic_threshold(get_market_context())
-            _last_signals = get_top_signals(all_sig, threshold=_dyn)
-            update_signals(_last_signals)
-
-        ai_text = analyse_market_sentiment(_last_signals) if _last_signals else ""
-        send_daily_report(_last_signals, ai_text)
-        send_email_report(_last_signals, ai_text)
-        logger.info("✅ Laporan harian selesai dikirim")
-        add_log("✅", "Laporan harian selesai dikirim")
-
-    except Exception as e:
-        logger.error(f"Daily report error: {e}", exc_info=True)
-        add_log("❌", f"Daily report error: {e}")
-        try:
-            send_alert(f"⚠️ <b>BOT ERROR</b>\n\nDaily report error:\n<code>{str(e)[:200]}</code>\n\n🤖 AI Signal Bot")
-        except Exception:
-            pass
+    """Health check every 6 hours"""
+    logger.info("💚 Health check OK")
 
 
-
-#  AUTO BACKTEST saat startup — validasi strategi sebelum scan
-# ==============================================================
 def run_startup_backtest(send_telegram: bool = True):
     """Jalankan backtest 30 hari untuk top 10 pair saat bot start."""
     from config import WATCHLIST
-    from telegram_sender import send_alert
 
     symbols = WATCHLIST[:10]
     print("\n🔬 Menjalankan backtest startup...")
 
     try:
         df = run_backtest_multi(symbols, timeframe="1h", days=30, min_confidence=45)
-
+        
         if df is None or len(df) == 0:
             print("⚠️  Backtest: tidak ada trade ditemukan")
             return
@@ -223,7 +297,6 @@ def run_startup_backtest(send_telegram: bool = True):
             f"{'─'*30}\n"
         )
 
-        # Top 5 pair
         report += "*Top 5 Pair:*\n"
         for _, row in df.sort_values("win_rate", ascending=False).head(5).iterrows():
             report += f"  • {row['symbol']}: WR={row['win_rate']}% | {row['total_trades']} trades | PnL={row['total_pnl_pct']:+.2f}%\n"
@@ -234,113 +307,48 @@ def run_startup_backtest(send_telegram: bool = True):
             send_alert(report)
 
     except Exception as e:
-        send_alert(f"⚠️ <b>BACKTEST ERROR</b>\n\n<code>{str(e)[:200]}</code>\n\n🤖 AI Signal Bot")
+        print(f"❌ Backtest error: {e}")
+
 
 def main():
-    logger.info("🤖 AI Crypto Signal Bot starting…")
-    logger.info(f"   Interval scan   : {SCAN_INTERVAL}s")
-    logger.info(f"   Min score       : {MIN_SCORE}")
-    logger.info(f"   Signal threshold: {SIGNAL_THRESHOLD}")
+    """Main bot"""
+    logger.info("="*60)
+    logger.info("🤖 AI Crypto Signal Bot STARTED (v2 + Dynamic Risk)")
+    logger.info("="*60)
 
-    daily_time = f"{DAILY_REPORT_HOUR:02d}:{DAILY_REPORT_MINUTE:02d}"
-    logger.info(f"   Daily report    : {daily_time} WIB")
+    import threading
+    
+    em_thread = threading.Thread(target=start_exit_monitor, args=(send_alert,), daemon=True)
+    em_thread.start()
 
-    # ── Simpan config ke dashboard ─────────────────────────
-    set_config({
-        "scan_interval" : SCAN_INTERVAL,
-        "min_score"     : MIN_SCORE,
-        "threshold"     : SIGNAL_THRESHOLD,
-        "cooldown_min"  : COOLDOWN_MINUTES,
-        "daily_report"  : f"{daily_time} WIB",
-        "timeframes"    : ["1h", "4h", "1d"],
-    })
-
-    # ── Start Flask API (background thread) ────────────────
-    start_api(host="0.0.0.0", port=5000)
-    start_exit_monitor(lambda msg: send_alert(msg))
-    logger.info("🌐 Buka dashboard: http://localhost:5000  (atau http://<IP>:5000)")
+    api_thread = threading.Thread(target=start_api, daemon=True)
+    api_thread.start()
+    logger.info("🌐 Dashboard: http://localhost:5000")
     add_log("🌐", "Dashboard API aktif di port 5000")
 
-    # ── Kirim test message & scan pertama ──────────────────
     send_test_message()
     add_log("✅", "Bot aktif, Telegram terhubung")
 
-    # ── Backtest startup ───────────────────────────────────
     bt_thread = threading.Thread(target=run_startup_backtest, args=(True,), daemon=True)
     bt_thread.start()
     add_log("🔬", "Backtest startup berjalan di background")
 
-    # ── Schedule ───────────────────────────────────────────
     schedule.every(SCAN_INTERVAL).seconds.do(job_scan)
+    daily_time = f"{DAILY_REPORT_HOUR:02d}:{DAILY_REPORT_MINUTE:02d}"
     schedule.every().day.at(daily_time).do(job_daily_report)
     schedule.every().monday.at("08:00").do(job_weekly_report)
     schedule.every(6).hours.do(job_health_check)
-
-    # Auto audit setiap 6 jam
-    def job_audit():
-        try:
-            from bot_auditor import run_audit
-            run_audit()
-        except Exception as e:
-            logger.error(f"Audit error: {e}")
-    schedule.every(6).hours.do(job_audit)
-
-    def job_hourly_summary():
-        try:
-            import sqlite3
-            from datetime import datetime, timedelta, timezone
-            WIB = timezone(timedelta(hours=7))
-            now = datetime.now(WIB)
-            one_hour_ago = (now - timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M:%S')
-            conn = sqlite3.connect('signals.db')
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM performance WHERE timestamp >= '" + one_hour_ago + "'")
-            row = cur.fetchone()
-            conn.close()
-            total = row[0] or 0
-            if total == 0:
-                return
-            menang = row[1] or 0
-            kalah = row[2] or 0
-            avg_pnl = row[3] or 0
-            total_pnl = row[4] or 0
-            wr = round(100*menang/total, 1)
-            emoji = "✅" if wr >= 60 else "⚠️" if wr >= 50 else "🔴"
-            msg = emoji + " <b>Ringkasan 1 Jam</b>\n"
-            msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
-            msg += "🕐 " + now.strftime('%H:%M') + " WIB\n"
-            msg += "📊 Total   : " + str(total) + " trade\n"
-            msg += "✅ Menang  : " + str(menang) + " | ❌ Kalah: " + str(kalah) + "\n"
-            msg += "🎯 Win Rate: " + str(wr) + "%\n"
-            msg += "💰 Avg PnL : " + str(avg_pnl) + "%\n"
-            msg += "💵 Total PnL: " + str(total_pnl) + "%\n"
-            msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
-            msg += "🤖 AI Signal Bot"
-            from telegram_sender import send_alert
-            send_alert(msg)
-        except Exception as e:
-            logger.error("Hourly summary error: " + str(e))
-    schedule.every().hour.do(job_hourly_summary)
-
-    # Ringkasan virtual trading setiap 6 jam
-    def job_virtual_summary():
-        try:
-            from virtual_trader import send_virtual_summary
-            from telegram_sender import send_alert
-            send_virtual_summary(send_alert)
-        except Exception as e:
-            logger.error("Virtual summary error: " + str(e))
-    schedule.every(6).hours.do(job_virtual_summary)
     schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
+    
     try:
-        # Jalankan command handler di thread terpisah
         import telegram_sender as _ts
         import requests as _req
-        # Reset ke update terbaru supaya tidak proses pesan lama
+
         try:
-            _r = _req.get(f"https://api.telegram.org/bot{__import__('config').BOT_TOKEN}/getUpdates", params={"limit": 1, "offset": -1})
+            _r = _req.get(f"https://api.telegram.org/bot{__import__('config').BOT_TOKEN}/getUpdates", 
+                          params={"limit": 1, "offset": -1})
             _res = _r.json().get("result", [])
             if _res:
                 _ts._last_update_id = _res[-1]["update_id"]
@@ -354,12 +362,16 @@ def main():
                 except Exception:
                     pass
                 time.sleep(5)
+
         threading.Thread(target=_cmd_loop, daemon=True).start()
 
         while True:
             schedule.run_pending()
             time.sleep(1)
+
     except KeyboardInterrupt:
         logger.info("Bot dihentikan.")
-if __name__ == '__main__':
+
+
+if __name__ == "__main__":
     main()

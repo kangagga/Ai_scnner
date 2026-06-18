@@ -500,7 +500,10 @@ def institutional_ai_v4(df):
         (setup_buy_score >= 40) &
         data['trend_up_weak'] &
         (data['rsi'] > 35) & (data['rsi'] < 65) &
-        (data['adx'] < 25)
+        (data['adx'] < 25) &
+    (data['shooting_star'] == 0) &
+    (data['evening_star'] == 0) &
+    (data['bear_engulf'] == 0)
     )
 
     # -- SELL SETUP (early, sebelum bergerak) --
@@ -511,12 +514,15 @@ def institutional_ai_v4(df):
         (setup_sell_score >= 40) &
         data['trend_down_weak'] &
         (data['rsi'] > 25) & (data['rsi'] < 65) &   # was 35–65
-        (data['adx'] < 25)
+        (data['adx'] < 25) &
+    (data['hammer'] == 0) &
+    (data['morning_star'] == 0) &
+    (data['bull_engulf'] == 0)
     )
 
     # -- BUY BREAKOUT (konfirmasi volume expansion) --
     buy_breakout_cond = (
-        (data['buy_combined'] >= 55) &
+        (data['buy_combined'] >= 40) &
         data['vol_expansion'] &
         data['trend_up_weak'] &
         (data['rsi'] > 45) & (data['rsi'] < 78)
@@ -524,7 +530,7 @@ def institutional_ai_v4(df):
 
     # -- SELL BREAKOUT (konfirmasi volume expansion) --
     sell_breakout_cond = (
-        (data['sell_combined'] >= 55) &
+        (data['sell_combined'] >= 40) &
         data['vol_expansion'] &
         data['trend_down_weak'] &
         (data['rsi'] < 65) & (data['rsi'] > 20)
@@ -533,26 +539,24 @@ def institutional_ai_v4(df):
     # -- BUY MOMENTUM (FIX v8: fallback tanpa vol_expansion) --
     # Digunakan saat vol_expansion jarang muncul di ranging market
     buy_momentum_cond = (
-        (data['buy_combined'] >= 58) &
-        (data['vol_ratio'] > 0.9) &          # volume normal saja cukup
+        (data['buy_combined'] >= 40) &
+        (data['vol_ratio'] > 0.5) &
         data['trend_up_weak'] &
-        (data['rsi'] > 45) & (data['rsi'] < 75) &
-        (data['macd_hist'] > 0)
+        (data['rsi'] > 35) & (data['rsi'] < 80)
     )
 
     # -- SELL MOMENTUM (FIX v8: fallback tanpa vol_expansion) --
     # Krusial saat bearish — vol_expansion jarang tapi sinyal jual valid
     sell_momentum_cond = (
-        (data['sell_combined'] >= 50) &
+        (data['sell_combined'] >= 40) &
         (data['vol_ratio'] > 0.05) &
         data['trend_down_weak'] &
-        (data['rsi'] < 65) & (data['rsi'] > 20) &
-        (data['macd_hist'] < 0)
+        (data['rsi'] < 70) & (data['rsi'] > 15)
     )
 
     # -- BUY KONFIRMASI PENUH --
     buy_confirm_cond = (
-        (data['score'] >= 60) &
+        (data['score'] >= 35) &
         data['trend_up'] &
         (data['rsi'] > 45) & (data['rsi'] < 78) &
         (data['macd_hist'] > 0) &
@@ -563,7 +567,7 @@ def institutional_ai_v4(df):
     # FIX v8: adx < 35 → adx < 45
     # (trend_down + adx<35 kontradiksi — strong downtrend sering adx 35–45)
     sell_confirm_cond = (
-        (data['sell_score'] >= 55) &
+        (data['sell_score'] >= 35) &
         data['trend_down'] &
         (data['rsi'] < 65) & (data['rsi'] > 20) &
         (data['macd_hist'] < 0)

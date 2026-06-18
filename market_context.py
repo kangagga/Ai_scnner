@@ -43,7 +43,7 @@ def get_fear_greed() -> dict:
         r = requests.get(
             "https://api.alternative.me/fng/?limit=1",
             timeout=TIMEOUT
-        )
+    )
         r.raise_for_status()
         data = r.json()["data"][0]
 
@@ -130,9 +130,10 @@ def get_funding_rates(symbols: list = None) -> Dict[str, dict]:
         r = requests.get(
             "https://api.gateio.ws/api/v4/futures/usdt/contracts",
             timeout=TIMEOUT
-        )
+    )
         r.raise_for_status()
         data = r.json()
+
 
         result = {}
         for item in data:
@@ -292,6 +293,7 @@ def get_btc_trend() -> dict:
             allow_buy  = True     # sideways = izinkan tapi hati-hati
             allow_sell = True
             advice   = "BTC sideways — semua sinyal diizinkan, hati-hati"
+
 
         result = {
             "trend"     : trend,
@@ -475,7 +477,7 @@ def detect_market_regime(symbol: str, timeframe: str = "1h") -> dict:
         bb_upper   = float(last.get("bb_upper", price))
         bb_lower   = float(last.get("bb_lower", price))
         bb_middle  = float(last.get("bb_mid", price))
-        vol_ratio  = float(last.get("volume_ratio", 1.0))
+        vol_ratio  = float(last.get("vol_ratio", 1.0))
         atr_pct    = (atr / price * 100) if price > 0 else 0
         bb_width   = (bb_upper - bb_lower) / bb_middle * 100 if bb_middle > 0 else 0
 
@@ -487,7 +489,7 @@ def detect_market_regime(symbol: str, timeframe: str = "1h") -> dict:
             bias_buy  = price > bb_upper
             bias_sell = price < bb_lower
 
-        elif adx > 25 and bb_width > 3.0:
+        elif adx > 22 and bb_width > 2.5:
             regime   = "TRENDING"
             emoji    = "📈" if price > bb_middle else "📉"
             advice   = f"ADX={adx:.1f} — trend kuat, ikuti arah"
@@ -514,6 +516,7 @@ def detect_market_regime(symbol: str, timeframe: str = "1h") -> dict:
             advice   = "Tidak ada regime dominan"
             bias_buy  = True
             bias_sell = True
+
 
         result = {
             "regime"    : regime,

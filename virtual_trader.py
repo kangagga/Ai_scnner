@@ -82,7 +82,7 @@ def close_virtual_trade(symbol: str, signal_type: str, exit_price: float, pnl_pc
 
     # Hitung PnL dalam USD (risk 2% per trade)
     risk_usd = balance * 0.02
-    pnl_usd = round(risk_usd * (pnl_pct / 1.0), 2)
+    pnl_usd = round(risk_usd * (pnl_pct / 100.0), 2)
     new_balance = round(balance + pnl_usd, 2)
     new_peak = max(peak, new_balance)
     result = "WIN" if pnl_pct > 0 else "LOSS"
