@@ -4,9 +4,38 @@
 # ============================================================
 
 import logging
+import os
+import sys
 import time
 import schedule
 from datetime import datetime, timezone
+
+# ── PID LOCK — cegah 2 instance bot jalan bersamaan ──
+LOCK_FILE = "/home/userland/ai-scanner/bot.lock"
+
+def _check_single_instance():
+    if os.path.exists(LOCK_FILE):
+        with open(LOCK_FILE, "r") as f:
+            old_pid = f.read().strip()
+        try:
+            os.kill(int(old_pid), 0)  # cek apakah PID masih hidup
+            print(f"❌ Bot sudah jalan dengan PID {old_pid}. Hentikan dulu sebelum menjalankan instance baru.")
+            sys.exit(1)
+        except (OSError, ValueError):
+            pass  # PID lama tidak aktif, lock basi — boleh lanjut
+    with open(LOCK_FILE, "w") as f:
+        f.write(str(os.getpid()))
+
+def _release_lock():
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
+    except Exception:
+        pass
+
+import atexit
+_check_single_instance()
+atexit.register(_release_lock)
 
 from config          import SCAN_INTERVAL, SIGNAL_THRESHOLD, MIN_SCORE, MAX_SIGNALS_PER_DAY, \
                              DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE
