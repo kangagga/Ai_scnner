@@ -58,7 +58,15 @@ def add_trade(signal: dict):
 
 def get_current_price(symbol: str) -> float:
     try:
-        pair = symbol[:-4] + "_USDT"
+        # Deteksi format pair — BTC pair atau USDT pair
+        if symbol.endswith("BTC"):
+            pair = symbol[:-3] + "_BTC"
+        elif symbol.endswith("ETH"):
+            pair = symbol[:-3] + "_ETH"
+        elif symbol.endswith("USDT"):
+            pair = symbol[:-4] + "_USDT"
+        else:
+            pair = symbol[:-4] + "_USDT"  # fallback
         r = requests.get("https://api.gateio.ws/api/v4/spot/tickers", params={"currency_pair": pair}, timeout=5)
         data = r.json()
         if data:
