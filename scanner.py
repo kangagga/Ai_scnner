@@ -156,9 +156,6 @@ def _is_duplicate(symbol, timeframe, signal_type, confidence):
             return False
         prev_type, last_time = state
         delta = (now - last_time).total_seconds() / 60.0
-        if prev_type != signal_type:
-            _last_signal_state[key] = (signal_type, now)
-            return False
         if delta < cooldown:
             return True
         _last_signal_state[key] = (signal_type, now)

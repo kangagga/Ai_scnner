@@ -3,7 +3,7 @@ import threading
 import time
 import requests
 from datetime import datetime
-from database import update_signal_result
+
 
 logger = logging.getLogger(__name__)
 _active_trades = {}
@@ -113,16 +113,14 @@ def check_exits(send_alert_fn):
             pnl_pct = round((price - trade["entry"]) / trade["entry"] * 100, 2)
             if not trade["signal"].startswith("BUY"):
                 pnl_pct = -pnl_pct
-
-                # Normalisasi label
-                if abs(pnl_pct) < 0.1:
-                    label = "BREAKEVEN"
-                    pnl_pct = 0.0
-                elif "TP" in label and is_profit:
-                    emoji_result = "💰"
-                elif "STOP LOSS" in label and pnl_pct > 0:
-                    label = "TRAILING STOP"
-                    emoji_result = "✅"
+            if abs(pnl_pct) < 0.1:
+                label = "BREAKEVEN"
+                pnl_pct = 0.0
+            elif "TP" in label and is_profit:
+                emoji_result = "💰"
+            elif "STOP LOSS" in label and pnl_pct > 0:
+                label = "TRAILING STOP"
+                emoji_result = "✅"
 
             msg = (
                 f"{emoji_result} <b>{label}</b>\n"
@@ -136,7 +134,7 @@ def check_exits(send_alert_fn):
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 AI Signal Bot"
             )
-            # Cek duplikat notif
+
             notif_key = f"{symbol}:{trade['entry']}:{label}"
             if notif_key in _sent_exit_notif:
                 logger.debug(f"[EXIT DEDUP] Skip duplikat notif {notif_key}")
@@ -144,30 +142,26 @@ def check_exits(send_alert_fn):
             _sent_exit_notif.add(notif_key)
 
             send_alert_fn(msg)
-            # Simpan hasil ke database
-            try:
-                update_signal_result(
-                    symbol     = symbol,
-                    signal     = trade["signal"],
-                    entry      = trade["entry"],
-                    exit_price = price,
-                )
-                logger.info(f"✅ Performance tersimpan: {symbol} {label} @ {price}")
-                # Auto-blacklist setelah SL
-                if "STOP LOSS" in label:
-                    try:
-                        from blacklist import report_false_signal
-                        report_false_signal(symbol)
-                        logger.info(f"⚠️ {symbol} dilaporkan ke blacklist setelah SL")
-                    except: pass
-            except Exception as e:
-                logger.warning(f"Gagal simpan performance: {e}")
 
-            # Update virtual trading
+            # Auto-blacklist setelah SL
+            if "STOP LOSS" in label:
+                try:
+                    from blacklist import report_false_signal
+                    report_false_signal(symbol)
+                    logger.info(f"⚠️ {symbol} dilaporkan ke blacklist setelah SL")
+                except:
+                    pass
+
+            # Update virtual trading (balance & record otomatis)
             try:
                 from virtual_trader import close_virtual_trade
-                new_bal, pnl_usd = close_virtual_trade(symbol, trade["signal"], price, pnl_pct)
-                logger.info(f"💰 Virtual balance: ${new_bal:.2f}")
+                close_virtual_trade(
+                    symbol=symbol,
+                    timeframe=trade.get("timeframe", ""),
+                    signal=trade["signal"],
+                    pnl_pct=pnl_pct
+                )
+                logger.info(f"💰 Trade closed: {symbol} {trade['signal']} | PnL: {pnl_pct:.2f}%")
             except Exception as e:
                 logger.warning(f"Virtual trade error: {e}")
 
@@ -178,30 +172,27 @@ def check_exits(send_alert_fn):
                     add_loss_cooldown(symbol)
             except Exception as e:
                 logger.warning(f"Cooldown error: {e}")
+
             with _lock:
                 if key in _active_trades:
                     if "TP1" in label:
-                        # Setelah TP1 kena — pindah SL ke entry (breakeven), aktifkan TP2
                         _active_trades[key]["sl"] = trade["entry"]
                         if "tp1_original" not in _active_trades[key]:
-                            _active_trades[key]["tp1_original"] = trade["tp1"]  # simpan hanya sekali
-                        _active_trades[key]["tp1"] = trade["tp2"]  # aktifkan TP2 sebagai target
+                            _active_trades[key]["tp1_original"] = trade["tp1"]
+                        _active_trades[key]["tp1"] = trade["tp2"]
                         _active_trades[key]["monitoring_tp"] = "TP2"
                         _save_trades()
                         logger.info(f"TP1 hit {symbol} — SL dipindah ke entry, pantau TP2")
                     elif "TP2" in label:
-                        # Setelah TP2 kena — pindah SL ke TP1 lama, aktifkan TP3
                         _active_trades[key]["sl"] = trade.get("tp1_original", trade["entry"])
-                        _active_trades[key]["tp1"] = trade["tp3"]  # aktifkan TP3 sebagai target
+                        _active_trades[key]["tp1"] = trade["tp3"]
                         _active_trades[key]["monitoring_tp"] = "TP3"
                         _active_trades[key]["tp2"] = 0
                         _save_trades()
                         logger.info(f"TP2 hit {symbol} — lanjut pantau TP3")
                     else:
-                        # TP3 atau SL — hapus trade
                         del _active_trades[key]
                         _save_trades()
-
 def start_exit_monitor(send_alert_fn, interval: int = 15):
     def _run():
         while True:

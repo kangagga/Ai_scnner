@@ -19,8 +19,8 @@ EMAIL_RECEIVER  = "ranggazainalmahrez@gmail.com"
 
 # Scanner settings
 SCAN_INTERVAL     = 60        # interval scan dalam detik
-MIN_SCORE         = 35        # minimal score indikator
-SIGNAL_THRESHOLD  = 35        # minimal confidence untuk kirim sinyal
+MIN_SCORE         = 50
+SIGNAL_THRESHOLD  = 50
 MAX_SIGNALS_PER_DAY = 50   # maksimal sinyal per hari
 
 # Timeframes
@@ -30,8 +30,8 @@ TIMEFRAMES = ["1h"]
 PAIR_LIMIT = 300
 
 # Risk management — [FIX] dipindahkan dari scanner.py & risk_manager.py
-RISK_PER_TRADE   = 1.0        # % risiko per trade
-ACCOUNT_BALANCE  = 1000.0     # saldo simulasi (USDT)
+RISK_PER_TRADE   = 0.5        # % risiko per trade
+ACCOUNT_BALANCE  = 100.0      # saldo simulasi (USDT)
 
 # Indikator
 MACD_FAST   = 12

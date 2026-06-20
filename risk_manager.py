@@ -11,8 +11,13 @@
 import logging
 import json
 import os
-from datetime import datetime, date
+import sqlite3
+from datetime import datetime, date, timezone, timedelta
 from typing import Dict, List, Optional
+
+# Path ke database virtual trading (untuk persistensi)
+VIRTUAL_TRADING_DB = os.path.join(os.path.dirname(__file__), "virtual_trading.db")
+WIB = timezone(timedelta(hours=7))
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +27,7 @@ logger = logging.getLogger(__name__)
 try:
     from config import ACCOUNT_BALANCE, RISK_PER_TRADE
 except ImportError:
-    ACCOUNT_BALANCE  = 1000.0
+    ACCOUNT_BALANCE  = 100.0
     RISK_PER_TRADE   = 1.0
     logger.warning("config.py tidak ditemukan, pakai nilai default")
 
@@ -54,47 +59,139 @@ class RiskState:
         self.daily_date       : str   = str(date.today())
         self.consecutive_loss : int   = 0
         self.open_positions   : Dict  = {}
+        self.total_trades     : int   = 0
+        self.total_wins       : int   = 0
+        self.total_losses     : int   = 0
         self.trade_history    : List  = []
         self.trading_halted   : bool  = False
         self.halt_reason      : str   = ""
         self._load()
 
     def _load(self):
+        """Load state dari database (prioritas) atau JSON fallback"""
+        loaded = False
+        # ── PRIORITAS: Load dari database virtual_trading ──
         try:
-            if os.path.exists(STATE_FILE):
-                with open(STATE_FILE, "r") as f:
-                    data = json.load(f)
-                self.balance          = data.get("balance",          ACCOUNT_BALANCE)
-                self.peak_balance     = data.get("peak_balance",     ACCOUNT_BALANCE)
-                self.daily_pnl        = data.get("daily_pnl",        0.0)
-                self.daily_date       = data.get("daily_date",       str(date.today()))
-                self.consecutive_loss = data.get("consecutive_loss", 0)
-                self.open_positions   = data.get("open_positions",   {})
-                self.trade_history    = data.get("trade_history",    [])
-                self.trading_halted   = data.get("trading_halted",   False)
-                self.halt_reason      = data.get("halt_reason",      "")
-                logger.info(f"Risk state loaded — Balance: ${self.balance:.2f}")
+            if os.path.exists(VIRTUAL_TRADING_DB):
+                conn = sqlite3.connect(VIRTUAL_TRADING_DB)
+                cur = conn.cursor()
+                cur.execute("SELECT balance, peak_balance, total_trades, total_wins, total_losses FROM virtual_balance WHERE id=1")
+                row = cur.fetchone()
+                if row:
+                    self.balance = float(row[0])
+                    self.peak_balance = float(row[1])
+                    self.daily_pnl = 0.0  # reset daily dihitung ulang
+                    self.daily_date = str(date.today())
+                    self.consecutive_loss = 0
+                    self.open_positions = {}
+                    self.trading_halted = False
+                    self.halt_reason = ""
+                    
+                    # Hitung ulang consecutive loss dari trade terbaru
+                    cur.execute("""
+                        SELECT pnl_usdt FROM virtual_trades 
+                        WHERE closed=1 
+                        ORDER BY closed_at DESC 
+                        LIMIT 50
+                    """)
+                    for (pnl,) in cur.fetchall():
+                        if pnl < 0:
+                            self.consecutive_loss += 1
+                        else:
+                            break
+                    
+                    # Hitung total win/loss langsung dari DB
+                    cur.execute("SELECT COUNT(*), SUM(CASE WHEN pnl_usdt > 0 THEN 1 ELSE 0 END), SUM(CASE WHEN pnl_usdt < 0 THEN 1 ELSE 0 END) FROM virtual_trades WHERE closed=1")
+                    total, wins, losses = cur.fetchone()
+                    self.total_trades = total or 0
+                    self.total_wins = wins or 0
+                    self.total_losses = losses or 0
+                    self.trade_history = []  # akan diisi per-trade jika diperlukan nanti
+                    
+                    # Ambil open positions dari database
+                    cur.execute("SELECT symbol, timeframe, signal FROM virtual_trades WHERE closed=0")
+                    for sym, tf, sig in cur.fetchall():
+                        key = f"{sym}_{tf}_{sig}"
+                        self.open_positions[key] = {"symbol": sym, "timeframe": tf, "signal": sig}
+                    
+                    conn.close()
+                    loaded = True
+                    logger.info(f"Risk state loaded from DB — Balance: ${self.balance:.2f} | Trades: {total or 0} | Open: {len(self.open_positions)}")
         except Exception as e:
-            logger.warning(f"Risk state load error: {e}")
+            logger.warning(f"DB load failed, fallback ke JSON: {e}")
+        
+        # ── FALLBACK: Load dari JSON ──
+        if not loaded:
+            try:
+                if os.path.exists(STATE_FILE):
+                    with open(STATE_FILE, "r") as f:
+                        data = json.load(f)
+                    self.balance          = data.get("balance",          ACCOUNT_BALANCE)
+                    self.peak_balance     = data.get("peak_balance",     ACCOUNT_BALANCE)
+                    self.daily_pnl        = data.get("daily_pnl",        0.0)
+                    self.daily_date       = data.get("daily_date",       str(date.today()))
+                    self.consecutive_loss = data.get("consecutive_loss", 0)
+                    self.open_positions   = data.get("open_positions",   {})
+                    self.trade_history    = data.get("trade_history",    [])
+                    self.trading_halted   = data.get("trading_halted",   False)
+                    self.halt_reason      = data.get("halt_reason",      "")
+                    logger.info(f"Risk state loaded from JSON — Balance: ${self.balance:.2f}")
+            except Exception as e:
+                logger.warning(f"Risk state load error: {e}")
 
     def save(self):
+        """Simpan state ke JSON + database"""
+        # ── Simpan ke JSON ──
         try:
-            data = {
-                "balance"         : self.balance,
-                "peak_balance"    : self.peak_balance,
-                "daily_pnl"       : self.daily_pnl,
-                "daily_date"      : self.daily_date,
-                "consecutive_loss": self.consecutive_loss,
-                "open_positions"  : self.open_positions,
-                "trade_history"   : self.trade_history[-100:],
-                "trading_halted"  : self.trading_halted,
-                "halt_reason"     : self.halt_reason,
-            }
             with open(STATE_FILE, "w") as f:
-                json.dump(data, f, indent=2)
+                json.dump({
+                    "balance": self.balance,
+                    "peak_balance": self.peak_balance,
+                    "daily_pnl": self.daily_pnl,
+                    "daily_date": self.daily_date,
+                    "consecutive_loss": self.consecutive_loss,
+                    "open_positions": self.open_positions,
+                    "trade_history": self.trade_history,
+                    "trading_halted": self.trading_halted,
+                    "halt_reason": self.halt_reason,
+                }, f, indent=2)
         except Exception as e:
-            logger.warning(f"Risk state save error: {e}")
+            logger.warning(f"Risk state JSON save error: {e}")
 
+        # ── Simpan ke database ──
+        try:
+            if os.path.exists(VIRTUAL_TRADING_DB):
+                conn = sqlite3.connect(VIRTUAL_TRADING_DB)
+                cur = conn.cursor()
+                total_wins = 0
+                total_losses = 0
+                total_trades = 0
+                if self.trade_history:
+                    last = self.trade_history[-1] if isinstance(self.trade_history[-1], dict) else {}
+                    total_wins = last.get("wins", 0)
+                    total_losses = last.get("losses", 0)
+                    total_trades = last.get("total", 0)
+                cur.execute("""
+                    UPDATE virtual_balance SET
+                        balance=?,
+                        peak_balance=?,
+                        total_trades=?,
+                        total_wins=?,
+                        total_losses=?,
+                        updated_at=?
+                    WHERE id=1
+                """, (
+                    self.balance,
+                    self.peak_balance,
+                    total_trades,
+                    total_wins,
+                    total_losses,
+                    datetime.now(WIB).isoformat()
+                ))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            logger.warning(f"Risk state DB save error: {e}")
     def reset_daily(self):
         today = str(date.today())
         if self.daily_date != today:
@@ -362,7 +459,7 @@ def get_risk_status() -> dict:
         "trading_halted"  : _state.trading_halted,
         "halt_reason"     : _state.halt_reason,
         "open_positions"  : len(_state.open_positions),
-        "total_trades"    : len(_state.trade_history),
+        "total_trades"    : _state.total_trades,
     }
 
 
@@ -387,7 +484,7 @@ def print_risk_status():
     print(f"  Portfolio Heat : {s['portfolio_heat']:.1f}% (max: {MAX_PORTFOLIO_HEAT}%)")
     print(f"  Streak Loss    : {s['consecutive_loss']}")
     print(f"  Open Positions : {s['open_positions']}")
-    print(f"  Total Trades   : {s['total_trades']}")
+    print(f"  Total Trades   : {_state.total_trades}")
     if s["trading_halted"]:
         print(f"\n  ⛔ TRADING HALTED: {s['halt_reason']}")
     print(f"{'='*50}\n")

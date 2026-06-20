@@ -139,6 +139,7 @@ def api_stats():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/api/health")
 def api_health():
     return jsonify({"ok": True, "time": datetime.now().isoformat()})

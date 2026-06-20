@@ -1,6 +1,8 @@
 
 import sqlite3, json, os
 from datetime import datetime, timedelta, timezone
+import logging
+logger = logging.getLogger(__name__)
 
 WIB = timezone(timedelta(hours=7))
 VIRTUAL_DB = "/home/userland/ai-scanner/virtual_trading.db"
@@ -58,55 +60,108 @@ def add_virtual_trade(signal: dict):
     init_db()
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
+    
+    symbol = signal.get("symbol")
+    timeframe = signal.get("timeframe")
+    sig_type = signal.get("signal")
+    
+    # === FILTER DUPLIKASI ===
+    # Cek apakah sudah ada posisi terbuka untuk pair+timeframe+signal yang sama
+    cur.execute("""
+        SELECT id FROM virtual_trades
+        WHERE symbol=? AND timeframe=? AND signal=? AND closed=0
+        LIMIT 1
+    """, (symbol, timeframe, sig_type))
+    if cur.fetchone():
+        logger.info(f"[DUPLICATE] {symbol}/{timeframe} {sig_type} sudah ada posisi terbuka, skip")
+        conn.close()
+        return
+    
     now = datetime.now(WIB).isoformat()
     cur.execute("""INSERT INTO virtual_trades
         (timestamp, symbol, signal, entry, sl, tp1, tp2, tp3, timeframe)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (now, signal.get("symbol"), signal.get("signal"),
+        (now, symbol, sig_type,
          signal.get("entry", 0), signal.get("sl", 0),
          signal.get("tp1", 0), signal.get("tp2", 0),
-         signal.get("tp3", 0), signal.get("timeframe", "")))
+         signal.get("tp3", 0), timeframe))
     conn.commit()
     conn.close()
 
-def close_virtual_trade(symbol: str, signal_type: str, exit_price: float, pnl_pct: float):
-    """Tutup trade virtual dan update balance"""
+    # Sinkronisasi ke risk_manager supaya /status di Telegram akurat
+    try:
+        from risk_manager import open_position
+        open_position(
+            symbol=symbol,
+            timeframe=timeframe,
+            signal=sig_type,
+            risk_pct=2.0,
+        )
+    except Exception as e:
+        logger.warning(f"[RISK_SYNC] Gagal open_position: {e}")
+
+def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float):
+    """Tutup trade virtual & catat hasil"""
     init_db()
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
-
-    # Ambil balance sekarang
-    cur.execute("SELECT balance, peak_balance, total_trades, total_wins, total_losses FROM virtual_balance WHERE id=1")
-    row = cur.fetchone()
-    balance, peak, total, wins, losses = row
-
-    # Hitung PnL dalam USD (risk 2% per trade)
-    risk_usd = balance * 0.02
-    pnl_usd = round(risk_usd * (pnl_pct / 100.0), 2)
-    new_balance = round(balance + pnl_usd, 2)
-    new_peak = max(peak, new_balance)
-    result = "WIN" if pnl_pct > 0 else "LOSS"
-    new_wins = wins + (1 if result == "WIN" else 0)
-    new_losses = losses + (1 if result == "LOSS" else 0)
     now = datetime.now(WIB).isoformat()
-
-    # Update trade
-    cur.execute("""UPDATE virtual_trades SET
-        exit_price=?, pnl_pct=?, pnl_usd=?, result=?, balance_after=?
-        WHERE symbol=? AND signal=? AND exit_price IS NULL
-        ORDER BY id DESC LIMIT 1""",
-        (exit_price, pnl_pct, pnl_usd, result, new_balance, symbol, signal_type))
-
-    # Update balance
-    cur.execute("""UPDATE virtual_balance SET
-        balance=?, peak_balance=?, total_trades=?, total_wins=?, total_losses=?, updated_at=?
-        WHERE id=1""",
-        (new_balance, new_peak, total+1, new_wins, new_losses, now))
-
+    
+    # Ambil trade yang masih open
+    cur.execute("""
+        SELECT id, entry FROM virtual_trades
+        WHERE symbol=? AND timeframe=? AND signal=? AND closed=0
+        ORDER BY timestamp DESC LIMIT 1
+    """, (symbol, timeframe, signal))
+    row = cur.fetchone()
+    
+    if not row:
+        logger.warning(f"No open trade found for {symbol}/{timeframe}/{signal}")
+        conn.close()
+        return
+    
+    trade_id, entry = row
+    
+    # Hitung pnl_usdt (asumsi $25 per virtual trade)
+    trade_amount = 25.0
+    pnl_usdt = trade_amount * pnl_pct / 100.0
+    
+    # Exit price
+    if pnl_pct >= 0:
+        exit_price = entry * (1 + pnl_pct / 100)
+    else:
+        exit_price = entry * (1 + pnl_pct / 100)
+    
+    cur.execute("""
+        UPDATE virtual_trades SET
+            closed=1, exit=?, pnl_pct=?, pnl_usdt=?,
+            closed_at=?
+        WHERE id=?
+    """, (exit_price, pnl_pct, pnl_usdt, now, trade_id))
+    
     conn.commit()
     conn.close()
-    return new_balance, pnl_usd
-
+    
+    status = "WIN" if pnl_pct > 0 else "LOSS"
+    logger.info(
+        f"Trade closed: {symbol}/{timeframe} {signal} | "
+        f"{status} | PnL: {pnl_pct:.2f}% / ${pnl_usdt:.2f}"
+    )
+    
+    # Sinkronisasi ke risk_manager untuk update balance & win rate
+    try:
+        from risk_manager import record_trade_result
+        win = pnl_pct > 0
+        record_trade_result(
+            symbol=symbol,
+            timeframe=timeframe,
+            signal=signal,
+            pnl_usdt=pnl_usdt,
+            win=win
+        )
+        logger.info(f"[RISK_SYNC] record_trade_result OK: {symbol} win={win}")
+    except Exception as e:
+        logger.warning(f"[RISK_SYNC] Gagal record_trade_result: {e}")
 def get_summary():
     """Ringkasan performa virtual"""
     init_db()

@@ -253,20 +253,46 @@ def job_scan():
             _daily_reset_date = today
 
         if filtered_sig:
-            sisa = MAX_SIGNALS_PER_DAY - _daily_signal_count
-            if sisa <= 0:
-                logger.warning(f"⚠️ Max sinyal harian ({MAX_SIGNALS_PER_DAY}) tercapai, skip.")
-                filtered_sig = []
-            else:
-                filtered_sig = filtered_sig[:sisa]
+#            sisa = MAX_SIGNALS_PER_DAY - _daily_signal_count
+#            if sisa <= 0:
+#                logger.warning(f"⚠️ Max sinyal harian ({MAX_SIGNALS_PER_DAY}) tercapai, skip.")
+#                filtered_sig = []
+#            else:
+#                filtered_sig = filtered_sig[:sisa]
             
-            _daily_signal_count += len(filtered_sig)
+            _daily_signal_count += len(filtered_sig)  # unlimited
             logger.info(f"📊 Sinyal hari ini: {_daily_signal_count}/{MAX_SIGNALS_PER_DAY}")
 
             if filtered_sig:
-                logger.info(f"📡 Kirim {len(filtered_sig)} sinyal ke Telegram")
-                add_log("📡", f"{len(filtered_sig)} sinyal dikirim ke Telegram")
-                send_top_signals(filtered_sig)
+                # Filter sinyal untuk virtual trade dulu
+                trade_sigs = [s for s in filtered_sig if s.get('confidence', 0) >= 55 and (s.get('win_rate', 0) >= 45 or s.get('win_rate', 0) == 0)]
+                logger.info(f"📡 {len(trade_sigs)}/{len(filtered_sig)} sinyal memenuhi syarat trade")
+                if trade_sigs:
+                    add_log("📡", f"{len(trade_sigs)} sinyal dikirim ke Telegram (conf>=60, WR>=50%)")
+                    send_top_signals(trade_sigs)
+                else:
+                    logger.info("Tidak ada sinyal yang memenuhi syarat trade, skip Telegram")
+
+                # Simpan sinyal ke database agar histori tidak hilang
+                for sig in filtered_sig:
+                    try:
+                        save_signal(sig)
+                    except Exception as e:
+                        logger.warning(f"[SAVE_SIGNAL] Error simpan {sig.get('symbol','?')}: {e}")
+            # Virtual Trade - eksekusi sinyal yang memenuhi threshold
+            # Threshold: conf >= 55, WR >= 45% ATAU WR == 0 (data tidak cukup)
+            try:
+                from virtual_trader import add_virtual_trade
+                from exit_monitor import add_trade as exit_add_trade
+                for sig in filtered_sig:
+                    conf = sig.get("confidence", 0)
+                    wr = sig.get("win_rate", 0)
+                    if conf >= 55 and (wr >= 45 or wr == 0):
+                        add_virtual_trade(sig)
+                        exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
+                        logger.info(f"[TRADE] {sig["symbol"]} {sig["signal"]} conf={conf} WR={wr}%")
+            except Exception as e:
+                logger.warning(f"[TRADE] Error: {e}")
 
     except Exception as e:
         logger.error(f"❌ Error di job_scan: {e}", exc_info=True)
