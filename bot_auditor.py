@@ -114,3 +114,31 @@ def run_audit():
 
 if __name__ == "__main__":
     run_audit()
+
+def get_summary_today():
+    """Return ringkasan trading hari ini untuk /health"""
+    from datetime import datetime
+    try:
+        db = get_db()
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        # Ambil trades hari ini - sesuaikan query sama struktur DB lo
+        trades = db.get(f"trades_{today}") if hasattr(db, 'get') else []
+        
+        if not trades:
+            return {'status': '✅ Online', 'date': today, 'total_trades': 0}
+        
+        wins = sum(1 for t in trades if t.get('is_win'))
+        total = len(trades)
+        
+        return {
+            'status': '✅ Running',
+            'date': today,
+            'total_trades': total,
+            'wins': wins,
+            'losses': total - wins,
+            'win_rate': f"{(wins/total*100):.1f}%" if total else 'N/A',
+            'active_positions': sum(1 for t in trades if t.get('status') == 'open')
+        }
+    except Exception as e:
+        return {'status': f'⚠️ {str(e)}', 'date': datetime.now().strftime("%Y-%m-%d")}

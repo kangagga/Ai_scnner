@@ -27,6 +27,36 @@ def _load_trades():
             logger.info(f"✅ {len(_active_trades)} trade dimuat dari file")
         except: pass
 
+    # FIX: reconcile dengan database - tambahkan posisi yang closed=0 di DB
+    # tapi hilang dari active_trades.json (misal karena crash/restart yang tidak sinkron)
+    try:
+        import sqlite3
+        from virtual_trader import VIRTUAL_DB
+        conn = sqlite3.connect(VIRTUAL_DB)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT symbol, timeframe, signal, entry, sl, tp1, tp2, tp3
+            FROM virtual_trades WHERE closed=0
+        """)
+        rows = cur.fetchall()
+        conn.close()
+
+        recovered = 0
+        for symbol, tf, sig, entry, sl, tp1, tp2, tp3 in rows:
+            key = f"{symbol}_{tf}"
+            if key not in _active_trades:
+                _active_trades[key] = {
+                    "entry": entry, "sl": sl,
+                    "tp1": tp1, "tp2": tp2, "tp3": tp3,
+                    "signal": sig, "timeframe": tf, "symbol": symbol,
+                }
+                recovered += 1
+        if recovered:
+            logger.info(f"🔧 [RECONCILE] {recovered} posisi dipulihkan dari DB ke active_trades")
+            _save_trades()
+    except Exception as _e:
+        logger.warning(f"[RECONCILE] Gagal sinkronisasi dengan DB: {_e}")
+
 _load_trades()
 
 def add_trade(signal: dict):
@@ -108,8 +138,8 @@ def check_exits(send_alert_fn):
                 hit = ("TP1 HIT", trade["tp1"])
         if hit:
             label, target = hit
-            is_profit = "SL" not in label
-            emoji_result = "✅" if is_profit else "❌"
+            is_profit = False  # placeholder, dihitung ulang di bawah setelah pnl_pct final
+            emoji_result = "❌"  # placeholder, dihitung ulang di bawah
             pnl_pct = round((price - trade["entry"]) / trade["entry"] * 100, 2)
             if not trade["signal"].startswith("BUY"):
                 pnl_pct = -pnl_pct
@@ -121,6 +151,14 @@ def check_exits(send_alert_fn):
             elif "STOP LOSS" in label and pnl_pct > 0:
                 label = "TRAILING STOP"
                 emoji_result = "✅"
+            # FIX: hitung ulang is_profit & emoji_result dari pnl_pct AKTUAL
+            is_profit = pnl_pct > 0
+            if "TP" in label and is_profit:
+                emoji_result = "💰"
+            elif is_profit:
+                emoji_result = "✅"
+            else:
+                emoji_result = "❌"
 
             msg = (
                 f"{emoji_result} <b>{label}</b>\n"
@@ -130,7 +168,7 @@ def check_exits(send_alert_fn):
                 f"💰 Entry  : {trade['entry']}\n"
                 f"🎯 Target : {target}\n"
                 f"📈 Harga  : {price}\n"
-                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}%\n"
+                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round(25.0 * pnl_pct / 100.0, 2)})\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 AI Signal Bot"
             )

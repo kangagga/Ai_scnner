@@ -123,6 +123,10 @@ def format_signal(s: dict) -> str:
     else:
         alert_level = "🟢 WATCHLIST"
 
+    # FIX: tandai sinyal yang ternyata duplicate (posisi sudah terbuka, tidak dieksekusi)
+    if s.get("is_duplicate"):
+        alert_level = "⚠️ SKIPPED - DUPLICATE"
+
     bar = "█" * int(score / 10) + "░" * (10 - int(score / 10))
 
     rsi_val = s.get("rsi", 50)
@@ -131,6 +135,17 @@ def format_signal(s: dict) -> str:
              else f"({rsi_val})")
 
     win_rate = s.get("win_rate", 0)  # <- ini solusi error sebelumnya
+    data_quality   = s.get("data_quality", None)
+    similar_cases  = s.get("similar_cases", 0)
+    is_default     = s.get("is_default", True)
+    if is_default or data_quality is None:
+        wr_quality_tag = "⚪(no data)"
+    elif data_quality == "HIGH":
+        wr_quality_tag = f"🟢(n={similar_cases})"
+    elif data_quality == "MEDIUM":
+        wr_quality_tag = f"🟡(n={similar_cases})"
+    else:
+        wr_quality_tag = f"🔴(n={similar_cases}, sample kecil)"
 
     return (
         f"{'━'*30}\n"
@@ -140,7 +155,7 @@ def format_signal(s: dict) -> str:
         f"🌍 Regime  : {s.get('regime_emoji', '➡️')} <b>{s.get('regime', 'UNKNOWN')}</b> | ADX:{s.get('regime_adx', 0)} | {s.get('regime_advice', '')}\n"
         f"📊 Sinyal  : <b>{s.get('signal', 'NEUTRAL')}</b>\n"
         f"🎯 Score   : {score}/100  [{bar}]\n"
-        f"📈 WinRate : <b>{win_rate}%</b>\n\n"
+        f"📈 WinRate : <b>{win_rate}%</b> {wr_quality_tag}\n\n"
         f"💰 Entry   : <code>{fmt_price(s.get('entry', 0))}</code>\n"
         f"🛑 SL      : <code>{fmt_price(s.get('sl', 0))}</code>\n"
         f"✅ TP1     : <code>{fmt_price(s.get('tp1', 0))}</code> (50% close)\n"

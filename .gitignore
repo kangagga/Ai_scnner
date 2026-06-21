@@ -6,3 +6,9 @@ __pycache__/
 *.bak
 *.bak_new
 *.zip
+*.db
+*.json
+__pycache__/
+*.lock
+start_bot.sh
+config.py

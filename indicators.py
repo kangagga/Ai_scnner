@@ -501,6 +501,7 @@ def institutional_ai_v4(df):
         data['trend_up_weak'] &
         (data['rsi'] > 35) & (data['rsi'] < 65) &
         (data['adx'] < 25) &
+        (data['macd_hist'] > 0) &   # FIX: jangan BUY setup kalau histogram masih bearish
     (data['shooting_star'] == 0) &
     (data['evening_star'] == 0) &
     (data['bear_engulf'] == 0)
@@ -515,6 +516,7 @@ def institutional_ai_v4(df):
         data['trend_down_weak'] &
         (data['rsi'] > 25) & (data['rsi'] < 65) &   # was 35–65
         (data['adx'] < 25) &
+        (data['macd_hist'] < 0) &   # FIX: jangan SELL setup kalau histogram masih bullish
     (data['hammer'] == 0) &
     (data['morning_star'] == 0) &
     (data['bull_engulf'] == 0)
@@ -525,7 +527,9 @@ def institutional_ai_v4(df):
         (data['buy_combined'] >= 40) &
         data['vol_expansion'] &
         data['trend_up_weak'] &
-        (data['rsi'] > 45) & (data['rsi'] < 78)
+        (data['rsi'] > 45) & (data['rsi'] < 78) &
+        (data['macd_hist'] > 0)
+        & ~((data['rsi'] > 70) & ((data['adx'] > 60) | (data['stoch_k'] > 90)))   # FIX: blok BUY saat RSI tinggi + (ADX parabolic ATAU Stoch ekstrem)
     )
 
     # -- SELL BREAKOUT (konfirmasi volume expansion) --
@@ -533,7 +537,8 @@ def institutional_ai_v4(df):
         (data['sell_combined'] >= 40) &
         data['vol_expansion'] &
         data['trend_down_weak'] &
-        (data['rsi'] < 65) & (data['rsi'] > 20)
+        (data['rsi'] < 65) & (data['rsi'] > 20) &
+        (data['macd_hist'] < 0)   # FIX: jangan SELL kalau histogram MACD masih bullish
     )
 
     # -- BUY MOMENTUM (FIX v8: fallback tanpa vol_expansion) --
@@ -542,7 +547,9 @@ def institutional_ai_v4(df):
         (data['buy_combined'] >= 40) &
         (data['vol_ratio'] > 0.5) &
         data['trend_up_weak'] &
-        (data['rsi'] > 35) & (data['rsi'] < 80)
+        (data['rsi'] > 35) & (data['rsi'] < 80) &
+        (data['macd_hist'] > 0)
+        & ~((data['rsi'] > 70) & ((data['adx'] > 60) | (data['stoch_k'] > 90)))   # FIX: blok BUY saat RSI tinggi + (ADX parabolic ATAU Stoch ekstrem)
     )
 
     # -- SELL MOMENTUM (FIX v8: fallback tanpa vol_expansion) --
@@ -551,7 +558,8 @@ def institutional_ai_v4(df):
         (data['sell_combined'] >= 40) &
         (data['vol_ratio'] > 0.05) &
         data['trend_down_weak'] &
-        (data['rsi'] < 70) & (data['rsi'] > 15)
+        (data['rsi'] < 70) & (data['rsi'] > 15) &
+        (data['macd_hist'] < 0)   # FIX: jangan SELL kalau histogram MACD masih bullish
     )
 
     # -- BUY KONFIRMASI PENUH --

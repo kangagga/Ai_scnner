@@ -8,6 +8,24 @@ WIB = timezone(timedelta(hours=7))
 VIRTUAL_DB = "/home/userland/ai-scanner/virtual_trading.db"
 VIRTUAL_BALANCE = 1000.0  # Balance awal $1000
 
+def is_duplicate_position(symbol, timeframe, signal):
+    """Cek apakah sudah ada posisi terbuka untuk pair+timeframe+signal (read-only, tidak insert)."""
+    try:
+        conn = sqlite3.connect(VIRTUAL_DB)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id FROM virtual_trades
+            WHERE symbol=? AND timeframe=? AND signal=? AND closed=0
+            LIMIT 1
+        """, (symbol, timeframe, signal))
+        result = cur.fetchone()
+        conn.close()
+        return result is not None
+    except Exception as e:
+        logger.warning(f"[is_duplicate_position] Error cek {symbol}: {e}")
+        return False
+
+
 def init_db():
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
@@ -134,7 +152,7 @@ def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float
     
     cur.execute("""
         UPDATE virtual_trades SET
-            closed=1, exit=?, pnl_pct=?, pnl_usdt=?,
+            closed=1, exit_price=?, pnl_pct=?, pnl_usd=?,
             closed_at=?
         WHERE id=?
     """, (exit_price, pnl_pct, pnl_usdt, now, trade_id))

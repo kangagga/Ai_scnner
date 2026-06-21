@@ -46,7 +46,7 @@ from market_context  import get_market_context
 from telegram_sender import send_top_signals, send_daily_report, send_test_message, send_alert, handle_commands, \
                              LAST_SIGNALS, COOLDOWN_MINUTES
 from email_reporter  import send_email_report
-from database        import save_signal
+from database        import save_signal, get_today_signals
 from exit_monitor    import add_trade, start_exit_monitor
 from api_server      import start_api, update_signals, add_log, \
                              update_cooldowns, set_config
@@ -266,6 +266,16 @@ def job_scan():
             if filtered_sig:
                 # Filter sinyal untuk virtual trade dulu
                 trade_sigs = [s for s in filtered_sig if s.get('confidence', 0) >= 55 and (s.get('win_rate', 0) >= 45 or s.get('win_rate', 0) == 0)]
+
+                # FIX: tandai sinyal yang sebenarnya duplicate (posisi sudah terbuka) SEBELUM kirim notif
+                try:
+                    from virtual_trader import is_duplicate_position
+                    for _sig in trade_sigs:
+                        _sig['is_duplicate'] = is_duplicate_position(
+                            _sig.get('symbol'), _sig.get('timeframe'), _sig.get('signal')
+                        )
+                except Exception as _e:
+                    logger.warning(f"[DUP_CHECK] Error tandai duplicate: {_e}")
                 logger.info(f"📡 {len(trade_sigs)}/{len(filtered_sig)} sinyal memenuhi syarat trade")
                 if trade_sigs:
                     add_log("📡", f"{len(trade_sigs)} sinyal dikirim ke Telegram (conf>=60, WR>=50%)")
@@ -303,7 +313,20 @@ def job_daily_report():
     """Generate daily report"""
     logger.info("📊 Generating daily report...")
     try:
-        send_daily_report()
+        signals = get_today_signals()
+        try:
+            ai_analysis = analyse_market_sentiment(signals) if signals else "Tidak ada sinyal aktif hari ini."
+        except Exception as _e:
+            logger.warning(f"[DAILY_REPORT] ai_analysis gagal: {_e}")
+            ai_analysis = "Analisa AI tidak tersedia."
+
+        send_daily_report(signals, ai_analysis)
+
+        try:
+            send_email_report(signals, ai_analysis)
+            logger.info("📧 Email report terkirim")
+        except Exception as _e:
+            logger.error(f"❌ Error kirim email report: {_e}")
     except Exception as e:
         logger.error(f"❌ Error di job_daily_report: {e}")
 

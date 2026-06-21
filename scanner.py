@@ -47,6 +47,57 @@ VALID_SIGNALS = {
 
 _last_signal_state: Dict[str, tuple] = {}
 _signal_state_lock = threading.Lock()
+
+def _init_cooldown_table():
+    import sqlite3 as _sq
+    try:
+        _c = _sq.connect("signals.db")
+        _c.execute("""
+            CREATE TABLE IF NOT EXISTS signal_cooldown (
+                key TEXT PRIMARY KEY,
+                signal_type TEXT,
+                last_time TEXT
+            )
+        """)
+        _c.commit()
+        _c.close()
+    except Exception as _e:
+        logger.warning(f"[COOLDOWN] init table gagal - {_e}")
+
+def _load_cooldown_state():
+    import sqlite3 as _sq
+    try:
+        _c = _sq.connect("signals.db")
+        rows = _c.execute("SELECT key, signal_type, last_time FROM signal_cooldown").fetchall()
+        _c.close()
+        loaded = {}
+        for key, sig_type, last_time_str in rows:
+            try:
+                loaded[key] = (sig_type, datetime.fromisoformat(last_time_str))
+            except Exception:
+                continue
+        return loaded
+    except Exception as _e:
+        logger.warning(f"[COOLDOWN] load state gagal - {_e}")
+        return {}
+
+def _save_cooldown_state(key, signal_type, last_time):
+    import sqlite3 as _sq
+    try:
+        _c = _sq.connect("signals.db")
+        _c.execute(
+            "INSERT INTO signal_cooldown (key, signal_type, last_time) VALUES (?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET signal_type=excluded.signal_type, last_time=excluded.last_time",
+            (key, signal_type, last_time.isoformat())
+        )
+        _c.commit()
+        _c.close()
+    except Exception as _e:
+        logger.warning(f"[COOLDOWN] save state gagal - {_e}")
+
+_init_cooldown_table()
+_last_signal_state.update(_load_cooldown_state())
+logger.info(f"[COOLDOWN] State loaded - {len(_last_signal_state)} entries")
 _fetch_cache: Dict[str, tuple] = {}
 _cache_lock   = threading.Lock()
 _indicator_cache: Dict[str, pd.DataFrame] = {}
@@ -153,12 +204,14 @@ def _is_duplicate(symbol, timeframe, signal_type, confidence):
         state = _last_signal_state.get(key)
         if state is None:
             _last_signal_state[key] = (signal_type, now)
+            _save_cooldown_state(key, signal_type, now)
             return False
         prev_type, last_time = state
         delta = (now - last_time).total_seconds() / 60.0
         if delta < cooldown:
             return True
         _last_signal_state[key] = (signal_type, now)
+        _save_cooldown_state(key, signal_type, now)
         return False
 
 def _analyse_single(symbol, timeframe, min_score=0):
@@ -379,6 +432,38 @@ def _analyse_single(symbol, timeframe, min_score=0):
     pivot      = round(
         (_safe(last.get("high",0)) + _safe(last.get("low",0)) + _safe(last.get("close",0))) / 3, 8
     )
+
+    # ── FIX: FILTER CROSS-TIMEFRAME 4H (cegah entry di exhaustion struktural) ──
+    # Soft penalty: kurangi confidence jika candle 4H terakhir bearish DAN
+    # harga dekat resistance 4H, sementara sinyal 1H BUY (atau sebaliknya untuk SELL)
+    try:
+        if timeframe == "1h" and signal.startswith(("BUY", "SELL")):
+            df_4h = _fetch_with_retry(symbol, "4h", limit=100)
+            if df_4h is not None and len(df_4h) >= 30:
+                df_4h = _cast_df(df_4h)
+                df_4h_ind = institutional_ai_v4(df_4h)
+                last_4h = df_4h_ind.iloc[-1]
+                close_4h = _safe(last_4h.get("close", 0))
+                open_4h  = _safe(last_4h.get("open", 0))
+                res_4h   = _safe(last_4h.get("resistance", 0))
+                sup_4h   = _safe(last_4h.get("support", 0))
+                bearish_4h = close_4h < open_4h
+                bullish_4h = close_4h > open_4h
+                near_res_4h = res_4h > 0 and abs(close_4h - res_4h) / close_4h < 0.01
+                near_sup_4h = sup_4h > 0 and abs(close_4h - sup_4h) / close_4h < 0.01
+
+                penalty = 0
+                if signal.startswith("BUY") and bearish_4h and near_res_4h:
+                    penalty = 15
+                    logger.info(f"[4H_FILTER] {symbol}: BUY 1H tapi 4H bearish dekat resistance — confidence -{penalty}")
+                elif signal.startswith("SELL") and bullish_4h and near_sup_4h:
+                    penalty = 15
+                    logger.info(f"[4H_FILTER] {symbol}: SELL 1H tapi 4H bullish dekat support — confidence -{penalty}")
+
+                if penalty > 0:
+                    confidence = max(0, confidence - penalty)
+    except Exception as _e:
+        logger.debug(f"[4H_FILTER] Error {symbol}: {_e}")
 
     return {
         "symbol"             : symbol,

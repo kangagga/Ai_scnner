@@ -109,10 +109,15 @@ class RiskState:
                     self.trade_history = []  # akan diisi per-trade jika diperlukan nanti
                     
                     # Ambil open positions dari database
-                    cur.execute("SELECT symbol, timeframe, signal FROM virtual_trades WHERE closed=0")
-                    for sym, tf, sig in cur.fetchall():
+                    cur.execute("SELECT symbol, timeframe, signal, entry, sl FROM virtual_trades WHERE closed=0")
+                    for sym, tf, sig, entry, sl in cur.fetchall():
                         key = f"{sym}_{tf}_{sig}"
-                        self.open_positions[key] = {"symbol": sym, "timeframe": tf, "signal": sig}
+                        # FIX: simpan risk_pct (float) bukan dict, biar konsisten dgn add_position()
+                        try:
+                            risk_pct = abs(entry - sl) / entry * 100 if entry else 0.0
+                        except (TypeError, ZeroDivisionError):
+                            risk_pct = 0.0
+                        self.open_positions[key] = risk_pct
                     
                     conn.close()
                     loaded = True

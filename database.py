@@ -82,6 +82,23 @@ def get_recent_signals(limit=50):
         logger.warning(f"get_recent_signals error: {e}")
         return []
 
+def get_today_signals():
+    """Ambil semua sinyal yang masuk hari ini (untuk daily report)."""
+    try:
+        conn = get_conn()
+        c = conn.cursor()
+        c.execute("SELECT * FROM signals WHERE date(timestamp) = date('now', 'localtime') ORDER BY confidence DESC")
+        rows = [dict(r) for r in c.fetchall()]
+        conn.close()
+        # FIX: alias 'confidence' -> 'score' untuk kompatibilitas dengan email_reporter/telegram_sender
+        for r in rows:
+            r.setdefault("score", r.get("confidence", 0))
+        return rows
+    except Exception as e:
+        logger.warning(f"get_today_signals error: {e}")
+        return []
+
+
 init_db()
 
 def update_signal_result(symbol: str, signal: str, entry: float, exit_price: float):
@@ -91,10 +108,27 @@ def update_signal_result(symbol: str, signal: str, entry: float, exit_price: flo
         result = "WIN" if pnl > 0 else "LOSS"
         conn = get_conn()
         c = conn.cursor()
+        # Ambil context pasar saat ini untuk AI learning
+        try:
+            from market_context import get_market_context
+            ctx       = get_market_context()
+            fg_value  = ctx.get("fear_greed", {}).get("value", 0)
+            btc_trend = ctx.get("btc_trend", {}).get("trend", "")
+        except:
+            fg_value = 0; btc_trend = ""
+
         c.execute("""
-            INSERT INTO performance (timestamp, symbol, signal, entry, exit_price, pnl_pct, result)
-            VALUES (?,?,?,?,?,?,?)
-        """, (datetime.now().isoformat(), symbol, signal, entry, exit_price, round(pnl, 2), result))
+            INSERT INTO performance (
+                timestamp, symbol, signal, entry, exit_price, pnl_pct, result,
+                timeframe, fg_value, btc_trend
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (
+            datetime.now().isoformat(), symbol, signal, entry, exit_price,
+            round(pnl, 2), result,
+            timeframe if "timeframe" in dir() else "",
+            fg_value, btc_trend
+        ))
         conn.commit()
         conn.close()
         logger.info(f"📊 Result saved: {symbol} {signal} PnL={pnl:.2f}% {result}")
