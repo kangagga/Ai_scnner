@@ -8,9 +8,7 @@ _BASE  = "https://api.gateio.ws/api/v4"
 _CACHE = {}
 _TTL   = 120  # 2 menit
 
-MIN_LIQUIDITY_USD = 10_000   # minimum $10K liquidity di orderbook
-MAX_SPREAD_PCT    = 0.5      # maximum 0.5% spread
-MIN_DAILY_VOL_USD = 100_000  # minimum $100K volume 24h
+from config import MIN_LIQUIDITY_USD, MAX_SPREAD_PCT, MIN_DAILY_VOL_USD
 
 def _get_price(symbol: str) -> float:
     key = f"price_{symbol}"

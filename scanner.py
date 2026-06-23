@@ -33,6 +33,7 @@ try:
 except ImportError:
     SMC_AVAILABLE = False
 
+from validators import validate_signal_dict, validate_trade_params
 from config import (
     WATCHLIST, TIMEFRAMES, PAIR_LIMIT, SIGNAL_THRESHOLD,
     ACCOUNT_BALANCE, RISK_PER_TRADE,
@@ -313,7 +314,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
             "RANGING":  {"BUY": 0.85, "SELL": 0.85},   # sideways — kurangi confidence trend-following
             "VOLATILE": {"BUY": 0.70, "SELL": 0.70},   # volatil ekstrem — sangat hati-hati
             "NEUTRAL":  {"BUY": 1.00, "SELL": 1.00},
-            "UNKNOWN":  {"BUY": 0.50, "SELL": 0.50},   # data tidak jelas — sangat dikurangi
+            "UNKNOWN":  {"BUY": 0.85, "SELL": 0.85},   # relaxed sementara
         }
         _direction = "BUY" if signal.startswith("BUY") else "SELL"
         _mult = ADAPTIVE_MULT.get(_regime, {}).get(_direction, 1.0)
@@ -328,11 +329,11 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
     # Min confidence per signal type
     MIN_CONF = {
-        "BUY"            : 50,
-        "SELL"           : 35,
-        "BUY (SETUP)"    : 45,
-        "SELL (SETUP)"   : 45,
-        "BUY (REVERSAL)" : 55,
+        "BUY"            : 35,
+        "SELL"           : 25,
+        "BUY (SETUP)"    : 30,
+        "SELL (SETUP)"   : 30,
+        "BUY (REVERSAL)" : 40,
     }
     if confidence < MIN_CONF.get(signal, 35):
         return None
@@ -406,7 +407,10 @@ def _analyse_single(symbol, timeframe, min_score=0):
     elif not signal.startswith("BUY") and (sl - entry) > max_sl:
         sl = round(entry + max_sl, 8)
 
-    tp_levels = _calculate_tp_levels(
+    # Guard: smc_data mungkin belum diinisialisasi di titik ini
+    if "smc_data" not in dir():
+        smc_data = {}
+        tp_levels = _calculate_tp_levels(
         entry, sl, signal,
         atr=_safe(last.get("atr", 0)),
         regime=regime.get("regime", "NEUTRAL") if isinstance(regime, dict) else "NEUTRAL",
@@ -618,7 +622,13 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
 
 
-    return {
+    # ── Validasi trade params ──
+    _valid, _vreason = validate_trade_params(entry, sl, tp1, signal)
+    if not _valid:
+        logger.warning(f"[VALID] {symbol}/{timeframe} ditolak: {_vreason}")
+        return None
+
+    return validate_signal_dict({
         "symbol"             : symbol,
         "timeframe"          : timeframe,
         "signal"             : signal,
@@ -687,14 +697,14 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "resistance"         : resistance,
         "support"            : support,
         "pivot"              : pivot,
-    }
+    })
 
 def scan_all_fast(symbols=None, timeframe="all", min_score=0):
     ctx = get_market_context()
-    print(f"\n📊 Market Context: {ctx['summary']}")
+    logger.info(f"Market Context: {ctx['summary']}")
 
     from risk_manager import print_risk_status
-    print_risk_status()
+    logger.info("[RISK] " + str(get_risk_status()) if callable(globals().get("get_risk_status")) else "")
 
     if symbols is None:
         try:

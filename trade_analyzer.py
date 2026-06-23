@@ -8,6 +8,7 @@ from pathlib import Path
 DB_PATH = "virtual_trading.db"
 
 def load_trades():
+    """Load trades untuk analisa statistik (win rate, profit factor, dll)"""
     conn = sqlite3.connect(DB_PATH)
     df = pd.read_sql_query(
         "SELECT * FROM virtual_trades WHERE closed=1 AND result IN ('WIN','LOSS')",

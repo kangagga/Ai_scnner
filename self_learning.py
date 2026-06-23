@@ -119,7 +119,9 @@ def retrain_with_protection() -> dict:
 
     return result
 
-def run_self_learning(retrain_every_n: int = 50) -> dict:
+from config import RETRAIN_EVERY_N, XGB_ROLLBACK_THRESH
+
+def run_self_learning(retrain_every_n: int = RETRAIN_EVERY_N) -> dict:
     """Entry point dari main.py"""
     if not should_retrain(retrain_every_n):
         return {"status": "skipped", "message": "Belum cukup trade baru"}

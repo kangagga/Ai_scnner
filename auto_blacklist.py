@@ -4,18 +4,18 @@ Dijalankan periodik oleh main.py
 """
 import sqlite3, logging
 from datetime import datetime, timedelta
+from blacklist import is_blacklisted, add_to_blacklist as _bl_add
+from config import (
+    BLACKLIST_DAYS, BLACKLIST_MIN_TRADES as MIN_TRADES,
+    BLACKLIST_MAX_WR as MAX_WINRATE,
+    BLACKLIST_MAX_LOSS as CONSECUTIVE_LOSS,
+)
 
 logger = logging.getLogger(__name__)
 
 VIRTUAL_DB  = "virtual_trading.db"
 SIGNALS_DB  = "signals.db"
-
-# Kriteria blacklist
-MIN_TRADES        = 5    # minimum trades sebelum dievaluasi
-MAX_WINRATE       = 30   # winrate < 30% → kandidat blacklist
-MAX_AVG_LOSS      = -2.0 # avg PnL < -2% → kandidat blacklist
-BLACKLIST_DAYS    = 7    # blacklist selama 7 hari
-CONSECUTIVE_LOSS  = 4    # 4 loss berturut → langsung blacklist
+MAX_AVG_LOSS = -2.0
 
 def get_pair_stats(days_back: int = 14) -> list:
     """Ambil statistik per pair dari N hari terakhir"""
@@ -56,13 +56,7 @@ def get_consecutive_losses(symbol: str) -> int:
             break
     return count
 
-def is_blacklisted(symbol: str) -> bool:
-    """Cek apakah pair masih dalam blacklist — pakai blacklist.py"""
-    try:
-        from blacklist import is_blacklisted as _is_bl
-        return _is_bl(symbol)
-    except Exception:
-        return False
+# is_blacklisted() → gunakan langsung dari blacklist.py
 
 def add_to_blacklist(symbol: str, reason: str, days: int = BLACKLIST_DAYS):
     """Tambahkan pair ke blacklist — pakai blacklist.py (JSON)"""

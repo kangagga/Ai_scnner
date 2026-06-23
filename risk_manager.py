@@ -37,7 +37,7 @@ except ImportError:
 MAX_RISK_PER_TRADE   = 2.0
 MIN_RISK_PER_TRADE   = 0.25
 KELLY_FRACTION       = 0.25
-MAX_PORTFOLIO_HEAT   = 6.0
+MAX_PORTFOLIO_HEAT   = 20.0  # 10 trades × 2% untuk uji bot
 MAX_DAILY_LOSS_PCT   = 5.0
 MAX_CONSECUTIVE_LOSS = 3
 MAX_DRAWDOWN_PCT     = 15.0
@@ -235,7 +235,7 @@ class RiskState:
         return sum(self.open_positions.values())
 
     def add_position(self, key: str, risk_pct: float):
-        self.open_positions[key] = risk_pct
+        self.open_positions[key] = round(risk_pct, 2)  # fix floating point
         self.save()
 
     def remove_position(self, key: str):

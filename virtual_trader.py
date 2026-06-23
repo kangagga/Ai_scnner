@@ -26,7 +26,7 @@ def is_duplicate_position(symbol, timeframe, signal):
         return False
 
 
-def init_db():
+def init_virtual_db():
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
     cur.executescript("""
@@ -75,7 +75,7 @@ def get_balance():
 
 def add_virtual_trade(signal: dict):
     """Tambah trade virtual saat sinyal masuk"""
-    init_db()
+    init_virtual_db()
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
     
@@ -116,7 +116,7 @@ def add_virtual_trade(signal: dict):
          signal.get("ob_imbalance", 0),
          signal.get("ob_pressure", "N/A"),
          signal.get("ob_bonus", 0),
-         signal.get("buy_sell_ratio", 1),
+         signal.get("buy_sell_ratio", 1.0),  # vp_ratio field
          signal.get("vp_bonus", 0),
          signal.get("liq_usd", 0),
          signal.get("liq_score", 5),
@@ -128,6 +128,30 @@ def add_virtual_trade(signal: dict):
          signal.get("regime", "NEUTRAL"),
          int(datetime.now().strftime("%H"))))
     conn.commit()
+
+    # ── Notifikasi Telegram saat posisi dibuka ──
+    try:
+        from telegram_sender import send_alert
+        _entry  = signal.get("entry", 0)
+        _sl     = signal.get("sl", 0)
+        _tp1    = signal.get("tp1", 0)
+        _score  = signal.get("score", 0)
+        _smc    = signal.get("smc_data", {}).get("score", 0)
+        _rr     = signal.get("rr_ratio", 0)
+        _msg = (
+            f"🚀 <b>TRADE DIBUKA</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📌 {symbol} | {timeframe} | {sig_type}\n"
+            f"💰 Entry  : <code>{_entry}</code>\n"
+            f"🛑 SL     : <code>{_sl}</code>\n"
+            f"✅ TP1    : <code>{_tp1}</code>\n"
+            f"⚖️  R:R   : 1:{_rr}\n"
+            f"🎯 Score  : {_score}/100 | SMC: {_smc}/100\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        )
+        send_alert(_msg)
+    except Exception as _ne:
+        logger.debug(f"[NOTIF] Gagal kirim notif open: {_ne}")
     conn.close()
 
     # Sinkronisasi ke risk_manager supaya /status di Telegram akurat
@@ -144,7 +168,7 @@ def add_virtual_trade(signal: dict):
 
 def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float):
     """Tutup trade virtual & catat hasil"""
-    init_db()
+    init_virtual_db()
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
     now = datetime.now(WIB).isoformat()
@@ -207,7 +231,7 @@ def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float
         logger.warning(f"[RISK_SYNC] Gagal record_trade_result: {e}")
 def get_summary():
     """Ringkasan performa virtual"""
-    init_db()
+    init_virtual_db()
     bal = get_balance()
     balance = bal["balance"]
     peak = bal["peak"]
@@ -253,9 +277,9 @@ def send_virtual_summary(send_alert_fn):
     send_alert_fn(msg)
 
 if __name__ == "__main__":
-    init_db()
+    init_virtual_db()
     s = get_summary()
-    print(f"Balance  : ${s['balance']:.2f}")
-    print(f"Profit   : ${s['profit']:.2f} ({s['profit_pct']}%)")
-    print(f"Win Rate : {s['wr']}%")
-    print(f"Total    : {s['total']} trade")
+    logger.info(f"[VT] Balance: ${s['balance']:.2f}")
+    logger.info(f"[VT] Profit: ${s['profit']:.2f} ({s['profit_pct']}%)")
+    logger.info(f"[VT] Win Rate: {s['wr']}%")
+    logger.info(f"[VT] Total trades: {s['total']}")

@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 
 ANALYSIS_PATH = "model/trade_analysis.json"
 _CACHE = {"data": None, "ts": 0}
-_TTL   = 300  # reload setiap 5 menit
+try:
+    from config import PENALTY_CACHE_TTL as _TTL
+except ImportError:
+    _TTL = 300
 
 def get_session(hour=None):
     if hour is None:

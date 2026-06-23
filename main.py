@@ -4,6 +4,7 @@
 # ============================================================
 
 import logging
+from logger_config import setup_logging, get_logger
 import os
 import sys
 import time
@@ -470,7 +471,7 @@ def run_startup_backtest(send_telegram: bool = True):
     from config import WATCHLIST
 
     symbols = WATCHLIST[:10]
-    print("\n🔬 Menjalankan backtest startup...")
+    logger.info("[STARTUP] Menjalankan backtest startup...")
 
     try:
         df = run_backtest_multi(symbols, timeframe="1h", days=30, min_confidence=45)

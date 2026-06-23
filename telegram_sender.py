@@ -144,14 +144,27 @@ def format_signal(s: dict) -> str:
     # Alert level berdasarkan score final + SMC + win rate
     smc_score = s.get("smc_data", {}).get("score", 0)
     smc_valid = s.get("smc_data", {}).get("valid", False)
-    if score >= 65 and smc_score >= 70 and smc_valid and wr >= 50:
-        alert_level = "🔴 EKSEKUSI"
-    elif score >= 55 and smc_score >= 50 and wr >= 40:
-        alert_level = "🟡 SIAP ENTRY"
-    elif score >= 45:
-        alert_level = "🟢 WATCHLIST"
+    # Jika SMC data tersedia → pakai SMC filter, jika tidak → pakai score saja
+    smc_available = smc_score > 0 or smc_valid
+    if smc_available:
+        if score >= 65 and smc_score >= 70 and smc_valid and (wr >= 50 or wr == 0):
+            alert_level = "🚀 EKSEKUSI — ENTRY SEKARANG"
+        elif score >= 55 and smc_score >= 50 and (wr >= 40 or wr == 0):
+            alert_level = "⚡ SIAP ENTRY — KONFIRMASI DULU"
+        elif score >= 45:
+            alert_level = "👀 WATCHLIST — PANTAU SAJA"
+        else:
+            alert_level = "💤 MONITOR — JANGAN ENTRY"
     else:
-        alert_level = "⚪ MONITOR"
+        # SMC belum tersedia — pakai score + wr saja
+        if score >= 65 and wr >= 45:
+            alert_level = "🚀 EKSEKUSI — ENTRY SEKARANG"
+        elif score >= 55 and wr >= 35:
+            alert_level = "⚡ SIAP ENTRY — KONFIRMASI DULU"
+        elif score >= 45:
+            alert_level = "👀 WATCHLIST — PANTAU SAJA"
+        else:
+            alert_level = "💤 MONITOR — JANGAN ENTRY"
 
     # FIX: tandai sinyal yang ternyata duplicate (posisi sudah terbuka, tidak dieksekusi)
     if s.get("is_duplicate"):

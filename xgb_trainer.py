@@ -37,6 +37,7 @@ FEATURE_COLS = [
 ]
 
 def load_trades(db_path="virtual_trading.db", min_trades=50):
+    """Load + feature engineering trades untuk XGBoost training"""
     conn = sqlite3.connect(db_path)
     df   = pd.read_sql_query(
         "SELECT * FROM virtual_trades WHERE closed=1 AND result IN ('WIN','LOSS')",

@@ -517,17 +517,14 @@ def institutional_ai_v4(df):
     # -- SELL SETUP (early, sebelum bergerak) --
     # FIX v8: RSI floor 35 → 25 (di bearish market RSI sering < 35)
     sell_setup_cond = (
-        (data['squeeze_score'] > 55) &
-        data['vol_dry_up'] &
-        (setup_sell_score >= 40) &
+        (setup_sell_score >= 35) &
         data['trend_down_weak'] &
-        (data['rsi'] > 25) & (data['rsi'] < 65) &   # was 35–65
-        (data['adx'] < 25) &
-        (data['macd_hist'] < 0) &   # FIX: jangan SELL setup kalau histogram masih bullish
-    (data['hammer'] == 0) &
-    (data['morning_star'] == 0) &
-    (data['bull_engulf'] == 0)
-    )
+        (data['rsi'] > 20) & (data['rsi'] < 72) &
+        (data['macd_hist'] < 0) &
+        (data['hammer'] == 0) &
+        (data['morning_star'] == 0) &
+        (data['bull_engulf'] == 0)
+    )  # squeeze_score & vol_dry_up dihapus — terlalu ketat di bearish market
 
     # -- BUY BREAKOUT (konfirmasi volume expansion) --
     buy_breakout_cond = (
