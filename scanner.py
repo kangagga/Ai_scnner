@@ -162,20 +162,54 @@ def _get_ema_trend(last):
     except:
         return "N/A"
 
-def _calculate_tp_levels(entry, sl, signal):
+def _calculate_tp_levels(entry, sl, signal, atr=0, regime="NEUTRAL", smc_score=0):
+    """
+    Dynamic TP berdasarkan:
+    - ATR (volatility-adjusted)
+    - Market regime (trending = TP lebih jauh)
+    - SMC score (konfirmasi kuat = TP lebih agresif)
+    """
     tp = {}
+    risk = abs(entry - sl)
+    if risk <= 0:
+        return tp
+
+    # ── Base multiplier dari regime ──
+    regime_mult = {
+        "TRENDING" : (2.0, 3.5, 5.5),   # trending = biarkan profit berlari
+        "BREAKOUT" : (1.8, 3.0, 5.0),
+        "NEUTRAL"  : (1.5, 2.5, 4.0),   # default
+        "RANGING"  : (1.2, 2.0, 3.0),   # ranging = ambil profit lebih cepat
+        "VOLATILE" : (1.0, 1.8, 2.8),   # volatile = konservatif
+    }.get(regime, (1.5, 2.5, 4.0))
+
+    m1, m2, m3 = regime_mult
+
+    # ── SMC bonus: score tinggi = TP lebih agresif ──
+    if smc_score >= 80:
+        m1 += 0.3; m2 += 0.5; m3 += 0.8
+    elif smc_score >= 60:
+        m1 += 0.1; m2 += 0.2; m3 += 0.4
+
+    # ── ATR adjustment: jika ATR tersedia, validasi TP tidak terlalu dekat ──
+    if atr > 0:
+        min_tp1 = atr * 0.8   # TP1 minimal 0.8x ATR
+        if risk * m1 < min_tp1:
+            scale = min_tp1 / (risk * m1)
+            m1 *= scale
+            m2 *= scale
+            m3 *= scale
+
     if signal.startswith("BUY"):
-        risk = entry - sl
-        if risk > 0:
-            tp["tp1"] = round(entry + risk*1.5, 8)
-            tp["tp2"] = round(entry + risk*2.5, 8)
-            tp["tp3"] = round(entry + risk*4.0, 8)
+        tp["tp1"] = round(entry + risk * m1, 8)
+        tp["tp2"] = round(entry + risk * m2, 8)
+        tp["tp3"] = round(entry + risk * m3, 8)
     else:
-        risk = sl - entry
-        if risk > 0:
-            tp["tp1"] = round(entry - risk*1.5, 8)
-            tp["tp2"] = round(entry - risk*2.5, 8)
-            tp["tp3"] = round(entry - risk*4.0, 8)
+        tp["tp1"] = round(entry - risk * m1, 8)
+        tp["tp2"] = round(entry - risk * m2, 8)
+        tp["tp3"] = round(entry - risk * m3, 8)
+
+    tp["mult"] = (round(m1,2), round(m2,2), round(m3,2))
     return tp
 
 def _calculate_position_size(entry, sl, risk_pct, balance):
@@ -372,7 +406,12 @@ def _analyse_single(symbol, timeframe, min_score=0):
     elif not signal.startswith("BUY") and (sl - entry) > max_sl:
         sl = round(entry + max_sl, 8)
 
-    tp_levels = _calculate_tp_levels(entry, sl, signal)
+    tp_levels = _calculate_tp_levels(
+        entry, sl, signal,
+        atr=_safe(last.get("atr", 0)),
+        regime=regime.get("regime", "NEUTRAL") if isinstance(regime, dict) else "NEUTRAL",
+        smc_score=smc_data.get("score", 0) if smc_data else 0
+    )
     tp1 = tp_levels.get("tp1", entry)
     tp2 = tp_levels.get("tp2", entry)
     tp3 = tp_levels.get("tp3", entry)

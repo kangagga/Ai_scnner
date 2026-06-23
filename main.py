@@ -455,6 +455,15 @@ def job_health_check():
     except Exception as e:
         logger.error(f"❌ Health check error: {e}")
 
+    # Auto-blacklist pair konsisten loss
+    try:
+        from auto_blacklist import run_auto_blacklist
+        bl_result = run_auto_blacklist()
+        if bl_result["blacklisted"]:
+            logger.warning(f"[AUTO-BL] Diblacklist: {bl_result['blacklisted']}")
+    except Exception as e:
+        logger.error(f"❌ Auto-blacklist error: {e}")
+
 
 def run_startup_backtest(send_telegram: bool = True):
     """Jalankan backtest 30 hari untuk top 10 pair saat bot start."""

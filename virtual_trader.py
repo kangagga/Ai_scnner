@@ -97,12 +97,36 @@ def add_virtual_trade(signal: dict):
     
     now = datetime.now(WIB).isoformat()
     cur.execute("""INSERT INTO virtual_trades
-        (timestamp, symbol, signal, entry, sl, tp1, tp2, tp3, timeframe)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (timestamp, symbol, signal, entry, sl, tp1, tp2, tp3, timeframe,
+         smc_score, smc_bonus, ob_imbalance, ob_pressure, ob_bonus,
+         vp_ratio, vp_bonus, liq_usd, liq_score, liq_adj,
+         funding_rate, price_vs_vwap, score_raw, score_final,
+         regime, hour_entry)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?)""",
         (now, symbol, sig_type,
          signal.get("entry", 0), signal.get("sl", 0),
          signal.get("tp1", 0), signal.get("tp2", 0),
-         signal.get("tp3", 0), timeframe))
+         signal.get("tp3", 0), timeframe,
+         signal.get("smc_data", {}).get("score", 0),
+         signal.get("smc_bonus", 0),
+         signal.get("ob_imbalance", 0),
+         signal.get("ob_pressure", "N/A"),
+         signal.get("ob_bonus", 0),
+         signal.get("buy_sell_ratio", 1),
+         signal.get("vp_bonus", 0),
+         signal.get("liq_usd", 0),
+         signal.get("liq_score", 5),
+         signal.get("liq_adj", 0),
+         signal.get("funding_rate_ob", 0),
+         signal.get("price_vs_vwap", 0),
+         signal.get("score_raw", 0),
+         signal.get("score", 0),
+         signal.get("regime", "NEUTRAL"),
+         int(datetime.now().strftime("%H"))))
     conn.commit()
     conn.close()
 
