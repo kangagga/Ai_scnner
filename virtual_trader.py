@@ -150,12 +150,13 @@ def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float
     else:
         exit_price = entry * (1 + pnl_pct / 100)
     
+    result = "WIN" if pnl_pct > 0 else "LOSS"
     cur.execute("""
         UPDATE virtual_trades SET
-            closed=1, exit_price=?, pnl_pct=?, pnl_usd=?,
+            closed=1, exit_price=?, pnl_pct=?, pnl_usd=?, pnl_usdt=?, result=?,
             closed_at=?
         WHERE id=?
-    """, (exit_price, pnl_pct, pnl_usdt, now, trade_id))
+        """, (exit_price, pnl_pct, pnl_usdt, pnl_usdt, result, now, trade_id))
     
     conn.commit()
     conn.close()

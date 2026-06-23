@@ -203,6 +203,24 @@ def check_exits(send_alert_fn):
             except Exception as e:
                 logger.warning(f"Virtual trade error: {e}")
 
+            # FIX: post-mortem AI singkat untuk pembelajaran pola (non-blocking, gagal diam-diam)
+            try:
+                from ai_analyst import analyse_trade_postmortem
+                pm_data = {
+                    "symbol": symbol,
+                    "timeframe": trade.get("timeframe", ""),
+                    "signal": trade.get("signal", ""),
+                    "entry": trade.get("entry", 0),
+                    "sl": trade.get("sl", 0),
+                    "exit_price": price,
+                    "pnl_pct": pnl_pct,
+                }
+                pm_result = analyse_trade_postmortem(pm_data)
+                if pm_result:
+                    logger.info(f"[POSTMORTEM] {symbol}: {pm_result}")
+            except Exception as _e:
+                logger.warning(f"[POSTMORTEM] Error {symbol}: {_e}")
+
             # Cooldown setelah loss
             try:
                 if not is_profit:

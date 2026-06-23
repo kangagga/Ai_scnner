@@ -107,6 +107,29 @@ def run_audit():
             msg += "- " + i + "\n"
     else:
         msg += "\nTidak ada masalah terdeteksi"
+
+    # FIX: tambahkan analisa kualitatif Groq AI sebagai lapisan tambahan
+    try:
+        from ai_analyst import _call_groq
+        audit_summary = (
+            f"Total trade hari ini: {total}, Menang: {menang}, Kalah: {kalah}, "
+            f"Win Rate: {wr}%, Avg PnL: {avg_pnl}%, Total PnL: {total_pnl}%\n"
+            f"Masalah rule-based terdeteksi: {'; '.join(issues) if issues else 'tidak ada'}"
+        )
+        ai_prompt = (
+            f"Kamu adalah auditor sistem trading bot crypto (Bahasa Indonesia, singkat max 5 kalimat).\n"
+            f"Data audit hari ini:\n{audit_summary}\n\n"
+            f"Analisa: apakah ada pola anomali yang mencurigakan (bukan soal sinyal trading, "
+            f"tapi soal kesehatan sistem - misal performa tiba-tiba memburuk drastis, "
+            f"terlalu banyak posisi terbuka, atau pola error yang berulang)? "
+            f"Beri rekomendasi konkret jika ada yang perlu diperhatikan."
+        )
+        ai_result = _call_groq(ai_prompt, max_tokens=300)
+        if ai_result:
+            msg += "\n\n<b>🤖 Analisa AI:</b>\n" + ai_result
+    except Exception as _e:
+        msg += f"\n\n⚠️ Analisa AI gagal: {_e}"
+
     msg += "\n\nAI Signal Bot Auto Audit"
     send_alert(msg)
     print("Audit selesai")

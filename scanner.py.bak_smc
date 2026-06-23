@@ -12,17 +12,6 @@ import pandas as pd
 
 # ── SMC Layer Import ──
 try:
-    from orderbook_features import get_orderbook_features, ob_score_adjustment
-    OB_AVAILABLE = True
-except ImportError:
-    OB_AVAILABLE = False
-try:
-    from volume_profile import get_volume_profile, vp_score_adjustment
-    VP_AVAILABLE = True
-except ImportError:
-    VP_AVAILABLE = False
-
-try:
     from smc_scorer import smc_confidence, format_smc_report
     SMC_AVAILABLE = True
 except ImportError:
@@ -491,37 +480,6 @@ def _analyse_single(symbol, timeframe, min_score=0):
     except Exception as _e:
         logger.debug(f"[4H_FILTER] Error {symbol}: {_e}")
 
-
-    # ── SMC Layer (non-destructive) ──
-    smc_bonus, smc_data, smc_report = 0, {}, ""
-    if SMC_AVAILABLE:
-        try:
-            smc_data   = smc_confidence(df, signal=signal_type)
-            smc_bonus  = smc_data.get("score_adjustment", 0)
-            smc_report = format_smc_report(smc_data, symbol, signal_type)
-        except Exception as _e:
-            smc_report = f"SMC: error ({_e})"
-    # ── Orderbook + Funding Layer ──
-    ob_features = {}
-    ob_bonus    = 0
-    if OB_AVAILABLE:
-        try:
-            ob_features = get_orderbook_features(symbol)
-            ob_bonus    = ob_score_adjustment(ob_features, signal_type)
-        except Exception as _obe:
-            ob_features = {}
-    # ── Volume Profile + VWAP Layer ──
-    vp_data  = {}
-    vp_bonus = 0
-    if VP_AVAILABLE:
-        try:
-            vp_data  = get_volume_profile(symbol)
-            vp_bonus = vp_score_adjustment(vp_data, signal_type)
-        except Exception as _vpe:
-            vp_data = {}
-    confidence_final = min(100.0, round(confidence + smc_bonus + ob_bonus + vp_bonus, 1))
-
-
     return {
         "symbol"             : symbol,
         "timeframe"          : timeframe,
@@ -556,20 +514,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "regime_emoji"       : "➡️",
         "regime_adx"         : round(_safe(last.get("adx", 0)), 2),
         "regime_advice"      : "",
-        "score"              : confidence_final,
-        "score_raw"          : round(confidence, 1),
-        "smc_bonus"          : smc_bonus,
-        "smc_report"         : smc_report,
-        "smc_data"           : smc_data,
-        "ob_imbalance"       : ob_features.get("ob_imbalance", 0),
-        "ob_pressure"        : ob_features.get("ob_pressure", "N/A"),
-        "ob_spread_pct"      : ob_features.get("ob_spread_pct", 0),
-        "ob_liquidity"       : ob_features.get("ob_liquidity", 0),
-        "ob_bid_wall"        : ob_features.get("ob_bid_wall", False),
-        "ob_ask_wall"        : ob_features.get("ob_ask_wall", False),
-        "ob_bonus"           : ob_bonus,
-        "funding_rate_ob"    : ob_features.get("funding_rate", 0),
-        "funding_signal"     : ob_features.get("funding_signal", "N/A"),
+        "score"              : round(confidence, 1),
         "win_rate"           : win_rate,
         "rr_ratio"           : rr_ratio,
         "trailing_stop"      : trailing_stop,

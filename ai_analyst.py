@@ -40,6 +40,20 @@ def analyse_single_signal(signal: dict) -> str:
     prompt = f"Analisa sinyal crypto (Bahasa Indonesia):\nPair:{signal.get('symbol')} TF:{signal.get('timeframe')} Signal:{signal.get('signal')} Score:{signal.get('score')} Entry:{signal.get('entry')} SL:{signal.get('sl')} TP2:{signal.get('tp2')} RSI:{signal.get('rsi')}\nBerikan: validitas, entry optimal, strategi exit, risiko, EKSEKUSI/TUNGGU/SKIP"
     return _call_groq(prompt, max_tokens=800)
 
+def analyse_trade_postmortem(trade: dict) -> str:
+    """Analisa singkat kenapa trade ini menang/kalah, untuk pembelajaran pola."""
+    result = "WIN" if trade.get("pnl_pct", 0) > 0 else "LOSS" if trade.get("pnl_pct", 0) < 0 else "BREAKEVEN"
+    prompt = (
+        f"Analisa post-mortem trade crypto (Bahasa Indonesia, singkat max 4 kalimat):\n"
+        f"Pair:{trade.get('symbol')} TF:{trade.get('timeframe')} Signal:{trade.get('signal')} "
+        f"Entry:{trade.get('entry')} SL:{trade.get('sl')} ExitPrice:{trade.get('exit_price')} "
+        f"PnL:{trade.get('pnl_pct')}% Hasil:{result}\n"
+        f"Jelaskan singkat: kemungkinan penyebab utama hasil ini (exhaustion/slippage/momentum/false signal), "
+        f"dan satu pelajaran konkret untuk sinyal serupa ke depan."
+    )
+    return _call_groq(prompt, max_tokens=300)
+
+
 def filter_signals_ai(signals: list, market_ctx: dict = None) -> list:
     """Filter sinyal pakai Groq AI — buang yang SKIP."""
     if not signals:

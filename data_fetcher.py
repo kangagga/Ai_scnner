@@ -404,3 +404,28 @@ async def close_async_session():
     if _async_session and not _async_session.closed:
         await _async_session.close()
         _async_session = None
+
+def get_realtime_price(symbol: str) -> float:
+    """Ambil harga real-time dari Gate.io — bukan close candle."""
+    try:
+        if symbol.endswith("BTC"):
+            pair = symbol[:-3] + "_BTC"
+        elif symbol.endswith("ETH"):
+            pair = symbol[:-3] + "_ETH"
+        elif symbol.endswith("USDT"):
+            pair = symbol[:-4] + "_USDT"
+        else:
+            pair = symbol[:-4] + "_USDT"
+        import requests
+        r = requests.get(
+            "https://api.gateio.ws/api/v4/spot/tickers",
+            params={"currency_pair": pair},
+            timeout=5
+        )
+        data = r.json()
+        if data:
+            return float(data[0].get("last", 0))
+    except:
+        pass
+    return 0.0
+

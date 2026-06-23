@@ -350,18 +350,14 @@ def get_market_context() -> dict:
     btc = get_btc_trend()
 
     # Tentukan overall context
-    btc_up      = btc["trend"] == "UPTREND"
-    btc_down    = btc["trend"] == "DOWNTREND"
+    btc_up      = "UPTREND" in btc["trend"].upper()
+    btc_down    = "DOWNTREND" in btc["trend"].upper()
 
     # BTC trend prioritas utama — adaptive berdasarkan ADX
     adx_val = float(btc.get("adx", 0))
-    if btc_down and adx_val >= 40:
+    if btc_down:
         overall    = "BEARISH"
-        allow_buy  = False  # Downtrend kuat — blokir BUY
-        allow_sell = True
-    elif btc_down and adx_val < 40:
-        overall    = "BEARISH"
-        allow_buy  = True   # Downtrend lemah — izinkan BUY selektif
+        allow_buy  = True   # DOWNTREND — BUY boleh tapi butuh score sangat tinggi (filter di main.py)
         allow_sell = True
     elif btc_up:
         overall    = "BULLISH"
@@ -381,11 +377,22 @@ def get_market_context() -> dict:
         allow_buy = False
         logger.warning(f"⚠️ CIRCUIT BREAKER: BTC dump {btc_change:.2f}% — BUY diblokir sementara")
 
+    # Summary bias label yang mencerminkan kondisi sebenarnya
+    btc_upper = btc["trend"].upper()
+    if "DOWNTREND" in btc_upper:
+        buy_label  = "⚠️ BUY (score 75+)"
+        sell_label = "✅ SELL DOMINAN"
+    elif "UPTREND" in btc_upper:
+        buy_label  = "✅ BUY DOMINAN"
+        sell_label = "⚠️ SELL (score 75+)"
+    else:
+        buy_label  = "✅ BUY OK" if allow_buy else "🚫 BUY BLOCKED"
+        sell_label = "✅ SELL OK" if allow_sell else "🚫 SELL BLOCKED"
+
     summary = (
         f"BTC: {btc['emoji']} {btc['trend']} ({btc['strength']}) | "
         f"F&G: {fg['emoji']} {fg['value']} {fg['label']} | "
-        f"Bias: {'✅ BUY OK' if allow_buy else '🚫 BUY BLOCKED'} / "
-        f"{'✅ SELL OK' if allow_sell else '🚫 SELL BLOCKED'}"
+        f"Bias: {buy_label} / {sell_label}"
     )
 
     logger.info(f"Market Context: {summary}")

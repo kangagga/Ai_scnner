@@ -106,6 +106,29 @@ def fmt_price(val) -> str:
     except:
         return str(val)
 
+
+def _fmt_smc(s: dict) -> str:
+    """Tampilkan SMC block di pesan Telegram jika tersedia"""
+    report = s.get("smc_report", "")
+    bonus  = s.get("smc_bonus", 0)
+    raw    = s.get("score_raw", s.get("score", 0))
+    if not report or bonus == 0:
+        return ""
+    sign = f"+{bonus}" if bonus > 0 else str(bonus)
+    ob_b = s.get("ob_bonus", 0)
+    vp_b = s.get("vp_bonus", 0)
+    ob_s = f"{ob_b:+}(OB)" if ob_b != 0 else ""
+    vp_s = f"{vp_b:+}(VP)" if vp_b != 0 else ""
+    trail = f"{raw} {sign}"
+    if ob_s: trail += f" {ob_s}"
+    if vp_s: trail += f" {vp_s}"
+    trail += f" → <b>{s.get('score',0)}</b>"
+    return (
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{report}"
+        f"📐 Score   : {trail}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+    )
 def format_signal(s: dict) -> str:
     """Format sinyal dengan aman (semua key pakai .get)"""
     emoji = SIGNAL_EMOJI.get(s.get("signal", "NEUTRAL"), "⚪")
@@ -115,13 +138,17 @@ def format_signal(s: dict) -> str:
     conf  = s.get("confidence", 0)
     wr    = s.get("win_rate", 0)
 
-    # Alert level berdasarkan confidence + win rate
-    if conf >= 70 and wr >= 60:
-        alert_level = "🔴 HIGH CONFIDENCE"
-    elif conf >= 60 and wr >= 50:
-        alert_level = "🟡 MEDIUM CONFIDENCE"
-    else:
+    # Alert level berdasarkan score final + SMC + win rate
+    smc_score = s.get("smc_data", {}).get("score", 0)
+    smc_valid = s.get("smc_data", {}).get("valid", False)
+    if score >= 65 and smc_score >= 70 and smc_valid and wr >= 50:
+        alert_level = "🔴 EKSEKUSI"
+    elif score >= 55 and smc_score >= 50 and wr >= 40:
+        alert_level = "🟡 SIAP ENTRY"
+    elif score >= 45:
         alert_level = "🟢 WATCHLIST"
+    else:
+        alert_level = "⚪ MONITOR"
 
     # FIX: tandai sinyal yang ternyata duplicate (posisi sudah terbuka, tidak dieksekusi)
     if s.get("is_duplicate"):
@@ -169,7 +196,12 @@ def format_signal(s: dict) -> str:
         f"📐 EMA     : {s.get('ema_trend', 'N/A')}\n"
         f"📦 Volume  : {s.get('volume_label', 'N/A')} ({s.get('volume_ratio', 0)}x)\n"
         f"🎲 BB      : {s.get('bb_position', 'N/A')}\n"
-        f"🔵 Stoch   : {s.get('stoch_k', 0)} ({s.get('stoch_zone', 'N/A')})\n\n"
+        f"🔵 Stoch   : {s.get('stoch_k', 0)} ({s.get('stoch_zone', 'N/A')})\n"
+        f"📖 OB      : {s.get('ob_pressure','N/A')} (imb={s.get('ob_imbalance',0):+.2f}) | spread={s.get('ob_spread_pct',0):.3f}%\n"
+        f"💸 Funding : {s.get('funding_rate_ob',0):+.4f}% ({s.get('funding_signal','N/A')}) | OB adj={s.get('ob_bonus',0):+d}\n"
+        f"📊 VWAP    : {s.get('vwap',0):,.2f} ({s.get('price_vs_vwap',0):+.3f}%) | POC={s.get('poc_price',0):,.2f}\n"
+        f"⚖️  B/S     : {s.get('buy_sell_ratio',1):.2f} ({s.get('buy_pressure','N/A')}) | Large={s.get('large_trade_bias','N/A')} | VP adj={s.get('vp_bonus',0):+d}\n\n"
+        f"{_fmt_smc(s)}"
         f"🏔️  Resist : <code>{s.get('resistance', 'N/A')}</code>\n"
         f"🛡️  Support: <code>{s.get('support', 'N/A')}</code>\n"
         f"📌 Pivot   : <code>{s.get('pivot', 'N/A')}</code>\n"
@@ -434,6 +466,26 @@ def handle_commands(scan_fn=None):
             except Exception as e:
                 _send("❌ Virtual error: " + str(e))
 
+        elif text == "/resume":
+            try:
+                import sys
+                sys.path.insert(0, '/home/userland/ai-scanner')
+                from risk_manager import resume_trading, get_risk_status
+                resume_trading(manual=True)
+                status = get_risk_status()
+                msg = (
+                    "<b>✅ TRADING DILANJUTKAN</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"Balance: ${status.get('balance', 0):.2f}\n"
+                    f"Streak Loss: {status.get('consecutive_loss', 0)}\n"
+                    f"Drawdown: {status.get('drawdown_pct', 0):.1f}%\n\n"
+                    "Bot akan mulai entry lagi di scan berikutnya.\n"
+                    "🤖 AI Signal Bot"
+                )
+                _send(msg)
+            except Exception as e:
+                _send("❌ Resume error: " + str(e))
+
         elif text == "/help":
             _send(
                 f"🤖 <b>COMMAND TERSEDIA</b>\n{'═'*25}\n"
@@ -445,5 +497,6 @@ def handle_commands(scan_fn=None):
 "
                          "/virtual — Virtual balance\
 "
-                         "/help    — Daftar command"
+                         "/resume  — Resume trading setelah halt\n"
+                        "/help    — Daftar command"
             )

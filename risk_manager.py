@@ -330,6 +330,19 @@ def check_risk_approval(
     elif daily_loss_pct <= -MAX_DAILY_LOSS_PCT * 0.6:
         warnings.append(f"⚠️ Daily loss sudah {abs(daily_loss_pct):.1f}%, mendekati batas")
 
+    # ── 3b. Consecutive loss hard halt ─────────────────────
+    # FIX: penalty Kelly saja tidak cukup — tetap ada MIN_RISK_PER_TRADE
+    # yang membuat bot terus entry walau sudah kalah berkali-kali.
+    MAX_CONSECUTIVE_LOSS_HALT = 6
+    if _state.consecutive_loss >= MAX_CONSECUTIVE_LOSS_HALT:
+        _state.trading_halted = True
+        _state.halt_reason    = f"{_state.consecutive_loss} kali kalah beruntun — trading dihentikan sementara"
+        _state.save()
+        reasons.append(f"❌ {_state.consecutive_loss} kali kalah beruntun — melebihi batas {MAX_CONSECUTIVE_LOSS_HALT}")
+        approved = False
+    elif _state.consecutive_loss >= MAX_CONSECUTIVE_LOSS_HALT - 2:
+        warnings.append(f"⚠️ {_state.consecutive_loss} kali kalah beruntun — mendekati batas halt")
+
     # ── 4. Portfolio heat ─────────────────────────────────
     heat = _state.portfolio_heat
     if heat >= MAX_PORTFOLIO_HEAT:

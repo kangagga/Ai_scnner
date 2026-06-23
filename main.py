@@ -207,18 +207,54 @@ def job_scan():
         
         # STEP 1: Scan semua signals
         all_sig = scan_all_fast(min_score=MIN_SCORE)
+
+        # Auto-Adaptive: filter per signal_type
+        filtered_by_threshold = []
+        for _s in all_sig:
+            sig_type = _s.get("signal", "")
+            dyn_thr  = get_dynamic_threshold(market_ctx, signal_type=sig_type)
+            _s["dynamic_threshold"] = dyn_thr
+            if _s.get("confidence", 0) >= dyn_thr:
+                filtered_by_threshold.append(_s)
+
         dyn_threshold = get_dynamic_threshold(market_ctx)
-        top_sig = get_top_signals(all_sig, threshold=dyn_threshold)
+        top_sig = get_top_signals(filtered_by_threshold, threshold=0)
+
         for _s in top_sig:
-            _s["dynamic_threshold"] = dyn_threshold
+            _s["dynamic_threshold"] = _s.get("dynamic_threshold", dyn_threshold)
 
         if not top_sig:
             logger.info("⚠️  Tidak ada signals")
             update_signals([])
             return
 
-        # STEP 2: Filter correlation (TOP 3 by confidence)
-        filtered_sig = filter_correlated_signals(top_sig, max_total=3)
+        # STEP 2: Filter correlation — Trend-Following Strategy
+        btc_raw = market_ctx.get("btc_trend", {})
+        btc_trend = btc_raw.get("trend", "") if isinstance(btc_raw, dict) else str(btc_raw)
+        btc_upper = btc_trend.upper()
+
+        if "UPTREND" in btc_upper:
+            # BTC naik → dominan BUY, SELL hanya kalau score sangat tinggi
+            top_sig = [s for s in top_sig if
+                       s.get("signal","").startswith("BUY") or
+                       s.get("confidence", 0) >= 80]
+            max_buy, max_sell = 3, 1
+        elif "DOWNTREND" in btc_upper:
+            # BTC turun → dominan SELL, BUY hanya kalau score sangat tinggi
+            top_sig = [s for s in top_sig if
+                       s.get("signal","").startswith("SELL") or
+                       s.get("confidence", 0) >= 80]
+            max_buy, max_sell = 1, 3
+        else:
+            # SIDEWAYS → seimbang tapi ketat
+            max_buy, max_sell = 2, 2
+
+        # Apply rasio BUY/SELL
+        buys  = [s for s in top_sig if s.get("signal","").startswith("BUY")][:max_buy]
+        sells = [s for s in top_sig if s.get("signal","").startswith("SELL")][:max_sell]
+        top_sig = buys + sells
+
+        filtered_sig = filter_correlated_signals(top_sig, max_total=max_buy+max_sell)
         logger.info(f"📊 Signal Filter: {len(top_sig)} -> {len(filtered_sig)}")
         
         # STEP 3: Calculate position sizes (base)
@@ -294,10 +330,23 @@ def job_scan():
             try:
                 from virtual_trader import add_virtual_trade
                 from exit_monitor import add_trade as exit_add_trade
+                from risk_manager import check_risk_approval
                 for sig in filtered_sig:
                     conf = sig.get("confidence", 0)
                     wr = sig.get("win_rate", 0)
                     if conf >= 55 and (wr >= 45 or wr == 0):
+                        risk_check = check_risk_approval(
+                            symbol=sig.get("symbol"),
+                            timeframe=sig.get("timeframe"),
+                            signal=sig.get("signal"),
+                            entry=sig.get("entry", 0),
+                            sl=sig.get("sl", 0),
+                            win_rate=wr,
+                            wr_is_default=(wr == 0),
+                        )
+                        if not risk_check.get("approved"):
+                            logger.info(f"[RISK_BLOCKED] {sig.get('symbol')}: {risk_check.get('reasons')}")
+                            continue
                         add_virtual_trade(sig)
                         exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
                         logger.info(f"[TRADE] {sig["symbol"]} {sig["signal"]} conf={conf} WR={wr}%")
@@ -341,8 +390,13 @@ def job_weekly_report():
 
 
 def job_health_check():
-    """Health check every 6 hours"""
-    logger.info("💚 Health check OK")
+    """Health check every 6 hours - jalankan audit lengkap"""
+    logger.info("💚 Health check dimulai...")
+    try:
+        from bot_auditor import run_audit
+        run_audit()
+    except Exception as e:
+        logger.error(f"❌ Health check error: {e}")
 
 
 def run_startup_backtest(send_telegram: bool = True):
