@@ -70,14 +70,63 @@ _daily_reset_date = datetime.now().date()
 # POSITION SIZING & CORRELATION FILTER FUNCTIONS
 # ════════════════════════════════════════════════════════════
 
-def filter_correlated_signals(signals, max_total=3):
-    """Filter signals berdasarkan correlation (top N by confidence)"""
+def filter_correlated_signals(signals, max_total=5, max_same_direction=3):
+    """
+    Filter signals:
+    1. Max 5 posisi aktif total
+    2. Max 3 arah sama (BUY atau SELL)
+    3. Hindari pair highly correlated (cluster)
+    4. Prioritas score tertinggi
+    """
     if not signals:
         return []
-    
-    signals = sorted(signals, key=lambda x: x.get("confidence", 0), reverse=True)
-    return signals[:max_total]
 
+    CORR_CLUSTERS = {
+        "L1":     ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","AVAXUSDT","DOTUSDT"],
+        "DEFI":   ["AAVEUSDT","UNIUSDT","CRVUSDT","MKRUSDT","COMPUSDT"],
+        "MEME":   ["DOGEUSDT","SHIBUSDT","PEPEUSDT","FLOKIUSDT"],
+        "LAYER2": ["MATICUSDT","ARBUSDT","OPUSDT","LRCUSDT"],
+    }
+    MAX_PER_CLUSTER = 2
+
+    signals = sorted(signals, key=lambda x: x.get("score", x.get("confidence", 0)), reverse=True)
+
+    selected = []
+    cluster_count = {k: 0 for k in CORR_CLUSTERS}
+    buy_count = 0
+    sell_count = 0
+
+    for sig in signals:
+        if len(selected) >= max_total:
+            break
+
+        sym = sig.get("symbol", "").replace("/", "")
+        direction = "BUY" if sig.get("signal", "").startswith("BUY") else "SELL"
+
+        if direction == "BUY" and buy_count >= max_same_direction:
+            continue
+        if direction == "SELL" and sell_count >= max_same_direction:
+            continue
+
+        in_cluster = None
+        for cname, members in CORR_CLUSTERS.items():
+            if sym in members:
+                in_cluster = cname
+                break
+
+        if in_cluster and cluster_count[in_cluster] >= MAX_PER_CLUSTER:
+            continue
+
+        selected.append(sig)
+        if in_cluster:
+            cluster_count[in_cluster] += 1
+        if direction == "BUY":
+            buy_count += 1
+        else:
+            sell_count += 1
+
+    logger.info(f"[CORR] {len(selected)}/{len(signals)} sinyal lolos korelasi filter")
+    return selected
 
 def calculate_correlation_exposure(signals):
     """Hitung exposure weight berdasarkan confidence & jumlah signals"""
@@ -200,6 +249,14 @@ def job_scan():
     now_str = datetime.now().strftime("%H:%M:%S")
     logger.info(f"🔍 Scan dimulai — {now_str}")
     add_log("🔍", f"Scan dimulai — {now_str}")
+
+    # ── Self-Learning: retrain XGB + update analysis setiap 20 trade baru ──
+    try:
+        from self_learning import run_self_learning
+        run_self_learning(retrain_every_n=20)
+    except Exception as _sl_e:
+        logger.debug(f"[SELF-LEARN] error: {_sl_e}")
+
 
     try:
         # GET MARKET CONTEXT

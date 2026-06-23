@@ -1,0 +1,7 @@
+side_num
+hour_of_day
+day_of_week
+timeframe_num
+risk_reward
+sl_pct
+tp1_pct

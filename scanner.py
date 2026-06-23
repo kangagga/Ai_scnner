@@ -21,6 +21,11 @@ try:
     VP_AVAILABLE = True
 except ImportError:
     VP_AVAILABLE = False
+try:
+    from liquidity_filter import check_liquidity, liquidity_score_adj
+    LIQ_AVAILABLE = True
+except ImportError:
+    LIQ_AVAILABLE = False
 
 try:
     from smc_scorer import smc_confidence, format_smc_report
@@ -289,7 +294,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
     # Min confidence per signal type
     MIN_CONF = {
-        "BUY"            : 35,
+        "BUY"            : 50,
         "SELL"           : 35,
         "BUY (SETUP)"    : 45,
         "SELL (SETUP)"   : 45,
@@ -519,7 +524,59 @@ def _analyse_single(symbol, timeframe, min_score=0):
             vp_bonus = vp_score_adjustment(vp_data, signal_type)
         except Exception as _vpe:
             vp_data = {}
-    confidence_final = min(100.0, round(confidence + smc_bonus + ob_bonus + vp_bonus, 1))
+    # ── Liquidity Filter Layer ──
+    liq_data = {}
+    liq_adj  = 0
+    liq_ok   = True
+    if LIQ_AVAILABLE and ob_features:
+        try:
+            liq_data = check_liquidity(symbol, ob_features)
+            liq_adj  = liquidity_score_adj(liq_data)
+            liq_ok   = liq_data.get('is_liquid', True)
+        except Exception as _le:
+            liq_data = {}
+    # Hard block pair illiquid
+    if not liq_ok:
+        logger.debug(f'[LIQ] {symbol} ditolak: {liq_data.get("reject_reason","")}')
+        return None
+    confidence_final = min(100.0, round(confidence + smc_bonus + ob_bonus + vp_bonus + liq_adj, 1))
+
+
+    # ── XGBoost Filter ──
+    try:
+        from xgb_trainer import get_trainer
+        _xgb = get_trainer('virtual_trading.db')
+        _xgb_ok, _xgb_prob, _xgb_reason = _xgb.should_entry(
+            signal=signal_type,
+            timeframe=timeframe,
+            entry=entry,
+            sl=sl,
+            tp1=tp1,
+            min_win_prob=0.52,
+        )
+        if not _xgb_ok:
+            logger.info(f"[XGB] {symbol}/{timeframe} SKIP — {_xgb_reason}")
+            return None
+        logger.info(f"[XGB] {symbol}/{timeframe} OK — win_prob={_xgb_prob:.2f}")
+    except Exception as _xgb_e:
+        _xgb_prob = 0.5
+        logger.debug(f"[XGB] error: {_xgb_e}")
+
+    # ── Dynamic Penalty (dari trade_analyzer) ──
+    try:
+        from dynamic_penalty import get_dynamic_penalty, get_pair_penalty
+        _dp_score, _dp_reason = get_dynamic_penalty(signal, hour=datetime.utcnow().hour)
+        _pp_score, _pp_reason = get_pair_penalty(symbol)
+        _total_penalty = _dp_score + _pp_score
+        if _total_penalty != 0:
+            confidence_final = max(0, round(confidence_final + _total_penalty, 1))
+            logger.info(f"[PENALTY] {symbol}/{timeframe}: {_total_penalty} ({_dp_reason} | {_pp_reason}) → conf={confidence_final}")
+        if confidence_final < 45:
+            logger.info(f"[PENALTY] {symbol}/{timeframe} SKIP setelah penalty — conf={confidence_final}")
+            return None
+    except Exception as _dp_e:
+        logger.debug(f"[PENALTY] error: {_dp_e}")
+
 
 
     return {
@@ -570,6 +627,17 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "ob_bonus"           : ob_bonus,
         "funding_rate_ob"    : ob_features.get("funding_rate", 0),
         "funding_signal"     : ob_features.get("funding_signal", "N/A"),
+        "vwap"               : vp_data.get("vwap", 0),
+        "price_vs_vwap"      : vp_data.get("price_vs_vwap", 0),
+        "buy_sell_ratio"     : vp_data.get("buy_sell_ratio", 1),
+        "buy_pressure"       : vp_data.get("buy_pressure", "N/A"),
+        "poc_price"          : vp_data.get("poc_price", 0),
+        "large_trade_bias"   : vp_data.get("large_trade_bias", "N/A"),
+        "vp_bonus"           : vp_bonus,
+        "liq_usd"            : liq_data.get("liq_usd", 0),
+        "liq_score"          : liq_data.get("liq_score", 5),
+        "slippage_est"       : liq_data.get("slippage_est", 0),
+        "liq_adj"            : liq_adj,
         "win_rate"           : win_rate,
         "rr_ratio"           : rr_ratio,
         "trailing_stop"      : trailing_stop,

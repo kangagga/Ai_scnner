@@ -118,10 +118,13 @@ def _fmt_smc(s: dict) -> str:
     ob_b = s.get("ob_bonus", 0)
     vp_b = s.get("vp_bonus", 0)
     ob_s = f"{ob_b:+}(OB)" if ob_b != 0 else ""
-    vp_s = f"{vp_b:+}(VP)" if vp_b != 0 else ""
+    vp_s  = f"{vp_b:+}(VP)"  if vp_b  != 0 else ""
+    liq_b = s.get("liq_adj", 0)
+    liq_s = f"{liq_b:+}(LQ)" if liq_b != 0 else ""
     trail = f"{raw} {sign}"
-    if ob_s: trail += f" {ob_s}"
-    if vp_s: trail += f" {vp_s}"
+    if ob_s:  trail += f" {ob_s}"
+    if vp_s:  trail += f" {vp_s}"
+    if liq_s: trail += f" {liq_s}"
     trail += f" → <b>{s.get('score',0)}</b>"
     return (
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -200,7 +203,8 @@ def format_signal(s: dict) -> str:
         f"📖 OB      : {s.get('ob_pressure','N/A')} (imb={s.get('ob_imbalance',0):+.2f}) | spread={s.get('ob_spread_pct',0):.3f}%\n"
         f"💸 Funding : {s.get('funding_rate_ob',0):+.4f}% ({s.get('funding_signal','N/A')}) | OB adj={s.get('ob_bonus',0):+d}\n"
         f"📊 VWAP    : {s.get('vwap',0):,.2f} ({s.get('price_vs_vwap',0):+.3f}%) | POC={s.get('poc_price',0):,.2f}\n"
-        f"⚖️  B/S     : {s.get('buy_sell_ratio',1):.2f} ({s.get('buy_pressure','N/A')}) | Large={s.get('large_trade_bias','N/A')} | VP adj={s.get('vp_bonus',0):+d}\n\n"
+        f"⚖️  B/S     : {s.get('buy_sell_ratio',1):.2f} ({s.get('buy_pressure','N/A')}) | Large={s.get('large_trade_bias','N/A')} | VP adj={s.get('vp_bonus',0):+d}\n"
+        f"💧 Liq     : ${s.get('liq_usd',0):,.0f} (score={s.get('liq_score',5)}/10) | slip={s.get('slippage_est',0):.3f}% | adj={s.get('liq_adj',0):+d}\n\n"
         f"{_fmt_smc(s)}"
         f"🏔️  Resist : <code>{s.get('resistance', 'N/A')}</code>\n"
         f"🛡️  Support: <code>{s.get('support', 'N/A')}</code>\n"
