@@ -198,3 +198,94 @@ def print_report(result):
 if __name__ == "__main__":
     result = analyze()
     print_report(result)
+def analyze_regime(df) -> dict:
+    """Analisa win rate per kombinasi regime + signal + session"""
+    if "regime" not in df.columns:
+        return {}
+    result = {}
+    for (regime, sig, sess), g in df.groupby(["regime", "signal", "session"]):
+        if len(g) < 3:
+            continue
+        key = f"{regime}|{sig}|{sess}"
+        wr  = win_rate(g)
+        pf  = profit_factor(g)
+        result[key] = {
+            "regime"       : regime,
+            "signal"       : sig,
+            "session"      : sess,
+            "total"        : len(g),
+            "win_rate"     : wr,
+            "profit_factor": pf,
+            "avg_pnl"      : round(g["pnl_pct"].mean(), 2),
+        }
+    return result
+
+def build_penalty_rules(df) -> list:
+    """
+    Build penalty rules dari data aktual — 3 dimensi:
+    signal + session + regime
+    """
+    rules = []
+    df2 = df.copy()
+
+    # Tambah regime jika ada
+    has_regime = "regime" in df2.columns
+
+    # ── Level 1: signal + session (selalu ada) ──
+    for (sig, sess), g in df2.groupby(["signal", "session"]):
+        if len(g) < 5:
+            continue
+        wr = win_rate(g)
+        if wr < 35:
+            rules.append({
+                "type": "signal_session", "signal": sig,
+                "session": sess, "regime": None,
+                "win_rate": wr, "penalty": -15,
+                "reason": f"{sig}+{sess} WR={wr}%<35%", "n": len(g)
+            })
+        elif wr < 45:
+            rules.append({
+                "type": "signal_session", "signal": sig,
+                "session": sess, "regime": None,
+                "win_rate": wr, "penalty": -8,
+                "reason": f"{sig}+{sess} WR={wr}%<45%", "n": len(g)
+            })
+
+    # ── Level 2: signal + session + regime (lebih spesifik) ──
+    if has_regime:
+        for (sig, sess, reg), g in df2.groupby(["signal", "session", "regime"]):
+            if len(g) < 4:
+                continue
+            wr = win_rate(g)
+            if wr < 30:
+                rules.append({
+                    "type": "signal_session_regime",
+                    "signal": sig, "session": sess, "regime": reg,
+                    "win_rate": wr, "penalty": -20,
+                    "reason": f"{reg}+{sig}+{sess} WR={wr}%<30%", "n": len(g)
+                })
+            elif wr < 40:
+                rules.append({
+                    "type": "signal_session_regime",
+                    "signal": sig, "session": sess, "regime": reg,
+                    "win_rate": wr, "penalty": -10,
+                    "reason": f"{reg}+{sig}+{sess} WR={wr}%<40%", "n": len(g)
+                })
+
+    # ── Level 3: per jam buruk ──
+    for h, g in df2.groupby("hour"):
+        if len(g) < 5:
+            continue
+        wr = win_rate(g)
+        if wr < 30:
+            rules.append({
+                "type": "hour", "signal": None,
+                "session": None, "regime": None,
+                "hour": int(h), "win_rate": wr, "penalty": -10,
+                "reason": f"Hour={h} WR={wr}%<30%", "n": len(g)
+            })
+
+    # Sort — rule paling spesifik dulu
+    type_order = {"signal_session_regime": 0, "signal_session": 1, "hour": 2}
+    rules.sort(key=lambda r: type_order.get(r["type"], 9))
+    return rules

@@ -604,7 +604,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
     # ── Dynamic Penalty (dari trade_analyzer) ──
     try:
         from dynamic_penalty import get_dynamic_penalty, get_pair_penalty
-        _dp_score, _dp_reason = get_dynamic_penalty(signal, hour=datetime.utcnow().hour)
+        _dp_score, _dp_reason = get_dynamic_penalty(signal, hour=datetime.utcnow().hour, regime=reg if "reg" in dir() else "NEUTRAL")
         _pp_score, _pp_reason = get_pair_penalty(symbol)
         _total_penalty = _dp_score + _pp_score
         if _total_penalty != 0:

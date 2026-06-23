@@ -1,8 +1,14 @@
-import json
+"""
+Dynamic Penalty — multi-dimensi
+Dibaca dari model/trade_analysis.json yang dihasilkan trade_analyzer.py
+"""
+import json, time
 from pathlib import Path
 from datetime import datetime, timezone
 
 ANALYSIS_PATH = "model/trade_analysis.json"
+_CACHE = {"data": None, "ts": 0}
+_TTL   = 300  # reload setiap 5 menit
 
 def get_session(hour=None):
     if hour is None:
@@ -11,69 +17,88 @@ def get_session(hour=None):
     if 8 <= hour < 16:  return "EUROPE"
     return "US"
 
-def load_rules():
+def _load_analysis() -> dict:
+    now = time.time()
+    if _CACHE["data"] and now - _CACHE["ts"] < _TTL:
+        return _CACHE["data"]
     p = Path(ANALYSIS_PATH)
     if not p.exists():
-        return []
-    with open(p) as f:
-        data = json.load(f)
-    return data.get("penalty_rules", [])
+        return {}
+    try:
+        data = json.loads(p.read_text())
+        _CACHE["data"] = data
+        _CACHE["ts"]   = now
+        return data
+    except Exception:
+        return {}
 
-def get_dynamic_penalty(signal: str, hour: int = None) -> tuple:
-    """
-    Return (penalty_score, reason)
-    Dipanggil dari scanner.py sebelum return sinyal.
-    """
-    session = get_session(hour)
-    rules = load_rules()
-    
-    # Normalisasi signal — BUY (SETUP) → cek rule BUY dulu, lalu SETUP
-    sig_base = signal.split(" ")[0]  # BUY atau SELL
-    sig_full = signal                 # BUY (SETUP) dll
+def load_rules() -> list:
+    return _load_analysis().get("penalty_rules", [])
 
-    total_penalty = 0
-    reasons = []
+def get_dynamic_penalty(signal: str, hour: int = None,
+                        regime: str = "NEUTRAL") -> tuple:
+    session  = get_session(hour)
+    sig_base = signal.split(" ")[0]
+    is_setup = "(SETUP)" in signal or "(REVERSAL)" in signal
+    rules    = load_rules()
+    matched  = {}
 
     for rule in rules:
-        rule_sig = rule.get("signal", "")
-        rule_sess = rule.get("session", "")
+        rtype   = rule.get("type", "signal_session")
         penalty = rule.get("penalty", 0)
-        
-        # Match signal base (BUY/SELL) + session
-        if rule_sig == sig_base and rule_sess == session:
-            # SETUP signals dapat setengah penalty karena WR lebih tinggi
-            if "(SETUP)" in sig_full or "(REVERSAL)" in sig_full:
-                adj = penalty // 2
-            else:
-                adj = penalty
-            total_penalty += adj
-            reasons.append(f"{rule_sig}+{session} WR={rule.get('win_rate')}%")
 
-    return total_penalty, " | ".join(reasons) if reasons else "OK"
+        if rtype == "signal_session_regime":
+            if (rule.get("signal") == sig_base and
+                rule.get("session") == session and
+                rule.get("regime")  == regime):
+                adj = penalty // 2 if is_setup else penalty
+                if abs(adj) > abs(matched.get("L3", {}).get("p", 0)):
+                    matched["L3"] = {"p": adj, "r": rule.get("reason","")}
+
+        elif rtype == "signal_session":
+            if (rule.get("signal") == sig_base and
+                rule.get("session") == session):
+                adj = penalty // 2 if is_setup else penalty
+                if abs(adj) > abs(matched.get("L2", {}).get("p", 0)):
+                    matched["L2"] = {"p": adj, "r": rule.get("reason","")}
+
+        elif rtype == "hour" and hour is not None:
+            if rule.get("hour") == hour:
+                if abs(penalty) > abs(matched.get("L1", {}).get("p", 0)):
+                    matched["L1"] = {"p": penalty, "r": rule.get("reason","")}
+
+    if not matched:
+        return 0, "OK"
+
+    best      = matched.get("L3") or matched.get("L2") or matched.get("L1")
+    total     = best["p"]
+    reason    = best["r"]
+    if "L1" in matched and matched["L1"] != best:
+        total  += matched["L1"]["p"] // 2
+        reason += f" | {matched['L1']['r']}"
+
+    return round(total, 1), reason
 
 def get_pair_penalty(symbol: str) -> tuple:
-    """
-    Tambahan penalty jika pair masuk worst list.
-    Return (penalty, reason)
-    """
-    p = Path(ANALYSIS_PATH)
-    if not p.exists():
-        return 0, "OK"
-    with open(p) as f:
-        data = json.load(f)
-    
-    worst = data.get("worst_pairs", {})
+    data     = _load_analysis()
+    worst    = data.get("worst_pairs", {})
     per_pair = data.get("per_pair", {})
-    
-    sym = symbol.replace("/", "")
-    
+    sym      = symbol.replace("/", "")
     if sym in worst:
-        wr = worst[sym]
+        wr        = worst[sym]
         pair_data = per_pair.get(sym, {})
-        total = pair_data.get("total", 0)
+        total     = pair_data.get("total", 0)
         if total >= 5 and wr < 30:
             return -10, f"{sym} WR={wr}% (worst pair)"
         elif total >= 3 and wr == 0:
             return -20, f"{sym} WR=0% (blacklist candidate)"
-    
     return 0, "OK"
+
+def get_penalty_summary() -> str:
+    rules = load_rules()
+    if not rules:
+        return "Belum ada penalty rules (butuh lebih banyak data)"
+    lines = [f"📋 Dynamic Penalty Rules ({len(rules)} aktif):"]
+    for r in rules[:10]:
+        lines.append(f"  {r['reason']} → {r['penalty']} (n={r.get('n',0)})")
+    return "\n".join(lines)

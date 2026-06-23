@@ -1,3 +1,6 @@
+"""
+XGBoost Trainer — 16 fitur dari kolom baru virtual_trades
+"""
 import sqlite3, json, logging, numpy as np, pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -12,139 +15,156 @@ except ImportError:
 
 try:
     from sklearn.model_selection import train_test_split
-    from sklearn.metrics import roc_auc_score, classification_report
+    from sklearn.metrics import roc_auc_score
+    from sklearn.utils.class_weight import compute_sample_weight
     SKL_AVAILABLE = True
 except ImportError:
     SKL_AVAILABLE = False
 
-MODEL_DIR = Path("model")
-MODEL_PATH = MODEL_DIR / "xgb_model.json"
+MODEL_DIR    = Path("model")
+MODEL_PATH   = MODEL_DIR / "xgb_model.json"
 FEATURE_PATH = MODEL_DIR / "feature_cols.txt"
-META_PATH = MODEL_DIR / "xgb_meta.json"
+META_PATH    = MODEL_DIR / "xgb_meta.json"
 
 FEATURE_COLS = [
-    "side_num", "hour_of_day", "day_of_week",
-    "timeframe_num", "risk_reward", "sl_pct", "tp1_pct",
+    "side_num", "hour_of_day", "day_of_week", "timeframe_num",
+    "risk_reward", "sl_pct", "tp1_pct",
+    "smc_score", "smc_bonus",
+    "ob_imbalance", "ob_bonus",
+    "vp_ratio", "vp_bonus",
+    "liq_score", "liq_adj",
+    "price_vs_vwap",
 ]
 
 def load_trades(db_path="virtual_trading.db", min_trades=50):
     conn = sqlite3.connect(db_path)
-    df = pd.read_sql_query(
-        "SELECT * FROM virtual_trades WHERE closed=1 AND result IN ('WIN','LOSS')", conn)
+    df   = pd.read_sql_query(
+        "SELECT * FROM virtual_trades WHERE closed=1 AND result IN ('WIN','LOSS')",
+        conn
+    )
     conn.close()
+
     if len(df) < min_trades:
         raise ValueError(f"Hanya {len(df)} trades. Butuh minimal {min_trades}.")
-    print(f"[XGB] Loaded {len(df)} trades")
-    df["label"] = (df["result"] == "WIN").astype(int)
+
+    logger.info(f"[XGB] Loaded {len(df)} trades")
+    df["label"]    = (df["result"] == "WIN").astype(int)
     df["side_num"] = df["signal"].map({"BUY": 1, "SELL": -1}).fillna(0)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+
+    df["timestamp"]   = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
     df["hour_of_day"] = df["timestamp"].dt.hour.fillna(12)
     df["day_of_week"] = df["timestamp"].dt.dayofweek.fillna(0)
-    tf_map = {"1m":0.016,"5m":0.083,"15m":0.25,"30m":0.5,"1h":1,"2h":2,"4h":4,"8h":8,"1d":24}
+
+    tf_map = {"1m":0.016,"5m":0.083,"15m":0.25,"30m":0.5,
+              "1h":1,"2h":2,"4h":4,"8h":8,"1d":24}
     df["timeframe_num"] = df["timeframe"].map(tf_map).fillna(1)
-    df["entry"] = pd.to_numeric(df["entry"], errors="coerce")
-    df["sl"] = pd.to_numeric(df["sl"], errors="coerce")
-    df["tp1"] = pd.to_numeric(df["tp1"], errors="coerce")
-    df["sl_pct"] = ((df["entry"]-df["sl"]).abs()/df["entry"]*100).fillna(0)
+
+    for col in ["entry","sl","tp1","pnl_pct"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    df["sl_pct"]  = ((df["entry"]-df["sl"]).abs()/df["entry"]*100).fillna(0)
     df["tp1_pct"] = ((df["tp1"]-df["entry"]).abs()/df["entry"]*100).fillna(0)
     df["risk_reward"] = (df["tp1_pct"]/df["sl_pct"].replace(0,np.nan)).fillna(0).clip(0,10)
-    df[FEATURE_COLS] = df[FEATURE_COLS].fillna(0).astype(float)
+
+    # Kolom baru — fill 0 jika belum ada (trades lama)
+    new_cols = ["smc_score","smc_bonus","ob_imbalance","ob_bonus",
+                "vp_ratio","vp_bonus","liq_score","liq_adj","price_vs_vwap"]
+    for col in new_cols:
+        if col not in df.columns:
+            df[col] = 0.0
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
     return df
 
 class XGBTrainer:
-    def __init__(self, db_path="virtual_trading.db"):
-        self.db_path = db_path
-        self.model = None
-        self.feature_cols = FEATURE_COLS
+    def __init__(self):
         MODEL_DIR.mkdir(exist_ok=True)
 
-    def train(self):
+    def train(self, db_path="virtual_trading.db") -> dict:
         if not XGB_AVAILABLE or not SKL_AVAILABLE:
-            raise ImportError("pip install xgboost scikit-learn")
-        df = load_trades(self.db_path)
-        X = df[self.feature_cols]
-        y = df["label"]
-        win_rate = y.mean()
-        if len(df) < 80:
-            X_train, X_test, y_train, y_test = X, X, y, y
+            return {"error": "xgboost/sklearn tidak tersedia"}
+
+        try:
+            df = load_trades(db_path)
+        except ValueError as e:
+            return {"error": str(e)}
+
+        # Filter trades lama (sebelum kolom baru) — smc_score=0 semua = data lama
+        new_data = df[df["smc_score"] > 0]
+        if len(new_data) >= 30:
+            df = new_data
+            logger.info(f"[XGB] Pakai {len(df)} trades baru (dengan SMC features)")
         else:
-            X_train,X_test,y_train,y_test = train_test_split(X,y,test_size=0.2,random_state=42,stratify=y)
-        spw = (y_train==0).sum() / max((y_train==1).sum(), 1)
+            logger.info(f"[XGB] Pakai semua {len(df)} trades (data baru belum cukup)")
+
+        X = df[FEATURE_COLS].values
+        y = df["label"].values
+
+        # Handle imbalance
+        win_rate = y.mean()
+        weights  = compute_sample_weight("balanced", y)
+        logger.info(f"[XGB] Win rate: {win_rate:.1%} | Features: {len(FEATURE_COLS)}")
+
+        X_train, X_test, y_train, y_test, w_train, _ = train_test_split(
+            X, y, weights, test_size=0.2, random_state=42, stratify=y
+        )
+
         model = xgb.XGBClassifier(
-            objective="binary:logistic", eval_metric="auc",
-            max_depth=3, n_estimators=80, learning_rate=0.05,
-            subsample=0.8, colsample_bytree=0.8, scale_pos_weight=spw,
-            tree_method="hist", device="cpu", verbosity=0, random_state=42)
-        model.fit(X_train, y_train, eval_set=[(X_test,y_test)], verbose=False)
-        y_prob = model.predict_proba(X_test)[:,1]
-        auc = roc_auc_score(y_test, y_prob)
-        report = classification_report(y_test,(y_prob>=0.5).astype(int),output_dict=True)
-        metrics = {"auc":round(auc,4),"accuracy":round(report["accuracy"],4),
-                   "win_rate_hist":round(float(win_rate),4),"n_total":len(df),
-                   "trained_at":datetime.utcnow().isoformat()}
-        fi = sorted(zip(self.feature_cols,model.feature_importances_),key=lambda x:x[1],reverse=True)
-        metrics["feature_importance"] = fi
-        print(f"[XGB] AUC={auc:.4f} Acc={metrics['accuracy']:.2%} WinRate={win_rate:.1%}")
-        print(f"[XGB] Features: {fi}")
-        self.model = model
+            n_estimators    = 200,
+            max_depth       = 4,
+            learning_rate   = 0.05,
+            subsample       = 0.8,
+            colsample_bytree= 0.8,
+            min_child_weight= 3,
+            reg_alpha       = 0.1,
+            reg_lambda      = 1.0,
+            use_label_encoder=False,
+            eval_metric     = "logloss",
+            random_state    = 42,
+        )
+        model.fit(X_train, y_train, sample_weight=w_train,
+                  eval_set=[(X_test, y_test)], verbose=False)
+
+        y_prob = model.predict_proba(X_test)[:, 1]
+        auc    = roc_auc_score(y_test, y_prob)
+        logger.info(f"[XGB] AUC: {auc:.3f}")
+
+        # Simpan model + metadata
         model.save_model(str(MODEL_PATH))
-        FEATURE_PATH.write_text("\n".join(self.feature_cols))
-        META_PATH.write_text(json.dumps(metrics, indent=2, default=str))
-        print(f"[XGB] Saved → {MODEL_PATH}")
-        return metrics
+        FEATURE_PATH.write_text("\n".join(FEATURE_COLS))
 
-    def load(self):
+        meta = {
+            "trained_at" : datetime.now().isoformat(),
+            "n_total"    : len(df),
+            "n_train"    : len(X_train),
+            "n_test"     : len(X_test),
+            "auc"        : round(auc, 4),
+            "win_rate"   : round(float(win_rate), 4),
+            "features"   : FEATURE_COLS,
+        }
+        META_PATH.write_text(json.dumps(meta, indent=2))
+        logger.info(f"[XGB] Model disimpan → {MODEL_PATH}")
+
+        return meta
+
+    def predict(self, features: dict) -> float:
+        """Return win probability 0-1 untuk satu sinyal"""
         if not XGB_AVAILABLE or not MODEL_PATH.exists():
-            return False
-        self.model = xgb.XGBClassifier()
-        self.model.load_model(str(MODEL_PATH))
-        if FEATURE_PATH.exists():
-            self.feature_cols = FEATURE_PATH.read_text().strip().split("\n")
-        print("[XGB] Model loaded")
-        return True
+            return 0.5
 
-    def predict(self, features):
-        if self.model is None:
-            if not self.load(): return 0.5
-        row = {col: float(features.get(col,0.0)) for col in self.feature_cols}
-        X = pd.DataFrame([row])[self.feature_cols]
-        return round(float(self.model.predict_proba(X)[0][1]),4)
+        try:
+            model = xgb.XGBClassifier()
+            model.load_model(str(MODEL_PATH))
+            vals = [features.get(c, 0) for c in FEATURE_COLS]
+            X    = np.array([vals])
+            prob = model.predict_proba(X)[0][1]
+            return round(float(prob), 4)
+        except Exception as e:
+            logger.error(f"[XGB] Predict error: {e}")
+            return 0.5
 
-    def should_entry(self, signal, timeframe, entry, sl, tp1, hour=None, min_win_prob=0.52):
-        if hour is None: hour = datetime.utcnow().hour
-        sl_pct = abs(entry-sl)/entry*100
-        tp1_pct = abs(tp1-entry)/entry*100
-        rr = (tp1_pct/sl_pct) if sl_pct>0 else 0
-        tf_map = {"1m":0.016,"5m":0.083,"15m":0.25,"30m":0.5,"1h":1,"2h":2,"4h":4,"8h":8,"1d":24}
-        features = {"side_num":1 if signal=="BUY" else -1,"hour_of_day":hour,
-                    "day_of_week":datetime.utcnow().weekday(),
-                    "timeframe_num":tf_map.get(timeframe,1),
-                    "risk_reward":min(rr,10),"sl_pct":sl_pct,"tp1_pct":tp1_pct}
-        win_prob = self.predict(features)
-        ok = win_prob >= min_win_prob
-        return ok, win_prob, ("OK" if ok else f"win_prob {win_prob:.2f} < {min_win_prob}")
-
-def maybe_retrain(db_path="virtual_trading.db", retrain_every_n=20):
-    meta = json.loads(META_PATH.read_text()) if META_PATH.exists() else {}
-    last_n = meta.get("n_total", 0)
-    conn = sqlite3.connect(db_path)
-    cur = conn.execute("SELECT COUNT(*) FROM virtual_trades WHERE closed=1 AND result IN ('WIN','LOSS')")
-    current_n = cur.fetchone()[0]
-    conn.close()
-    if current_n - last_n >= retrain_every_n:
-        print(f"[XGB] Retrain ({current_n-last_n} trades baru)")
-        t = XGBTrainer(db_path); t.train(); return True
-    return False
-
-def xgb_telegram_line(win_prob, entry_ok):
-    icon = "🤖✅" if entry_ok else "🤖❌"
-    bar = "█"*int(win_prob*10) + "░"*(10-int(win_prob*10))
-    return f"{icon} <b>XGB</b>: {win_prob:.0%} [{bar}]"
-
-_instance = None
-def get_trainer(db_path="virtual_trading.db"):
-    global _instance
-    if _instance is None:
-        _instance = XGBTrainer(db_path)
-        _instance.load()
-    return _instance
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    trainer = XGBTrainer()
+    result  = trainer.train()
+    print(json.dumps(result, indent=2))
