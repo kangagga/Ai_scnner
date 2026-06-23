@@ -4,7 +4,7 @@ Dijalankan periodik oleh main.py
 """
 import sqlite3, logging
 from datetime import datetime, timedelta
-from blacklist import is_blacklisted, add_to_blacklist as _bl_add
+from blacklist import is_blacklisted, _load, _save
 from config import (
     BLACKLIST_DAYS, BLACKLIST_MIN_TRADES as MIN_TRADES,
     BLACKLIST_MAX_WR as MAX_WINRATE,
