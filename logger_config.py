@@ -5,10 +5,17 @@ Import di main.py sebelum modul lain
 import logging
 import logging.handlers
 import os
-from datetime import datetime
+import time
+from datetime import datetime, timedelta, timezone
 
 LOG_DIR  = "logs"
 LOG_FILE = os.path.join(LOG_DIR, "bot.log")
+
+WIB = timezone(timedelta(hours=7))
+
+def _wib_time(*args):
+    """Converter untuk logging.Formatter agar asctime pakai WIB (UTC+7), bukan UTC."""
+    return datetime.now(WIB).timetuple()
 
 def setup_logging(level=logging.INFO) -> None:
     os.makedirs(LOG_DIR, exist_ok=True)
@@ -17,6 +24,7 @@ def setup_logging(level=logging.INFO) -> None:
         fmt     = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt = "%Y-%m-%d %H:%M:%S"
     )
+    fmt.converter = _wib_time
 
     # ── Root logger ──
     root = logging.getLogger()

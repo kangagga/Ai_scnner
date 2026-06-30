@@ -132,6 +132,41 @@ def _fmt_smc(s: dict) -> str:
         f"📐 Score   : {trail}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     )
+def get_alert_level(s: dict) -> str:
+    """Hitung alert level berdasarkan score final + SMC + win rate.
+    Satu sumber kebenaran — dipakai oleh format_signal() dan main.py (gating entry)."""
+    score = s.get("score", 0)
+    wr    = s.get("win_rate", 0)
+
+    smc_score = s.get("smc_data", {}).get("score", 0)
+    smc_valid = s.get("smc_data", {}).get("valid", False)
+    # Jika SMC data tersedia → pakai SMC filter, jika tidak → pakai score saja
+    smc_available = smc_score > 0 or smc_valid
+
+    if smc_available:
+        if score >= 65 and smc_score >= 70 and smc_valid and (wr >= 50 or wr == 0):
+            return "🚀 EKSEKUSI — ENTRY SEKARANG"
+        elif score >= 55 and smc_score >= 50 and (wr >= 40 or wr == 0):
+            return "⚡ SIAP ENTRY — KONFIRMASI DULU"
+        elif score >= 45:
+            return "👀 WATCHLIST — PANTAU SAJA"
+        else:
+            return "💤 MONITOR — JANGAN ENTRY"
+    else:
+        # Tanpa SMC: EKSEKUSI tetap wajib wr asli (tidak ada bypass wr==0,
+        # karena tanpa SMC sinyal cuma punya satu lapis konfirmasi — score saja).
+        if score >= 65 and wr >= 45:
+            return "🚀 EKSEKUSI — ENTRY SEKARANG"
+        # SIAP ENTRY: boleh bypass wr==0 (data belum cukup), tapi threshold
+        # score dinaikkan ke 60 (dari 55) sebagai kompensasi keamanan.
+        elif score >= 60 and (wr >= 35 or wr == 0):
+            return "⚡ SIAP ENTRY — KONFIRMASI DULU"
+        elif score >= 45:
+            return "👀 WATCHLIST — PANTAU SAJA"
+        else:
+            return "💤 MONITOR — JANGAN ENTRY"
+
+
 def format_signal(s: dict) -> str:
     """Format sinyal dengan aman (semua key pakai .get)"""
     emoji = SIGNAL_EMOJI.get(s.get("signal", "NEUTRAL"), "⚪")
@@ -141,30 +176,8 @@ def format_signal(s: dict) -> str:
     conf  = s.get("confidence", 0)
     wr    = s.get("win_rate", 0)
 
-    # Alert level berdasarkan score final + SMC + win rate
-    smc_score = s.get("smc_data", {}).get("score", 0)
-    smc_valid = s.get("smc_data", {}).get("valid", False)
-    # Jika SMC data tersedia → pakai SMC filter, jika tidak → pakai score saja
-    smc_available = smc_score > 0 or smc_valid
-    if smc_available:
-        if score >= 65 and smc_score >= 70 and smc_valid and (wr >= 50 or wr == 0):
-            alert_level = "🚀 EKSEKUSI — ENTRY SEKARANG"
-        elif score >= 55 and smc_score >= 50 and (wr >= 40 or wr == 0):
-            alert_level = "⚡ SIAP ENTRY — KONFIRMASI DULU"
-        elif score >= 45:
-            alert_level = "👀 WATCHLIST — PANTAU SAJA"
-        else:
-            alert_level = "💤 MONITOR — JANGAN ENTRY"
-    else:
-        # SMC belum tersedia — pakai score + wr saja
-        if score >= 65 and wr >= 45:
-            alert_level = "🚀 EKSEKUSI — ENTRY SEKARANG"
-        elif score >= 55 and wr >= 35:
-            alert_level = "⚡ SIAP ENTRY — KONFIRMASI DULU"
-        elif score >= 45:
-            alert_level = "👀 WATCHLIST — PANTAU SAJA"
-        else:
-            alert_level = "💤 MONITOR — JANGAN ENTRY"
+    # Alert level berdasarkan score final + SMC + win rate (DRY — lihat get_alert_level())
+    alert_level = get_alert_level(s)
 
     # FIX: tandai sinyal yang ternyata duplicate (posisi sudah terbuka, tidak dieksekusi)
     if s.get("is_duplicate"):

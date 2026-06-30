@@ -39,7 +39,7 @@ from config import (
 )
 from data_fetcher import fetch_ohlcv, fetch_symbols, get_new_listings, get_volume_spike_pairs, get_top_gainers_losers
 from blacklist    import is_blacklisted, get_blacklist, is_in_cooldown
-from indicators   import institutional_ai_v7 as institutional_ai_v4
+from indicators   import institutional_ai_v4
 from market_context import get_market_context, is_btc_dump
 from risk_manager   import check_risk_approval, get_risk_status
 
@@ -272,7 +272,6 @@ def _is_duplicate(symbol, timeframe, signal_type, confidence):
         return False
 
 def _analyse_single(symbol, timeframe, min_score=0):
-    smc_data = {}  # [FIX] init awal supaya tidak NameError sebelum di-set ulang baris ~540
     if is_blacklisted(symbol):
         return None
     if is_in_cooldown(symbol):
@@ -329,11 +328,11 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
     # Min confidence per signal type
     MIN_CONF = {
-        "BUY"            : 35,
-        "SELL"           : 25,
-        "BUY (SETUP)"    : 30,
-        "SELL (SETUP)"   : 30,
-        "BUY (REVERSAL)" : 40,
+        "BUY"            : 50,
+        "SELL"           : 35,
+        "BUY (SETUP)"    : 45,
+        "SELL (SETUP)"   : 45,
+        "BUY (REVERSAL)" : 55,
     }
     if confidence < MIN_CONF.get(signal, 35):
         return None
@@ -347,12 +346,12 @@ def _analyse_single(symbol, timeframe, min_score=0):
         reg    = regime.get("regime", "NEUTRAL")
 
         regime_min_conf = {
-            "TRENDING" : 30,
-            "BREAKOUT" : 32,
-            "NEUTRAL"  : 30,
-            "RANGING"  : 30,
-            "VOLATILE" : 45,
-        }.get(reg, 30)
+            "TRENDING" : 35,
+            "BREAKOUT" : 38,
+            "NEUTRAL"  : 40,
+            "RANGING"  : 50,
+            "VOLATILE" : 60,
+        }.get(reg, 40)
 
         if confidence < regime_min_conf:
             logger.debug(f"[REGIME] {symbol}/{timeframe}: conf={confidence} < {regime_min_conf} ({reg}), skip")

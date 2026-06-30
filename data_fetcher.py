@@ -157,7 +157,7 @@ _new_listing_last_check: float = 0
 NEW_LISTING_CHECK_INTERVAL = 3600  # cek setiap 1 jam
 
 
-def fetch_symbols(min_volume_usdt: float = 500000) -> list:
+def fetch_symbols(min_volume_usdt: float = 200000) -> list:
     """
     Ambil semua pair USDT aktif dari Gate.io.
     Filter volume minimum agar tidak ambil pair zombie.
@@ -291,7 +291,7 @@ def get_volume_spike_pairs(top_n: int = 30) -> list:
         return _new_listing_cache if _new_listing_cache else []
 
 
-def get_new_listings(min_volume_usdt: float = 500000) -> list:
+def get_new_listings(min_volume_usdt: float = 200000) -> list:
     """Return hanya pair yang BARU listing sejak bot terakhir jalan."""
     global _known_symbols
 

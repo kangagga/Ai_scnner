@@ -60,14 +60,6 @@ logging.basicConfig(
         logging.FileHandler("signal_bot.log", encoding="utf-8"),
     ]
 )
-
-# Paksa semua timestamp log pakai WIB (UTC+7), bukan waktu lokal sistem (UTC)
-from datetime import timezone as _tz, timedelta as _td
-_WIB = _tz(_td(hours=7))
-def _wib_converter(*args):
-    return datetime.now(_WIB).timetuple()
-logging.Formatter.converter = _wib_converter
-
 logger = logging.getLogger("main")
 
 _last_signals: list = []
@@ -397,12 +389,10 @@ def job_scan():
                 from virtual_trader import add_virtual_trade
                 from exit_monitor import add_trade as exit_add_trade
                 from risk_manager import check_risk_approval
-                from telegram_sender import get_alert_level
                 for sig in filtered_sig:
                     conf = sig.get("confidence", 0)
                     wr = sig.get("win_rate", 0)
-                    level = get_alert_level(sig)
-                    if ("EKSEKUSI" in level) or ("SIAP ENTRY" in level):
+                    if conf >= 55 and (wr >= 45 or wr == 0):
                         risk_check = check_risk_approval(
                             symbol=sig.get("symbol"),
                             timeframe=sig.get("timeframe"),
@@ -417,7 +407,7 @@ def job_scan():
                             continue
                         add_virtual_trade(sig)
                         exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
-                        logger.info(f"[TRADE] {sig["symbol"]} {sig["signal"]} conf={conf} WR={wr}% level={level}")
+                        logger.info(f"[TRADE] {sig["symbol"]} {sig["signal"]} conf={conf} WR={wr}%")
             except Exception as e:
                 logger.warning(f"[TRADE] Error: {e}")
 
@@ -474,26 +464,6 @@ def job_health_check():
             logger.warning(f"[AUTO-BL] Diblacklist: {bl_result['blacklisted']}")
     except Exception as e:
         logger.error(f"❌ Auto-blacklist error: {e}")
-
-
-def job_system_health_check():
-    """[LAPIS 1] System health check harian — proses, log, DB, resource, uptime, signal/trade ratio."""
-    logger.info("🩺 System health check (Lapis 1) dimulai...")
-    try:
-        from system_health_auditor import run_system_health_check
-        run_system_health_check(send_telegram=True)
-    except Exception as e:
-        logger.error(f"❌ System health check error: {e}")
-
-
-def job_code_audit():
-    """[LAPIS 2] Audit kode mendalam harian via Groq — read-only, hanya melaporkan."""
-    logger.info("🔍 Code audit (Lapis 2) dimulai...")
-    try:
-        from code_auditor_llm import run_code_audit
-        run_code_audit(send_telegram=True)
-    except Exception as e:
-        logger.error(f"❌ Code audit error: {e}")
 
 
 def run_startup_backtest(send_telegram: bool = True):
@@ -567,8 +537,6 @@ def main():
     schedule.every().day.at(daily_time).do(job_daily_report)
     schedule.every().monday.at("08:00").do(job_weekly_report)
     schedule.every(6).hours.do(job_health_check)
-    schedule.every().day.at("06:00").do(job_system_health_check)  # [LAPIS 1] system health harian
-    schedule.every().day.at("07:00").do(job_code_audit)           # [LAPIS 2] audit kode harian via Groq
     schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")

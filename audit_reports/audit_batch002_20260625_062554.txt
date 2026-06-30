@@ -1,0 +1,75 @@
+
+====================================================
+  MODULE AUDIT -- BATCH #2
+  2026-06-25 06:25:54
+====================================================
+  Trades   : 18 (Win: 4 | Loss: 14)
+  Win Rate : 22.2%
+  PnL Batch: -13.74% | $-3.44
+  Balance  : $97.29
+  Peak     : $100.43
+  Total All: 0 trades
+
+----------------------------------------------------
+  PERFORMA PER MODUL
+----------------------------------------------------
+
+  🔴 LEMAH  Scorer
+    Aktif  : 18 trades | WR 22.2% | AvgPnL -0.76% 
+    Inaktif: 0 trades | WR 0%
+    AvgBonus: 68.24 | TotalPnL: $-3.44
+
+  🔴 LEMAH  SMC
+    Aktif  : 0 trades | WR 0% | AvgPnL +0.00% (-22.2% lift)
+    Inaktif: 18 trades | WR 22.2%
+    AvgBonus: 0 | TotalPnL: $+0.00
+
+  🔴 LEMAH  OB
+    Aktif  : 0 trades | WR 0% | AvgPnL +0.00% (-22.2% lift)
+    Inaktif: 18 trades | WR 22.2%
+    AvgBonus: 0 | TotalPnL: $+0.00
+
+  🔴 LEMAH  VP
+    Aktif  : 0 trades | WR 0% | AvgPnL +0.00% (-22.2% lift)
+    Inaktif: 18 trades | WR 22.2%
+    AvgBonus: 0 | TotalPnL: $+0.00
+
+  🔴 LEMAH  Liquidity
+    Aktif  : 0 trades | WR 0% | AvgPnL +0.00% (-22.2% lift)
+    Inaktif: 18 trades | WR 22.2%
+    AvgBonus: 0 | TotalPnL: $+0.00
+
+----------------------------------------------------
+  REKOMENDASI
+----------------------------------------------------
+  !!  Scorer: WR 22.2% -- kurangi bobot bonus
+  !!  SMC: WR 0% -- kurangi bobot bonus
+  !!  OB: WR 0% -- kurangi bobot bonus
+  !!  VP: WR 0% -- kurangi bobot bonus
+  !!  Liquidity: WR 0% -- kurangi bobot bonus
+
+----------------------------------------------------
+  WIN RATE PER REGIME
+----------------------------------------------------
+  TRENDING     ##         25.0% (12 trades, avg -0.10%)
+  NEUTRAL      ##         20.0% (5 trades, avg -2.26%)
+  BREAKOUT                0.0% (1 trades, avg -1.23%)
+
+----------------------------------------------------
+  WIN RATE PER TIMEFRAME
+----------------------------------------------------
+  1h       ##         22.2% (18 trades, avg -0.76%)
+
+----------------------------------------------------
+  JAM ENTRY TERBAIK & TERBURUK
+----------------------------------------------------
+  Terbaik:
+    13:00  WR 33.3% | 3 trades | avg -1.37%
+    18:00  WR 0.0% | 3 trades | avg -1.66%
+    20:00  WR 0.0% | 3 trades | avg -0.85%
+  Terburuk:
+    20:00  WR 0.0% | 3 trades | avg -0.85%
+    18:00  WR 0.0% | 3 trades | avg -1.66%
+    13:00  WR 33.3% | 3 trades | avg -1.37%
+
+====================================================
