@@ -655,17 +655,6 @@ def institutional_ai_v4(df):
     data.loc[oversold_cond,      'signal'] = "BUY (REVERSAL)"
     data.loc[overbought_cond,    'signal'] = "SELL (REVERSAL)"
 
-    # ── SELL BOUNCE: harga bounce palsu di market lemah/netral ──
-    sell_bounce_cond = (
-        (data['rsi'] > 63) &
-        (data['bb_pct'] > 0.78) &
-        data['fake_breakout'] &
-        (data['rvol'] > 0.8) &
-        (data['adx'] < 30) &
-        (data['market_regime'] != 'TRENDING')
-    )
-    data.loc[sell_bounce_cond, 'signal'] = "SELL (REVERSAL)"
-
     _confirmations = (
         (data['bos'] | data['choch']).astype(int) +
         (data['bull_ob'] | data['bear_ob']).astype(int) +
@@ -695,9 +684,6 @@ def institutional_ai_v4(df):
             )
         )
     )
-
-    # Boost confidence minimum sell_bounce supaya lolos threshold
-    data.loc[sell_bounce_cond, 'confidence'] = data.loc[sell_bounce_cond, 'confidence'].clip(lower=38)
 
     data['position_size'] = np.where(
         data['signal'].isin(["BUY (SETUP)", "SELL (SETUP)"]),

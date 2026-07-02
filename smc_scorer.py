@@ -113,9 +113,7 @@ def smc_confidence(df: pd.DataFrame, signal: str) -> dict:
             +15 if total >= 85 else
             +10 if total >= 70 else
             +5  if total >= 55 else
-            0   if total >= 40 else
-            -5  if total >= 25 else
-            -10
+            0
         ),
     }
 

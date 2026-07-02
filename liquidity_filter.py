@@ -60,8 +60,10 @@ def check_liquidity(symbol: str, ob_features: dict) -> dict:
 
     spread = ob_features.get("ob_spread_pct", 0)
     liq    = ob_features.get("ob_liquidity", 0)
-    price  = _get_price(symbol)
-    vol24  = _get_vol24(symbol)
+    # Gate.io butuh format SOL_USDT bukan SOLUSDT
+    symbol_gate = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    price  = _get_price(symbol_gate)
+    vol24  = _get_vol24(symbol_gate)
 
     liq_usd = liq * price if price > 0 else 0
     result["liq_usd"]    = round(liq_usd, 2)

@@ -11,14 +11,7 @@ def audit_win_rate():
     issues = []
     conn = get_db()
     cur = conn.cursor()
-    # [FIX-TZ] Hitung cutoff pakai WIB eksplisit, bukan date('now') SQLite
-    # yang mengikuti timezone OS (UTC) sedangkan timestamp tersimpan WIB.
-    cutoff_wib = (datetime.now(WIB) - timedelta(days=2)).strftime("%Y-%m-%d")
-    cur.execute(
-        "SELECT date(timestamp), COUNT(*), ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) / COUNT(*), 1) "
-        "FROM performance WHERE timestamp >= ? GROUP BY date(timestamp) ORDER BY date(timestamp) DESC",
-        (cutoff_wib,)
-    )
+    cur.execute("SELECT date(timestamp), COUNT(*), ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) / COUNT(*), 1) FROM performance WHERE timestamp >= date('now', '-2 days') GROUP BY date(timestamp) ORDER BY date(timestamp) DESC")
     rows = cur.fetchall()
     conn.close()
     if len(rows) >= 2:

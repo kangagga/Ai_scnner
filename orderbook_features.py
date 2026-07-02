@@ -68,7 +68,9 @@ def get_orderbook_features(symbol: str) -> dict:
         "funding_signal": "NEUTRAL",
     }
 
-    ob = _fetch_orderbook(symbol, depth=20)
+    # Gate.io butuh format SOL_USDT bukan SOLUSDT
+    symbol_gate = symbol.replace("USDT", "_USDT") if not "_" in symbol else symbol
+    ob = _fetch_orderbook(symbol_gate, depth=20)
     if not ob:
         return result
 

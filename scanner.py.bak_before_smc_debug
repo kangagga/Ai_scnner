@@ -64,7 +64,7 @@ DEFAULT_COOLDOWN_MINUTES = 45
 
 VALID_SIGNALS = {
     "BUY", "SELL",
-    "BUY (REVERSAL)", "SELL (REVERSAL)",
+    "BUY (REVERSAL)",
     "BUY (SETUP)", "SELL (SETUP)",
 }
 
@@ -334,7 +334,6 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "BUY (SETUP)"    : 30,
         "SELL (SETUP)"   : 30,
         "BUY (REVERSAL)" : 40,
-        "SELL (REVERSAL)": 30,
     }
     if confidence < MIN_CONF.get(signal, 35):
         return None
@@ -538,38 +537,22 @@ def _analyse_single(symbol, timeframe, min_score=0):
         logger.debug(f"[4H_FILTER] Error {symbol}: {_e}")
 
 
-    # ── SR Guard (entry hanya dekat S/R) ──
-    if support > 0 or resistance > 0:
-        entry_price = round(_safe(last.get("close", 0)), 8)
-        near_support    = support > 0 and abs(entry_price - support) / entry_price <= 0.025
-        near_resistance = resistance > 0 and abs(entry_price - resistance) / entry_price <= 0.025
-
-        if signal.startswith("BUY") and not near_support:
-            logger.info(f"[SR_GUARD] {symbol}: BUY ditolak — harga tidak dekat support (harga={entry_price}, sup={support})")
-            return None
-        if signal.startswith("SELL") and not near_resistance:
-            logger.info(f"[SR_GUARD] {symbol}: SELL ditolak — harga tidak dekat resistance (harga={entry_price}, res={resistance})")
-            return None
-
     # ── SMC Layer (non-destructive) ──
     smc_bonus, smc_data, smc_report = 0, {}, ""
     if SMC_AVAILABLE:
         try:
-            smc_data   = smc_confidence(df, signal=signal)
+            smc_data   = smc_confidence(df, signal=signal_type)
             smc_bonus  = smc_data.get("score_adjustment", 0)
-            smc_report = format_smc_report(smc_data, symbol, signal)
+            smc_report = format_smc_report(smc_data, symbol, signal_type)
         except Exception as _e:
             smc_report = f"SMC: error ({_e})"
-            import traceback
-            logger.error(f"[SMC-DEBUG] {symbol} SMC EXCEPTION: {type(_e).__name__}: {_e}")
-            logger.error(f"[SMC-DEBUG] {symbol} TRACEBACK:\n{traceback.format_exc()}")
     # ── Orderbook + Funding Layer ──
     ob_features = {}
     ob_bonus    = 0
     if OB_AVAILABLE:
         try:
             ob_features = get_orderbook_features(symbol)
-            ob_bonus    = ob_score_adjustment(ob_features, signal)
+            ob_bonus    = ob_score_adjustment(ob_features, signal_type)
         except Exception as _obe:
             ob_features = {}
     # ── Volume Profile + VWAP Layer ──
@@ -578,7 +561,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
     if VP_AVAILABLE:
         try:
             vp_data  = get_volume_profile(symbol)
-            vp_bonus = vp_score_adjustment(vp_data, signal)
+            vp_bonus = vp_score_adjustment(vp_data, signal_type)
         except Exception as _vpe:
             vp_data = {}
     # ── Liquidity Filter Layer ──
@@ -604,7 +587,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
         from xgb_trainer import get_trainer
         _xgb = get_trainer('virtual_trading.db')
         _xgb_ok, _xgb_prob, _xgb_reason = _xgb.should_entry(
-            signal=signal,
+            signal=signal_type,
             timeframe=timeframe,
             entry=entry,
             sl=sl,

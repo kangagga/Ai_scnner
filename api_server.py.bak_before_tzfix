@@ -269,16 +269,12 @@ def api_performance():
             round(gross_profit, 2) if gross_profit > 0 else 0.0
         )
 
-        # [FIX-TZ] Equity curve 7 hari terakhir — cutoff dihitung pakai WIB
-        # eksplisit di Python, bukan date('now') SQLite yang ikut timezone OS (UTC).
-        from datetime import datetime, timezone as _tz, timedelta as _td
-        _WIB = _tz(_td(hours=7))
-        _cutoff_wib = (datetime.now(_WIB) - _td(days=7)).isoformat()
+        # Equity curve 7 hari terakhir — pakai balance_after tiap trade closed
         cur.execute("""
             SELECT closed_at, balance_after FROM virtual_trades
-            WHERE closed = 1 AND closed_at >= ?
+            WHERE closed = 1 AND closed_at >= date('now', '-7 days')
             ORDER BY closed_at ASC
-        """, (_cutoff_wib,))
+        """)
         curve_rows = cur.fetchall()
         equity_curve = [
             {"time": r[0], "balance": r[1]}

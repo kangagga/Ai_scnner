@@ -355,8 +355,10 @@ def check_signal_to_trade_ratio() -> Dict[str, Any]:
     terlalu ketat atau bug gating — seperti kasus 'smc_data NameError'
     yang pernah terjadi di project ini.
     """
-    cutoff_iso = (datetime.now(WIB) - timedelta(hours=24)).isoformat()
-    result: Dict[str, Any] = {"signals_24h": 0, "trades_24h": 0, "ratio_pct": 0, "issues": []}
+    # Gunakan UTC naive string supaya SQLite bisa bandingkan lexicografis dengan benar
+    # Window 7 hari supaya laporan tidak kosong di hari pertama periode baru
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+    result: Dict[str, Any] = {"signals_7d": 0, "trades_7d": 0, "ratio_pct": 0, "issues": []}
 
     # Jumlah sinyal masuk
     try:
@@ -375,7 +377,7 @@ def check_signal_to_trade_ratio() -> Dict[str, Any]:
                     f"SELECT COUNT(*) FROM {signal_table} WHERE timestamp >= ?",
                     (cutoff_iso,)
                 )
-                result["signals_24h"] = cur.fetchone()[0]
+                result["signals_7d"] = cur.fetchone()[0]
             conn.close()
     except Exception as e:
         result["issues"].append(f"Gagal baca signals.db: {e}")
@@ -393,22 +395,22 @@ def check_signal_to_trade_ratio() -> Dict[str, Any]:
                     "SELECT COUNT(*) FROM virtual_trades WHERE timestamp >= ?",
                     (cutoff_iso,)
                 )
-                result["trades_24h"] = cur.fetchone()[0]
+                result["trades_7d"] = cur.fetchone()[0]
             conn.close()
     except Exception as e:
         result["issues"].append(f"Gagal baca virtual_trading.db: {e}")
 
-    if result["signals_24h"] > 0:
-        result["ratio_pct"] = round(result["trades_24h"] / result["signals_24h"] * 100, 1)
+    if result["signals_7d"] > 0:
+        result["ratio_pct"] = round(result["trades_7d"] / result["signals_7d"] * 100, 1)
 
     # Anomali: ada banyak sinyal tapi 0 trade sama sekali — pola persis seperti
     # bug smc_data NameError yang pernah membuat scanner 0-sinyal/0-trade diam-diam
-    if result["signals_24h"] >= 10 and result["trades_24h"] == 0:
+    if result["signals_7d"] >= 10 and result["trades_7d"] == 0:
         result["issues"].append(
-            f"⚠️ ANOMALI: {result['signals_24h']} sinyal masuk tapi 0 trade dibuka 24 jam terakhir "
+            f"⚠️ ANOMALI: {result['signals_7d']} sinyal masuk tapi 0 trade dibuka 7 hari terakhir "
             f"— mirip pola bug filter/exception tersembunyi"
         )
-    elif result["signals_24h"] == 0:
+    elif result["signals_7d"] == 0:
         result["issues"].append("Tidak ada sinyal sama sekali dalam 24 jam — cek apakah scanner berjalan normal")
 
     result["status"] = "CRITICAL" if any("ANOMALI" in i for i in result["issues"]) \
