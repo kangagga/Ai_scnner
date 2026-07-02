@@ -274,6 +274,23 @@ def job_scan():
         # STEP 1: Scan semua signals
         all_sig = scan_all_fast(min_score=MIN_SCORE)
 
+        # ── SR Guard Ringkasan ──
+        try:
+            from scanner import get_and_reset_sr_guard_log
+            sr_log = get_and_reset_sr_guard_log()
+            if sr_log:
+                top2 = sorted(sr_log, key=lambda x: x["confidence"], reverse=True)[:2]
+                top2_txt = "\n".join([
+                    f"  • {r['symbol']} {r['signal']} conf={r['confidence']:.1f} jarak={'sup' if r['signal'].startswith('BUY') else 'res'}={abs(r['price']-r['support' if r['signal'].startswith('BUY') else 'resistance'])/r['price']*100:.1f}%"
+                    for r in top2
+                ])
+                msg = f"🛡️ SR Guard: {len(sr_log)} sinyal diblokir\n{top2_txt}"
+                logger.info(f"[SR_GUARD] {len(sr_log)} sinyal diblokir siklus ini")
+                from telegram_sender import send_alert
+                send_alert(msg)
+        except Exception as _srg_e:
+            logger.debug(f"[SR_GUARD] error ringkasan: {_srg_e}")
+
         # Auto-Adaptive: filter per signal_type
         filtered_by_threshold = []
         for _s in all_sig:

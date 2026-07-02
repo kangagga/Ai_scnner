@@ -126,6 +126,14 @@ _cache_lock   = threading.Lock()
 _indicator_cache: Dict[str, pd.DataFrame] = {}
 _rate_limit_lock   = threading.Lock()
 _last_request_time: Dict[int, float] = {}
+_sr_guard_log: list = []  # kumpul data SR Guard per siklus scan
+
+def get_and_reset_sr_guard_log() -> list:
+    """Ambil isi SR Guard log lalu reset untuk siklus berikutnya."""
+    global _sr_guard_log
+    data = _sr_guard_log.copy()
+    _sr_guard_log = []
+    return data
 
 def _cast_df(df):
     for col in ["open","high","low","close","volume"]:
@@ -546,9 +554,11 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
         if signal.startswith("BUY") and not near_support:
             logger.info(f"[SR_GUARD] {symbol}: BUY ditolak — harga tidak dekat support (harga={entry_price}, sup={support})")
+            _sr_guard_log.append({"signal": "BUY", "symbol": symbol, "price": entry_price, "support": support, "resistance": resistance, "confidence": confidence})
             return None
         if signal.startswith("SELL") and not near_resistance:
             logger.info(f"[SR_GUARD] {symbol}: SELL ditolak — harga tidak dekat resistance (harga={entry_price}, res={resistance})")
+            _sr_guard_log.append({"signal": "SELL", "symbol": symbol, "price": entry_price, "support": support, "resistance": resistance, "confidence": confidence})
             return None
 
     # ── SMC Layer (non-destructive) ──

@@ -101,12 +101,14 @@ def add_virtual_trade(signal: dict):
          smc_score, smc_bonus, ob_imbalance, ob_pressure, ob_bonus,
          vp_ratio, vp_bonus, liq_usd, liq_score, liq_adj,
          funding_rate, price_vs_vwap, score_raw, score_final,
-         regime, hour_entry)
+         regime, hour_entry,
+         support, resistance, sr_guard_pass)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
-                ?, ?)""",
+                ?, ?,
+                ?, ?, ?)""",
         (now, symbol, sig_type,
          signal.get("entry", 0), signal.get("sl", 0),
          signal.get("tp1", 0), signal.get("tp2", 0),
@@ -126,7 +128,10 @@ def add_virtual_trade(signal: dict):
          signal.get("score_raw", 0),
          signal.get("score", 0),
          signal.get("regime", "NEUTRAL"),
-         int(datetime.now().strftime("%H"))))
+         int(datetime.now().strftime("%H")),
+         signal.get("support", 0),
+         signal.get("resistance", 0),
+         1))
     conn.commit()
 
     # ── Notifikasi Telegram saat posisi dibuka ──
