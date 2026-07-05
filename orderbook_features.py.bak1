@@ -2,34 +2,27 @@
 Orderbook Imbalance + Spread + Liquidity Score
 Dipanggil di _analyse_single sebelum SMC layer
 """
-import requests, time, functools, threading, logging
-
-logger = logging.getLogger(__name__)
+import requests, time, functools
 
 _BASE = "https://api.gateio.ws/api/v4"
 _CACHE = {}
-_CACHE_LOCK = threading.Lock()
 _CACHE_TTL = 30  # detik
 
 def _fetch_orderbook(symbol: str, depth: int = 20) -> dict:
     key = f"ob_{symbol}"
     now = time.time()
-    with _CACHE_LOCK:
-        if key in _CACHE and now - _CACHE[key]["ts"] < _CACHE_TTL:
-            return _CACHE[key]["data"]
+    if key in _CACHE and now - _CACHE[key]["ts"] < _CACHE_TTL:
+        return _CACHE[key]["data"]
     try:
         r = requests.get(f"{_BASE}/spot/order_book",
                          params={"currency_pair": symbol, "limit": depth},
                          timeout=4)
         if r.status_code == 200:
             data = r.json()
-            with _CACHE_LOCK:
-                _CACHE[key] = {"ts": now, "data": data}
+            _CACHE[key] = {"ts": now, "data": data}
             return data
-    except requests.RequestException as e:
-        logger.warning(f"[orderbook_features] Gagal fetch orderbook {symbol}: {e}")
-    except (KeyError, ValueError) as e:
-        logger.warning(f"[orderbook_features] Response tidak valid untuk {symbol}: {e}")
+    except Exception:
+        pass
     return {}
 
 def _fetch_funding(symbol: str) -> float:
@@ -37,9 +30,8 @@ def _fetch_funding(symbol: str) -> float:
     contract = symbol  # BTC_USDT format sama
     key = f"fr_{symbol}"
     now = time.time()
-    with _CACHE_LOCK:
-        if key in _CACHE and now - _CACHE[key]["ts"] < 300:  # cache 5 menit
-            return _CACHE[key]["data"]
+    if key in _CACHE and now - _CACHE[key]["ts"] < 300:  # cache 5 menit
+        return _CACHE[key]["data"]
     try:
         r = requests.get(f"{_BASE}/futures/usdt/funding_rate",
                          params={"contract": contract, "limit": 1},
@@ -47,13 +39,10 @@ def _fetch_funding(symbol: str) -> float:
         if r.status_code == 200:
             data = r.json()
             rate = float(data[0].get("r", 0)) if data else 0.0
-            with _CACHE_LOCK:
-                _CACHE[key] = {"ts": now, "data": rate}
+            _CACHE[key] = {"ts": now, "data": rate}
             return rate
-    except requests.RequestException as e:
-        logger.warning(f"[orderbook_features] Gagal fetch funding rate {symbol}: {e}")
-    except (KeyError, IndexError, ValueError) as e:
-        logger.warning(f"[orderbook_features] Response tidak valid untuk {symbol}: {e}")
+    except Exception:
+        pass
     return 0.0
 
 def get_orderbook_features(symbol: str) -> dict:

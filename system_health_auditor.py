@@ -299,35 +299,61 @@ def check_process_uptime() -> Dict[str, Any]:
     """
     Cek sejak kapan proses main.py berjalan. Uptime singkat (<10 menit)
     bisa mengindikasikan bot baru saja crash dan auto-restart.
+
+    [FIX 2026-07-04] psutil.boot_time() di UserLand/Android salah lapor
+    (2018), sehingga create_time semua proses ikut salah. Sumber utama
+    uptime sekarang file bot_start_time.txt yang ditulis main.py saat start.
+    psutil dipakai hanya sebagai fallback kalau file tidak ada.
     """
+    # Cek dulu proses beneran ada / tidak (tetap perlu psutil untuk ini)
+    proc_found = False
+    proc_pid = None
     try:
-        for proc in psutil.process_iter(["pid", "cmdline", "create_time"]):
+        for proc in psutil.process_iter(["pid", "cmdline"]):
             try:
                 cmdline_str = " ".join(proc.info.get("cmdline") or [])
                 if MAIN_SCRIPT_NAME in cmdline_str and "system_health_auditor" not in cmdline_str:
-                    create_time = datetime.fromtimestamp(proc.info["create_time"], tz=WIB)
-                    uptime = datetime.now(WIB) - create_time
-                    uptime_minutes = uptime.total_seconds() / 60
-
-                    status = "OK"
-                    message = f"Bot berjalan sejak {create_time.strftime('%d/%m %H:%M')} WIB ({_format_duration(uptime)})"
-                    if uptime_minutes < 10:
-                        status = "WARNING"
-                        message = f"⚠️ Bot baru start {round(uptime_minutes,1)} menit lalu — kemungkinan baru crash & restart"
-
-                    return {
-                        "status": status,
-                        "pid": proc.info["pid"],
-                        "start_time": create_time.isoformat(),
-                        "uptime_minutes": round(uptime_minutes, 1),
-                        "message": message,
-                    }
+                    proc_found = True
+                    proc_pid = proc.info["pid"]
+                    break
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-    return {"status": "NOT_FOUND", "message": "Proses main.py tidak ditemukan"}
+    if not proc_found:
+        return {"status": "NOT_FOUND", "message": "Proses main.py tidak ditemukan"}
+
+    # Sumber uptime akurat: file bot_start_time.txt
+    try:
+        start_time_path = BASE_DIR / "bot_start_time.txt"
+        with open(start_time_path, "r", encoding="utf-8") as f:
+            create_time = datetime.fromisoformat(f.read().strip())
+            if create_time.tzinfo is None:
+                create_time = create_time.replace(tzinfo=WIB)
+    except Exception as e:
+        return {
+            "status": "WARNING",
+            "pid": proc_pid,
+            "message": f"⚠️ bot_start_time.txt tidak terbaca ({e}) — uptime tidak bisa dihitung akurat",
+        }
+
+    uptime = datetime.now(WIB) - create_time
+    uptime_minutes = uptime.total_seconds() / 60
+
+    status = "OK"
+    message = f"Bot berjalan sejak {create_time.strftime('%d/%m %H:%M')} WIB ({_format_duration(uptime)})"
+    if uptime_minutes < 10:
+        status = "WARNING"
+        message = f"⚠️ Bot baru start {round(uptime_minutes,1)} menit lalu — kemungkinan baru crash & restart"
+
+    return {
+        "status": status,
+        "pid": proc_pid,
+        "start_time": create_time.isoformat(),
+        "uptime_minutes": round(uptime_minutes, 1),
+        "message": message,
+    }
 
 
 def _format_duration(td: timedelta) -> str:

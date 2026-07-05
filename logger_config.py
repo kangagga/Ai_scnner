@@ -17,7 +17,12 @@ def _wib_time(*args):
     """Converter untuk logging.Formatter agar asctime pakai WIB (UTC+7), bukan UTC."""
     return datetime.now(WIB).timetuple()
 
-def setup_logging(level=logging.INFO) -> None:
+import os
+_ENV_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+
+def setup_logging(level=None) -> None:
+    if level is None:
+        level = getattr(logging, _ENV_LEVEL, logging.INFO)
     os.makedirs(LOG_DIR, exist_ok=True)
 
     fmt = logging.Formatter(

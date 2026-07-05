@@ -2,13 +2,10 @@
 Liquidity Filter — cek apakah pair layak untuk entry
 Berdasarkan: USD liquidity, spread, dan slippage estimate
 """
-import requests, time, threading, logging
-
-logger = logging.getLogger(__name__)
+import requests, time
 
 _BASE  = "https://api.gateio.ws/api/v4"
 _CACHE = {}
-_CACHE_LOCK = threading.Lock()
 _TTL   = 120  # 2 menit
 
 from config import MIN_LIQUIDITY_USD, MAX_SPREAD_PCT, MIN_DAILY_VOL_USD
@@ -16,9 +13,8 @@ from config import MIN_LIQUIDITY_USD, MAX_SPREAD_PCT, MIN_DAILY_VOL_USD
 def _get_price(symbol: str) -> float:
     key = f"price_{symbol}"
     now = time.time()
-    with _CACHE_LOCK:
-        if key in _CACHE and now - _CACHE[key]["ts"] < _TTL:
-            return _CACHE[key]["data"]
+    if key in _CACHE and now - _CACHE[key]["ts"] < _TTL:
+        return _CACHE[key]["data"]
     try:
         r = requests.get(f"{_BASE}/spot/tickers",
                          params={"currency_pair": symbol}, timeout=4)
@@ -26,25 +22,20 @@ def _get_price(symbol: str) -> float:
             data = r.json()[0]
             price = float(data.get("last", 0))
             vol24 = float(data.get("quote_volume", 0))  # sudah dalam USDT
-            with _CACHE_LOCK:
-                _CACHE[key] = {"ts": now, "data": price}
-                _CACHE[f"vol24_{symbol}"] = {"ts": now, "data": vol24}
+            _CACHE[key] = {"ts": now, "data": price}
+            _CACHE[f"vol24_{symbol}"] = {"ts": now, "data": vol24}
             return price
-    except requests.RequestException as e:
-        logger.warning(f"[liquidity_filter] Gagal fetch price {symbol}: {e}")
-    except (KeyError, IndexError, ValueError) as e:
-        logger.warning(f"[liquidity_filter] Response tidak valid untuk {symbol}: {e}")
+    except Exception:
+        pass
     return 0.0
 
 def _get_vol24(symbol: str) -> float:
     key = f"vol24_{symbol}"
     now = time.time()
-    with _CACHE_LOCK:
-        if key in _CACHE and now - _CACHE[key]["ts"] < _TTL:
-            return _CACHE[key]["data"]
+    if key in _CACHE and now - _CACHE[key]["ts"] < _TTL:
+        return _CACHE[key]["data"]
     _get_price(symbol)  # trigger fetch sekaligus
-    with _CACHE_LOCK:
-        return _CACHE.get(key, {}).get("data", 0.0)
+    return _CACHE.get(key, {}).get("data", 0.0)
 
 def check_liquidity(symbol: str, ob_features: dict) -> dict:
     """

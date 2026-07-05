@@ -63,8 +63,6 @@ SIGNAL_COOLDOWN = {
 DEFAULT_COOLDOWN_MINUTES = 45
 
 VALID_SIGNALS = {
-    # [DISABLED 2026-07-03] "BUY", "SELL" — data virtual_trading.db: WR 22-30%, total PnL -$25.33 (186 trades)
-    # vs SETUP: WR 46-56%, total PnL +$6.03 (50 trades). Biasa jauh lebih buruk, dimatikan.
     "BUY", "SELL",
     "BUY (REVERSAL)", "SELL (REVERSAL)",
     "BUY (SETUP)", "SELL (SETUP)",
@@ -305,15 +303,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
     df = _cast_df(df)
 
-    # [FIX 2026-07-05] df.index[-1] adalah RangeIndex biasa (int urutan), BUKAN timestamp,
-    # karena data_fetcher.py tidak menyimpan kolom timestamp. Akibatnya key ini selalu
-    # sama (mis. selalu 298 untuk limit=300) sehingga cache TIDAK PERNAH invalidate --
-    # bot menganalisis data indikator basi selama berjam-jam meski harga terus di-refresh.
-    # Fix: pakai kombinasi close candle terakhir + candle sebelumnya sebagai fingerprint,
-    # nilai ini berubah setiap kali ada candle baru yang closed.
-    _last_close = df["close"].iloc[-1]
-    _prev_close = df["close"].iloc[-2] if len(df) > 1 else 0
-    _ind_key = f"{symbol}_{timeframe}_{_last_close}_{_prev_close}"
+    _ind_key = f"{symbol}_{timeframe}_{df.index[-1]}"
     if _ind_key in _indicator_cache:
         df = _indicator_cache[_ind_key]
     else:
@@ -327,7 +317,6 @@ def _analyse_single(symbol, timeframe, min_score=0):
     confidence = _safe(last.get("confidence", 0))
 
     if signal not in VALID_SIGNALS:
-        _bump_block(f"INVALID_SIGNAL_{signal}")
         return None
 
     # ── ADAPTIVE CONFIDENCE MULTIPLIER berdasarkan market regime ──
@@ -345,24 +334,19 @@ def _analyse_single(symbol, timeframe, min_score=0):
             "NEUTRAL":  {"BUY": 1.00, "SELL": 1.00},
             "UNKNOWN":  {"BUY": 0.50, "SELL": 0.50},   # data tidak jelas — sangat dikurangi
         }
-        # [DISABLED 2026-07-03] ADAPTIVE_MULT dimatikan — redundant dengan blokir regime
-        # NEUTRAL/VOLATILE/UNKNOWN + regime_min_conf yang sudah ada di bawah.
-        # Terlalu banyak lapis filter regime bikin sinyal jarang lolos.
         _direction = "BUY" if signal.startswith("BUY") else "SELL"
-        # _mult = ADAPTIVE_MULT.get(_regime, {}).get(_direction, 1.0)
-        # confidence_before_adaptive = confidence
-        # confidence = round(confidence * _mult, 1)
-        # logger.debug(
-        #     f"[ADAPTIVE] {symbol}/{timeframe} regime={_regime} dir={_direction} "
-        #     f"mult={_mult}x conf {confidence_before_adaptive:.1f}→{confidence:.1f}"
-        # )
+        _mult = ADAPTIVE_MULT.get(_regime, {}).get(_direction, 1.0)
+        confidence_before_adaptive = confidence
+        confidence = round(confidence * _mult, 1)
+        logger.debug(
+            f"[ADAPTIVE] {symbol}/{timeframe} regime={_regime} dir={_direction} "
+            f"mult={_mult}x conf {confidence_before_adaptive:.1f}→{confidence:.1f}"
+        )
     except Exception as _e:
         logger.debug(f"[ADAPTIVE] error — {_e}")
 
     # Min confidence per signal type
     MIN_CONF = {
-        "BUY"            : 68,
-        "SELL"           : 65,
         "BUY (SETUP)"    : 50,
         "SELL (SETUP)"   : 50,
         "BUY (REVERSAL)" : 55,
@@ -383,14 +367,8 @@ def _analyse_single(symbol, timeframe, min_score=0):
         regime = detect_market_regime(symbol, timeframe)
         reg    = regime.get("regime", "NEUTRAL")
 
-        # [UPDATED 2026-07-04] NEUTRAL tidak lagi diblokir total.
-        # Analisis funnel: 11/12 sinyal SETUP historis BTCUSDT jatuh ke NEUTRAL
-        # akibat celah logika (ADX 20-22 tidak match TRENDING maupun RANGING,
-        # atau bb_width tidak capai threshold meski ADX sudah rendah).
-        # Blokir keras NEUTRAL menggugurkan sinyal valid yang cuma "salah kategori regime".
-        # Solusi: NEUTRAL tetap boleh lolos tapi dengan MIN_CONF lebih tinggi (60),
-        # bukan diblokir total. VOLATILE & UNKNOWN tetap diblokir keras (WR 0% & data tidak jelas).
-        if reg in ("VOLATILE", "UNKNOWN"):
+        # Blokir NEUTRAL & VOLATILE — data historis: WR 30% dan 0%
+        if reg in ("NEUTRAL", "VOLATILE", "UNKNOWN"):
             logger.debug(f"[REGIME] {symbol}/{timeframe}: regime {reg} diblokir")
             _bump_block(f"REGIME_{reg}")
             return None
@@ -399,7 +377,6 @@ def _analyse_single(symbol, timeframe, min_score=0):
             "TRENDING" : 50,
             "BREAKOUT" : 55,
             "RANGING"  : 48,
-            "NEUTRAL"  : 60,  # lebih ketat karena data historis WR NEUTRAL rendah (~30%)
         }.get(reg, 50)
 
         if confidence < regime_min_conf:

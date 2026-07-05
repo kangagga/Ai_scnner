@@ -144,9 +144,16 @@ def get_alert_level(s: dict) -> str:
     smc_available = smc_score > 0 or smc_valid
 
     if smc_available:
+        if not smc_valid:
+            # Hard veto: SMC invalid (doji/melawan trend kuat) → maksimal WATCHLIST,
+            # tidak peduli seberapa tinggi score_final atau smc_score.
+            if score >= 45:
+                return "👀 WATCHLIST — PANTAU SAJA"
+            else:
+                return "💤 MONITOR — JANGAN ENTRY"
         if score >= 65 and smc_score >= 70 and smc_valid and (wr >= 50 or wr == 0):
             return "🚀 EKSEKUSI — ENTRY SEKARANG"
-        elif score >= 55 and smc_score >= 50 and (wr >= 40 or wr == 0):
+        elif score >= 55 and smc_score >= 50 and smc_valid and (wr >= 40 or wr == 0):
             return "⚡ SIAP ENTRY — KONFIRMASI DULU"
         elif score >= 45:
             return "👀 WATCHLIST — PANTAU SAJA"

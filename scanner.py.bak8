@@ -305,15 +305,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
     df = _cast_df(df)
 
-    # [FIX 2026-07-05] df.index[-1] adalah RangeIndex biasa (int urutan), BUKAN timestamp,
-    # karena data_fetcher.py tidak menyimpan kolom timestamp. Akibatnya key ini selalu
-    # sama (mis. selalu 298 untuk limit=300) sehingga cache TIDAK PERNAH invalidate --
-    # bot menganalisis data indikator basi selama berjam-jam meski harga terus di-refresh.
-    # Fix: pakai kombinasi close candle terakhir + candle sebelumnya sebagai fingerprint,
-    # nilai ini berubah setiap kali ada candle baru yang closed.
-    _last_close = df["close"].iloc[-1]
-    _prev_close = df["close"].iloc[-2] if len(df) > 1 else 0
-    _ind_key = f"{symbol}_{timeframe}_{_last_close}_{_prev_close}"
+    _ind_key = f"{symbol}_{timeframe}_{df.index[-1]}"
     if _ind_key in _indicator_cache:
         df = _indicator_cache[_ind_key]
     else:

@@ -41,6 +41,9 @@ atexit.register(_release_lock)
 from config          import SCAN_INTERVAL, SIGNAL_THRESHOLD, MIN_SCORE, MAX_SIGNALS_PER_DAY, \
                              DAILY_REPORT_HOUR, DAILY_REPORT_MINUTE
 from scanner         import scan_all, scan_all_fast, get_top_signals, get_dynamic_threshold
+
+_empty_scan_count = 0
+EMPTY_SCAN_HEARTBEAT_THRESHOLD = 15  # ~30 menit kalau SCAN_INTERVAL=120
 from backtester      import run_backtest_multi
 from ai_analyst      import analyse_market_sentiment, filter_signals_ai
 from market_context  import get_market_context
@@ -253,7 +256,7 @@ def _build_cooldown_info() -> dict:
 
 def job_scan():
     """Main scanning job dengan correlation filter + position sizing + regime adjustment"""
-    global _last_signals, _daily_signal_count, _daily_reset_date
+    global _last_signals, _daily_signal_count, _daily_reset_date, _empty_scan_count
     
     now_str = datetime.now().strftime("%H:%M:%S")
     logger.info(f"🔍 Scan dimulai — {now_str}")
@@ -307,10 +310,28 @@ def job_scan():
             _s["dynamic_threshold"] = _s.get("dynamic_threshold", dyn_threshold)
 
         if not top_sig:
-            logger.info("⚠️  Tidak ada signals")
+            _empty_scan_count += 1
+            logger.info(f"⚠️  Tidak ada signals (empty streak: {_empty_scan_count})")
             update_signals([])
+            if _empty_scan_count >= EMPTY_SCAN_HEARTBEAT_THRESHOLD:
+                try:
+                    from telegram_sender import send_alert
+                    btc = market_ctx.get("btc_trend", {})
+                    fg  = market_ctx.get("fear_greed", {})
+                    menit = _empty_scan_count * (SCAN_INTERVAL // 60)
+                    hb_msg = (
+                        f"🤖 Bot aktif — belum ada sinyal {menit} menit terakhir\n"
+                        f"📊 BTC: {btc.get('trend','?')} | F&G: {fg.get('value','?')} {fg.get('label','')}\n"
+                        f"⏳ Menunggu kondisi SETUP/REVERSAL terpenuhi"
+                    )
+                    send_alert(hb_msg)
+                    logger.info(f"💓 Heartbeat terkirim (streak {_empty_scan_count})")
+                except Exception as _hb_e:
+                    logger.debug(f"[HEARTBEAT] error: {_hb_e}")
+                _empty_scan_count = 0
             return
 
+        _empty_scan_count = 0  # reset streak karena ada sinyal
         # STEP 2: Filter correlation — Trend-Following Strategy
         btc_raw = market_ctx.get("btc_trend", {})
         btc_trend = btc_raw.get("trend", "") if isinstance(btc_raw, dict) else str(btc_raw)
@@ -561,6 +582,14 @@ def main():
     logger.info("="*60)
     logger.info("🤖 AI Crypto Signal Bot STARTED (v2 + Dynamic Risk)")
     logger.info("="*60)
+
+    # [FIX 2026-07-04] psutil.boot_time() salah di UserLand/Android (lapor 2018).
+    # Simpan start time sendiri sebagai sumber uptime yang akurat.
+    try:
+        with open("bot_start_time.txt", "w", encoding="utf-8") as _f:
+            _f.write(datetime.now().isoformat())
+    except Exception as _e:
+        logger.warning(f"Gagal menulis bot_start_time.txt: {_e}")
 
     import threading
     

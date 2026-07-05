@@ -15,8 +15,7 @@ def _save_trades():
     try:
         with open(_TRADES_FILE, "w") as f:
             json.dump(_active_trades, f)
-    except (OSError, TypeError) as e:
-        logger.warning(f"Gagal simpan {_TRADES_FILE}: {e}")
+    except: pass
 
 def _load_trades():
     import json, os
@@ -26,8 +25,7 @@ def _load_trades():
             with open(_TRADES_FILE) as f:
                 _active_trades = json.load(f)
             logger.info(f"✅ {len(_active_trades)} trade dimuat dari file")
-        except (OSError, json.JSONDecodeError) as e:
-            logger.warning(f"Gagal load {_TRADES_FILE}: {e}")
+        except: pass
 
     # FIX: reconcile dengan database - tambahkan posisi yang closed=0 di DB
     # tapi hilang dari active_trades.json (misal karena crash/restart yang tidak sinkron)
@@ -103,8 +101,8 @@ def get_current_price(symbol: str) -> float:
         data = r.json()
         if data:
             return float(data[0].get("last", 0))
-    except (requests.RequestException, ValueError, KeyError, IndexError) as e:
-        logger.debug(f"Gagal ambil harga: {e}")
+    except:
+        pass
     return 0.0
 
 _sent_exit_notif = set()  # tracking notif sudah dikirim
@@ -189,8 +187,8 @@ def check_exits(send_alert_fn):
                     from blacklist import report_false_signal
                     report_false_signal(symbol)
                     logger.info(f"⚠️ {symbol} dilaporkan ke blacklist setelah SL")
-                except Exception as e:
-                    logger.warning(f"Gagal lapor blacklist {symbol}: {e}")
+                except:
+                    pass
 
             # Update virtual trading (balance & record otomatis)
             try:
@@ -202,8 +200,8 @@ def check_exits(send_alert_fn):
                     pnl_pct=pnl_pct
                 )
                 logger.info(f"💰 Trade closed: {symbol} {trade['signal']} | PnL: {pnl_pct:.2f}%")
-            except (ImportError, sqlite3.Error, KeyError, ValueError) as e:
-                logger.error(f"Virtual trade error: {e}", exc_info=True)
+            except Exception as e:
+                logger.warning(f"Virtual trade error: {e}")
 
             # FIX: post-mortem AI singkat untuk pembelajaran pola (non-blocking, gagal diam-diam)
             try:
@@ -228,8 +226,8 @@ def check_exits(send_alert_fn):
                 if not is_profit:
                     from blacklist import add_loss_cooldown
                     add_loss_cooldown(symbol)
-            except (ImportError, sqlite3.Error, KeyError) as e:
-                logger.warning(f"Cooldown error: {e}", exc_info=True)
+            except Exception as e:
+                logger.warning(f"Cooldown error: {e}")
 
             with _lock:
                 if key in _active_trades:

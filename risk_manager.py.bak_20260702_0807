@@ -10,7 +10,6 @@
 # ============================================================
 import logging
 import json
-import threading
 import os
 import sqlite3
 from datetime import datetime, date, timezone, timedelta
@@ -66,7 +65,6 @@ class RiskState:
         self.trade_history    : List  = []
         self.trading_halted   : bool  = False
         self.halt_reason      : str   = ""
-        self._lock = threading.RLock()
         self._load()
 
     def _load(self):
@@ -200,33 +198,31 @@ class RiskState:
         except Exception as e:
             logger.warning(f"Risk state DB save error: {e}")
     def reset_daily(self):
-        with self._lock:
-            today = str(date.today())
-            if self.daily_date != today:
-                self.daily_pnl  = 0.0
-                self.daily_date = today
-                if "daily" in self.halt_reason.lower():
-                    self.trading_halted = False
-                    self.halt_reason    = ""
-                self.save()
+        today = str(date.today())
+        if self.daily_date != today:
+            self.daily_pnl  = 0.0
+            self.daily_date = today
+            if "daily" in self.halt_reason.lower():
+                self.trading_halted = False
+                self.halt_reason    = ""
+            self.save()
 
     def update_balance(self, pnl_usdt: float, win: bool):
-        with self._lock:
-            self.balance   += pnl_usdt
-            self.daily_pnl += pnl_usdt
-            if self.balance > self.peak_balance:
-                self.peak_balance = self.balance
-            if win:
-                self.consecutive_loss = 0
-            else:
-                self.consecutive_loss += 1
-            self.trade_history.append({
-                "time"   : datetime.now().isoformat(),
-                "pnl"    : round(pnl_usdt, 4),
-                "win"    : win,
-                "balance": round(self.balance, 2),
-            })
-            self.save()
+        self.balance   += pnl_usdt
+        self.daily_pnl += pnl_usdt
+        if self.balance > self.peak_balance:
+            self.peak_balance = self.balance
+        if win:
+            self.consecutive_loss = 0
+        else:
+            self.consecutive_loss += 1
+        self.trade_history.append({
+            "time"   : datetime.now().isoformat(),
+            "pnl"    : round(pnl_usdt, 4),
+            "win"    : win,
+            "balance": round(self.balance, 2),
+        })
+        self.save()
 
     @property
     def current_drawdown_pct(self) -> float:
@@ -239,20 +235,17 @@ class RiskState:
         return sum(self.open_positions.values())
 
     def add_position(self, key: str, risk_pct: float):
-        with self._lock:
-            self.open_positions[key] = round(risk_pct, 2)  # fix floating point
-            self.save()
+        self.open_positions[key] = round(risk_pct, 2)  # fix floating point
+        self.save()
 
     def remove_position(self, key: str):
-        with self._lock:
-            self.open_positions.pop(key, None)
-            self.save()
+        self.open_positions.pop(key, None)
+        self.save()
 
     def reset_positions(self):
         """[FIX] Reset semua posisi terbuka (untuk debugging)."""
-        with self._lock:
-            self.open_positions = {}
-            self.save()
+        self.open_positions = {}
+        self.save()
         logger.info("Open positions di-reset.")
 
 

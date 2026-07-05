@@ -571,6 +571,7 @@ def institutional_ai_v4(df):
         (data['shooting_star'] == 0) &
         (data['evening_star'] == 0) &
         (data['bear_engulf'] == 0) &
+        (data['doji'] == 0) &
         ~_fake_signal
     )
     sell_setup_cond = (
@@ -581,6 +582,7 @@ def institutional_ai_v4(df):
         (data['hammer'] == 0) &
         (data['morning_star'] == 0) &
         (data['bull_engulf'] == 0) &
+        (data['doji'] == 0) &
         ~_fake_signal
     )
     buy_breakout_cond = (
@@ -593,6 +595,7 @@ def institutional_ai_v4(df):
         ~(data['rsi'] > 75) &
         ~(data['near_resistance'] & (data['stoch_k'] > 90)) &
         ~(data['near_resistance'] & ~data['candle_confirms_breakout']) &
+        ~(data['doji'] == 1) &
         ~_fake_signal
     )
     sell_breakout_cond = (
@@ -604,6 +607,7 @@ def institutional_ai_v4(df):
         ~((data['rsi'] < 35) & ((data['adx'] > 60) | (data['stoch_k'] < 15))) &
         ~(data['rsi'] < 25) &
         ~(data['near_support'] & (data['stoch_k'] < 10)) &
+        ~(data['doji'] == 1) &
         ~_fake_signal
     )
     buy_momentum_cond = (
@@ -613,6 +617,7 @@ def institutional_ai_v4(df):
         (data['rsi'] > 35) & (data['rsi'] < 80) &
         (data['macd_hist'] > 0) &
         ~((data['rsi'] > 65) & ((data['adx'] > 60) | (data['stoch_k'] > 85))) &
+        ~(data['doji'] == 1) &
         ~_fake_signal
     )
     sell_momentum_cond = (
@@ -622,6 +627,7 @@ def institutional_ai_v4(df):
         (data['rsi'] < 65) & (data['rsi'] > 20) &
         (data['macd_hist'] < 0) &
         ~((data['rsi'] < 35) & ((data['adx'] > 60) | (data['stoch_k'] < 15))) &
+        ~(data['doji'] == 1) &
         ~_fake_signal
     )
     buy_confirm_cond = (
@@ -630,6 +636,7 @@ def institutional_ai_v4(df):
         (data['rsi'] > 50) & (data['rsi'] < 70) &
         (data['macd_hist'] > 0) &
         data['vol_expansion'] &
+        ~(data['doji'] == 1) &
         ~_fake_signal
     )
     sell_confirm_cond = (
@@ -638,6 +645,7 @@ def institutional_ai_v4(df):
         (data['rsi'] < 50) & (data['rsi'] > 30) &
         (data['macd_hist'] < 0) &
         data['vol_expansion'] &
+        ~(data['doji'] == 1) &
         ~_fake_signal
     )
     oversold_cond   = data['reversal_bull'] & (data['rsi'] < 32) & (data['vol_ratio'] > 1.0)

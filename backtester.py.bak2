@@ -142,17 +142,11 @@ def run_backtest(
             tp3 = entry - tp3_atr * atr
             direction = "SELL"
 
-        # [ALIGNED 2026-07-04] Simulasi exit replikasi trailing logic exit_monitor.py:
-        # TP1 hit -> SL geser ke entry, lanjut pantau TP2
-        # TP2 hit -> SL geser ke TP1 original, lanjut pantau TP3
-        # TP3 hit atau SL (termasuk SL yang sudah ditrailing) -> exit total
+        # Simulasi exit: cek candle-candle berikutnya
         exit_price  = None
         exit_reason = "OPEN"
         exit_candle = None
         pnl_pct     = 0.0
-
-        cur_sl = sl
-        monitoring_tp = "TP1"
 
         for j in range(i + 1, min(i + 50, len(df_test))):   # max 50 candle ke depan
             future = df_test.iloc[j]
@@ -160,43 +154,25 @@ def run_backtest(
             low    = float(future["low"])
 
             if direction == "BUY":
-                # Cek SL dulu (prioritas keamanan)
-                if low <= cur_sl:
-                    exit_price  = cur_sl
-                    exit_reason = "SL" if monitoring_tp == "TP1" else "TRAILING STOP"
+                if low <= sl:
+                    exit_price  = sl
+                    exit_reason = "SL"
                     exit_candle = j - i
                     break
-                # Cek TP sesuai tahap monitoring saat ini
-                if monitoring_tp == "TP1" and high >= tp1:
-                    cur_sl = entry           # SL geser ke entry
-                    monitoring_tp = "TP2"
-                    continue
-                elif monitoring_tp == "TP2" and high >= tp2:
-                    cur_sl = tp1             # SL geser ke TP1 original
-                    monitoring_tp = "TP3"
-                    continue
-                elif monitoring_tp == "TP3" and high >= tp3:
-                    exit_price  = tp3
-                    exit_reason = "TP3"
+                elif high >= tp1:
+                    exit_price  = tp1
+                    exit_reason = "TP1"
                     exit_candle = j - i
                     break
             else:
-                if high >= cur_sl:
-                    exit_price  = cur_sl
-                    exit_reason = "SL" if monitoring_tp == "TP1" else "TRAILING STOP"
+                if high >= sl:
+                    exit_price  = sl
+                    exit_reason = "SL"
                     exit_candle = j - i
                     break
-                if monitoring_tp == "TP1" and low <= tp1:
-                    cur_sl = entry
-                    monitoring_tp = "TP2"
-                    continue
-                elif monitoring_tp == "TP2" and low <= tp2:
-                    cur_sl = tp1
-                    monitoring_tp = "TP3"
-                    continue
-                elif monitoring_tp == "TP3" and low <= tp3:
-                    exit_price  = tp3
-                    exit_reason = "TP3"
+                elif low <= tp1:
+                    exit_price  = tp1
+                    exit_reason = "TP1"
                     exit_candle = j - i
                     break
 
@@ -223,7 +199,7 @@ def run_backtest(
             "exit_reason" : exit_reason,
             "exit_candle" : exit_candle,
             "pnl_pct"     : round(pnl_pct, 4),
-            "win"         : exit_reason in ("TP1", "TP2", "TP3", "TRAILING STOP"),
+            "win"         : exit_reason in ("TP1", "TP2", "TP3"),
         })
 
     if not trades:
