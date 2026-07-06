@@ -1,21 +1,58 @@
-2026-07-02 15:08:04,936 [INFO] main — ============================================================
-2026-07-02 15:08:04,937 [INFO] main — 🤖 AI Crypto Signal Bot STARTED (v2 + Dynamic Risk)
-2026-07-02 15:08:04,937 [INFO] main — ============================================================
-2026-07-02 15:08:04,944 [INFO] exit_monitor — Exit monitor started
-2026-07-02 15:08:04,954 [INFO] main — 🌐 Dashboard: http://localhost:5000
-2026-07-02 15:08:04,955 [INFO] api_server — 🌐 Dashboard API berjalan di http://0.0.0.0:5000
+2026-07-06 19:45:11,295 [INFO] main — ============================================================
+2026-07-06 19:45:11,299 [INFO] main — 🤖 AI Crypto Signal Bot STARTED (v2 + Dynamic Risk)
+2026-07-06 19:45:11,299 [INFO] main — ============================================================
+2026-07-06 19:45:11,306 [INFO] exit_monitor — Exit monitor started
+2026-07-06 19:45:11,310 [INFO] main — 🌐 Dashboard: http://localhost:5000
+2026-07-06 19:45:11,312 [INFO] api_server — 🌐 Dashboard API berjalan di http://0.0.0.0:5000
  * Serving Flask app 'api_server'
  * Debug mode: off
-2026-07-02 15:08:06,063 [INFO] main — [STARTUP] Menjalankan backtest startup...
-2026-07-02 15:08:06,075 [INFO] main — 🔄 Bot berjalan. Ctrl+C untuk stop.
-2026-07-02 15:08:07,289 [INFO] data_fetcher — Gate.io: 2177 simbol aktif
-2026-07-02 15:08:10,617 [INFO] backtester — ✅ BTCUSDT/1h | Trades: 38 | WR: 55.3% | PnL: 17.43%
-2026-07-02 15:08:13,572 [INFO] backtester — ✅ ETHUSDT/1h | Trades: 29 | WR: 55.2% | PnL: 21.5%
-2026-07-02 15:08:16,548 [INFO] backtester — ✅ BNBUSDT/1h | Trades: 46 | WR: 43.5% | PnL: 2.71%
-2026-07-02 15:08:19,723 [INFO] backtester — ✅ SOLUSDT/1h | Trades: 31 | WR: 51.6% | PnL: 26.16%
-2026-07-02 15:08:23,075 [INFO] backtester — ✅ XRPUSDT/1h | Trades: 41 | WR: 48.8% | PnL: 8.79%
-2026-07-02 15:08:26,639 [INFO] backtester — ✅ ADAUSDT/1h | Trades: 50 | WR: 58.0% | PnL: 49.43%
-2026-07-02 15:08:29,795 [INFO] backtester — ✅ AVAXUSDT/1h | Trades: 52 | WR: 46.2% | PnL: 11.79%
-2026-07-02 15:08:32,647 [INFO] backtester — ✅ DOTUSDT/1h | Trades: 38 | WR: 63.2% | PnL: 32.56%
-2026-07-02 15:08:35,567 [INFO] backtester — ✅ LTCUSDT/1h | Trades: 44 | WR: 45.5% | PnL: 4.05%
-2026-07-02 15:08:39,149 [INFO] backtester — ✅ BCHUSDT/1h | Trades: 46 | WR: 69.6% | PnL: 76.54%
+2026-07-06 19:45:11,949 [INFO] exit_monitor — [TIME EXIT] ACN1USDT sudah 119.9 jam terbuka, force close
+2026-07-06 19:45:12,775 [INFO] main — [STARTUP] Menjalankan backtest startup...
+2026-07-06 19:45:12,778 [INFO] main — 🔄 Bot berjalan. Ctrl+C untuk stop.
+2026-07-06 19:45:13,873 [INFO] data_fetcher — Gate.io: 2193 simbol aktif
+2026-07-06 19:45:13,935 [INFO] virtual_trader — Trade closed: ACN1USDT/1h SELL | WIN | PnL: 1.93% / $0.48
+2026-07-06 19:45:13,988 [INFO] risk_manager — Trade recorded: ACN1USDT/1h SELL | ✅ WIN | PnL: $0.48 | Balance: $83.39
+2026-07-06 19:45:13,989 [INFO] virtual_trader — [RISK_SYNC] record_trade_result OK: ACN1USDT win=True
+2026-07-06 19:45:13,990 [INFO] exit_monitor — 💰 Trade closed: ACN1USDT SELL | PnL: 1.93%
+2026-07-06 19:45:15,090 [INFO] exit_monitor — [POSTMORTEM] ACN1USDT: Analisis post-mortem trade crypto menunjukkan bahwa hasil WIN dengan PnL 1,93% kemungkinan besar disebabkan oleh momentum yang kuat, karena harga berhasil turun setelah sinyal SELL. Penyebab utama ini kemungkinan karena kekuatan penjualan yang cukup besar, sehingga harga tidak mengalami slippage yang signifikan. Pelajaran konkret untuk sinyal serupa ke depan adalah memperhatikan volume dan kekuatan momentum sebelum memasuki posisi, agar dapat memaksimalkan keuntungan dan meminimalkan risiko.
+2026-07-06 19:45:15,761 [INFO] exit_monitor — [TIME EXIT] PAXGUSDT sudah 78.6 jam terbuka, force close
+2026-07-06 19:45:16,617 [INFO] backtester — ✅ BTCUSDT/1h | Trades: 1 | WR: 0.0% | PnL: 1.82%
+2026-07-06 19:45:16,975 [INFO] virtual_trader — Trade closed: PAXGUSDT/1h BUY | LOSS | PnL: -0.99% / $-0.25
+2026-07-06 19:45:17,045 [INFO] risk_manager — Trade recorded: PAXGUSDT/1h BUY | ❌ LOSS | PnL: $-0.25 | Balance: $83.14
+2026-07-06 19:45:17,046 [INFO] virtual_trader — [RISK_SYNC] record_trade_result OK: PAXGUSDT win=False
+2026-07-06 19:45:17,048 [INFO] exit_monitor — 💰 Trade closed: PAXGUSDT BUY | PnL: -0.99%
+2026-07-06 19:45:18,149 [INFO] exit_monitor — [POSTMORTEM] PAXGUSDT: Analisis post-mortem trade crypto menunjukkan bahwa hasil LOSS sebesar -0.99% kemungkinan besar disebabkan oleh false signal, karena harga tidak bergerak sesuai dengan sinyal BUY yang diberikan. Kemungkinan lainnya adalah exhaustion, di mana momentum harga sudah lemah sehingga tidak bisa mencapai target yang diharapkan. Pelajaran konkret untuk sinyal serupa ke depan adalah untuk memperhatikan kondisi pasar dan momentum sebelum memasuki trade, serta memastikan bahwa sinyal yang diberikan memiliki dasar yang kuat dan tidak hanya berdasarkan pada indikator saja.
+2026-07-06 19:45:18,272 [INFO] blacklist — ⏳ PAXGUSDT cooldown 2 jam setelah loss
+2026-07-06 19:45:19,072 [INFO] exit_monitor — [TIME EXIT] XAUTUSDT sudah 78.6 jam terbuka, force close
+2026-07-06 19:45:20,299 [INFO] virtual_trader — Trade closed: XAUTUSDT/1h BUY | LOSS | PnL: -0.97% / $-0.24
+2026-07-06 19:45:20,374 [INFO] risk_manager — Trade recorded: XAUTUSDT/1h BUY | ❌ LOSS | PnL: $-0.24 | Balance: $82.90
+2026-07-06 19:45:20,375 [INFO] virtual_trader — [RISK_SYNC] record_trade_result OK: XAUTUSDT win=False
+2026-07-06 19:45:20,376 [INFO] exit_monitor — 💰 Trade closed: XAUTUSDT BUY | PnL: -0.97%
+2026-07-06 19:45:21,497 [INFO] exit_monitor — [POSTMORTEM] XAUTUSDT: Analisis post-mortem trade crypto menunjukkan bahwa hasil LOSS sebesar -0.97% kemungkinan besar disebabkan oleh false signal, karena harga tidak bergerak sesuai dengan sinyal BUY yang diberikan. Kemungkinan lain adalah exhaustion, di mana momentum harga sudah lemah sehingga tidak bisa mencapai target yang diharapkan. Pelajaran konkret untuk sinyal serupa ke depan adalah memperhatikan kondisi pasar dan momentum sebelum memasuki trade, serta memastikan bahwa sinyal yang diberikan memiliki dasar yang kuat dan tidak hanya berdasarkan pada indikator saja.
+2026-07-06 19:45:21,566 [INFO] blacklist — ⏳ XAUTUSDT cooldown 2 jam setelah loss
+2026-07-06 19:45:22,577 [INFO] backtester — ✅ BNBUSDT/1h | Trades: 1 | WR: 0.0% | PnL: -0.75%
+2026-07-06 19:45:24,911 [INFO] exit_monitor — ⚠️ OKBUSDT dilaporkan ke blacklist setelah SL
+2026-07-06 19:45:25,014 [INFO] backtester — ✅ SOLUSDT/1h | Trades: 2 | WR: 50.0% | PnL: -1.43%
+2026-07-06 19:45:25,055 [INFO] virtual_trader — Trade closed: OKBUSDT/4h BUY | LOSS | PnL: -2.80% / $-0.70
+2026-07-06 19:45:25,100 [INFO] risk_manager — Trade recorded: OKBUSDT/4h BUY | ❌ LOSS | PnL: $-0.70 | Balance: $82.20
+2026-07-06 19:45:25,101 [INFO] virtual_trader — [RISK_SYNC] record_trade_result OK: OKBUSDT win=False
+2026-07-06 19:45:25,102 [INFO] exit_monitor — 💰 Trade closed: OKBUSDT BUY | PnL: -2.80%
+2026-07-06 19:45:26,090 [INFO] exit_monitor — [POSTMORTEM] OKBUSDT: Analisis post-mortem trade crypto menunjukkan bahwa hasil LOSS disebabkan oleh kemungkinan false signal, karena harga tidak bergerak sesuai dengan sinyal BUY yang diberikan. Kemungkinan penyebab utama adalah sinyal yang diberikan tidak akurat atau tidak sesuai dengan kondisi pasar saat itu. Pelajaran konkret untuk sinyal serupa ke depan adalah untuk memperkuat analisis teknikal dan fundamental sebelum melakukan entry, serta mempertimbangkan faktor-faktor lain seperti volume dan sentimen pasar.
+2026-07-06 19:45:26,146 [INFO] blacklist — ⏳ OKBUSDT cooldown 2 jam setelah loss
+2026-07-06 19:45:32,896 [INFO] backtester — ✅ AVAXUSDT/1h | Trades: 1 | WR: 0.0% | PnL: -1.55%
+2026-07-06 19:47:13,686 [INFO] main — 🔍 Scan dimulai — 12:47:13
+2026-07-06 19:47:15,135 [INFO] market_context — Fear & Greed: 24 (Extreme Fear) 😰
+2026-07-06 19:47:17,149 [INFO] market_context — BTC Trend: SIDEWAYS (WEAK) | Price: 62487.80 | ADX: 33.5
+2026-07-06 19:47:17,784 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 24 Extreme Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-06 19:47:18,458 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 24 Extreme Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-06 19:47:19,709 [INFO] data_fetcher — Gate.io: 224 pair aktif, tidak ada listing baru
+2026-07-06 19:47:20,943 [INFO] data_fetcher — Volume spike pairs: ['BTCUSDT', 'ZEUSUSDT', 'ETHUSDT', 'LABUSDT', 'VANRYUSDT']
+2026-07-06 19:47:22,207 [INFO] data_fetcher — Top gainers: ['ZEUSUSDT', 'TLMUSDT', 'BCH5SUSDT', 'VANRYUSDT', 'DEXEUSDT']
+2026-07-06 19:47:22,208 [INFO] data_fetcher — Top losers: ['GRASSUSDT', 'BCH5LUSDT', 'BEATUSDT', 'TAIKOUSDT', 'HMSTRUSDT']
+2026-07-06 19:53:36,420 [INFO] exit_monitor — ⚠️ ORDIUSDT dilaporkan ke blacklist setelah SL
+2026-07-06 19:53:37,553 [INFO] virtual_trader — Trade closed: ORDIUSDT/1h SELL | LOSS | PnL: -1.84% / $-0.46
+2026-07-06 19:53:38,404 [INFO] risk_manager — Trade recorded: ORDIUSDT/1h SELL | ❌ LOSS | PnL: $-0.46 | Balance: $81.74
+2026-07-06 19:53:38,412 [INFO] virtual_trader — [RISK_SYNC] record_trade_result OK: ORDIUSDT win=False
+2026-07-06 19:53:38,446 [INFO] exit_monitor — 💰 Trade closed: ORDIUSDT SELL | PnL: -1.84%
+2026-07-06 19:53:40,512 [INFO] exit_monitor — [POSTMORTEM] ORDIUSDT: Hasil perdagangan ini menunjukkan kerugian sebesar -1,84%. Kemungkinan penyebab utama hasil ini adalah false signal, karena harga tidak bergerak sesuai dengan sinyal jual yang diberikan. Pelajaran konkret untuk sinyal serupa ke depan adalah memperketat kriteria untuk mengambil sinyal jual, seperti menunggu konfirmasi dari indikator lain atau menunggu harga menembus level support sebelum mengambil posisi.
+2026-07-06 19:53:41,743 [INFO] blacklist — ⏳ ORDIUSDT cooldown 2 jam setelah loss

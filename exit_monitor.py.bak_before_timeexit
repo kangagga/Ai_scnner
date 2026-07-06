@@ -37,25 +37,22 @@ def _load_trades():
         conn = sqlite3.connect(VIRTUAL_DB)
         cur = conn.cursor()
         cur.execute("""
-            SELECT symbol, timeframe, signal, entry, sl, tp1, tp2, tp3, timestamp
+            SELECT symbol, timeframe, signal, entry, sl, tp1, tp2, tp3
             FROM virtual_trades WHERE closed=0
         """)
         rows = cur.fetchall()
         conn.close()
 
         recovered = 0
-        for symbol, tf, sig, entry, sl, tp1, tp2, tp3, ts in rows:
+        for symbol, tf, sig, entry, sl, tp1, tp2, tp3 in rows:
             key = f"{symbol}_{tf}"
             if key not in _active_trades:
                 _active_trades[key] = {
                     "entry": entry, "sl": sl,
                     "tp1": tp1, "tp2": tp2, "tp3": tp3,
                     "signal": sig, "timeframe": tf, "symbol": symbol,
-                    "opened_at": ts or datetime.now().astimezone().isoformat(),
                 }
                 recovered += 1
-            elif "opened_at" not in _active_trades[key]:
-                _active_trades[key]["opened_at"] = ts or datetime.now().astimezone().isoformat()
         if recovered:
             logger.info(f"🔧 [RECONCILE] {recovered} posisi dipulihkan dari DB ke active_trades")
             _save_trades()
@@ -72,7 +69,7 @@ def add_trade(signal: dict):
     key = f"{symbol}_{tf}"
     with _lock:
         _active_trades[key] = {
-"entry": signal.get("entry", 0),
+            "entry": signal.get("entry", 0),
             "sl": signal.get("sl", 0),
             "tp1": signal.get("tp1", 0),
             "tp2": signal.get("tp2", 0),
@@ -80,7 +77,6 @@ def add_trade(signal: dict):
             "signal": signal.get("signal", ""),
             "timeframe": signal.get("timeframe", ""),
             "symbol": symbol,
-            "opened_at": datetime.now().astimezone().isoformat(),
         }
     logger.info(f"Monitoring exit: {symbol}")
     _save_trades()
@@ -117,13 +113,10 @@ def check_exits(send_alert_fn):
     import copy
     with _lock:
         trades = copy.deepcopy(_active_trades)
-    MAX_HOLD_HOURS = 72  # posisi yang menggantung lebih dari ini akan dipaksa keluar
-
     for key, trade in trades.items():
         symbol = trade.get("symbol", key.split("_")[0])
         price = get_current_price(symbol)
         if not price:
-            logger.warning(f"[EXIT_MONITOR] Gagal ambil harga {symbol}, skip siklus ini")
             continue
         is_buy = trade["signal"].startswith("BUY")
         hit = None
@@ -145,22 +138,6 @@ def check_exits(send_alert_fn):
                 hit = ("TP2 HIT", trade["tp2"])
             elif price <= trade["tp1"] > 0:
                 hit = ("TP1 HIT", trade["tp1"])
-
-        # [FIX 2026-07-06] Time-based exit: posisi yang menggantung terlalu lama
-        # (contoh: ACN1USDT 5 hari, XAUTUSDT/PAXGUSDT 3 hari) mengunci symbol
-        # dari sinyal baru via DUPLICATE check. Paksa keluar di harga pasar
-        # kalau sudah melebihi MAX_HOLD_HOURS dan belum kena SL/TP manapun.
-        if hit is None:
-            opened_at_str = trade.get("opened_at")
-            if opened_at_str:
-                try:
-                    opened_at = datetime.fromisoformat(opened_at_str)
-                    age_hours = (datetime.now().astimezone() - opened_at).total_seconds() / 3600
-                    if age_hours >= MAX_HOLD_HOURS:
-                        hit = ("TIME EXIT", price)
-                        logger.info(f"[TIME EXIT] {symbol} sudah {age_hours:.1f} jam terbuka, force close")
-                except ValueError as e:
-                    logger.warning(f"[TIME EXIT] Gagal parse opened_at {symbol}: {e}")
         if hit:
             label, target = hit
             is_profit = False  # placeholder, dihitung ulang di bawah setelah pnl_pct final
