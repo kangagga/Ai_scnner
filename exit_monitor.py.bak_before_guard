@@ -121,18 +121,6 @@ def check_exits(send_alert_fn):
 
     for key, trade in trades.items():
         symbol = trade.get("symbol", key.split("_")[0])
-
-        # [FIX 2026-07-07] Guard data korup — trade dengan signal/entry/sl kosong
-        # (contoh: BTCUSDT_None yang semua field-nya null) menyebabkan
-        # AttributeError berulang setiap siklus. Bersihkan otomatis + skip.
-        if not trade.get("signal") or trade.get("entry") is None or trade.get("sl") is None:
-            logger.warning(f"[EXIT_MONITOR] Data trade korup terdeteksi untuk key={key}, dihapus dari active_trades")
-            with _lock:
-                if key in _active_trades:
-                    del _active_trades[key]
-            _save_trades()
-            continue
-
         price = get_current_price(symbol)
         if not price:
             logger.warning(f"[EXIT_MONITOR] Gagal ambil harga {symbol}, skip siklus ini")
