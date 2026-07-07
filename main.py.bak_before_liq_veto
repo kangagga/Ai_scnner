@@ -440,20 +440,6 @@ def job_scan():
                     conf = sig.get("confidence", 0)
                     wr = sig.get("win_rate", 0)
                     level = get_alert_level(sig)
-
-                    # [FIX 2026-07-08] Veto liquidity/slippage sebelum eksekusi.
-                    # Kasus nyata: YFIUSDT liq_score=4/10, slippage=6.345% tetap
-                    # auto-eksekusi karena level "SIAP ENTRY — KONFIRMASI DULU"
-                    # diperlakukan sama seperti EKSEKUSI (tidak ada gerbang nyata).
-                    liq_score = sig.get("liq_score", 5)
-                    slippage  = sig.get("slippage_est", 0)
-                    if liq_score < 5 or slippage > 3.0:
-                        logger.info(
-                            f"[LIQ_VETO] {sig.get('symbol')}: liq_score={liq_score}/10 "
-                            f"slippage={slippage}% — entry dibatalkan (liquidity buruk)"
-                        )
-                        continue
-
                     if ("EKSEKUSI" in level) or ("SIAP ENTRY" in level):
                         risk_check = check_risk_approval(
                             symbol=sig.get("symbol"),
