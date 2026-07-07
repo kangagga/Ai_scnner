@@ -14,5 +14,188 @@
 2026-07-07 07:03:29,688 [INFO] backtester — ✅ BNBUSDT/1h | Trades: 1 | WR: 0.0% | PnL: -0.75%
 2026-07-07 07:03:32,327 [INFO] backtester — ✅ SOLUSDT/1h | Trades: 2 | WR: 50.0% | PnL: -1.43%
 2026-07-07 07:03:40,276 [INFO] backtester — ✅ AVAXUSDT/1h | Trades: 1 | WR: 0.0% | PnL: -1.55%
-[Tue Jul  7 00:04:16 UTC 2026] Menjalankan ai-exit.sh...
+2026-07-07 07:05:21,873 [INFO] main — 🔍 Scan dimulai — 00:05:21
+2026-07-07 07:05:23,025 [INFO] market_context — Fear & Greed: 27 (Fear) 😰
+2026-07-07 07:05:24,699 [INFO] market_context — BTC Trend: SIDEWAYS (WEAK) | Price: 64040.40 | ADX: 28.5
+2026-07-07 07:05:25,347 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:05:26,004 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:05:26,961 [INFO] data_fetcher — Gate.io: 271 pair aktif, tidak ada listing baru
+2026-07-07 07:05:27,916 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'ZEUSUSDT', 'VANRYUSDT']
+2026-07-07 07:05:28,931 [INFO] data_fetcher — Top gainers: ['USUSDT', 'ZEUSUSDT', 'HMSTRUSDT', 'EPICUSDT', 'EVAAUSDT']
+2026-07-07 07:05:28,933 [INFO] data_fetcher — Top losers: ['BEATUSDT', 'VELVETUSDT', 'DOGE5LUSDT', 'SKYAIUSDT', 'DNUSDT']
+2026-07-07 07:06:41,494 [INFO] scanner — [SR_GUARD] ZEUSUSDT: BUY ditolak — harga tidak dekat support (harga=0.003641, sup=0.002118)
+2026-07-07 07:08:03,409 [INFO] scanner — [SR_GUARD] MONUSDT: SELL ditolak — harga tidak dekat resistance (harga=0.025, res=0.02133)
+/home/userland/ai-scanner/scanner.py:695: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  _dp_score, _dp_reason = get_dynamic_penalty(signal, hour=datetime.utcnow().hour, regime=reg if "reg" in dir() else "NEUTRAL")
+2026-07-07 07:22:15,750 [INFO] scanner — ✅ Scan selesai — 1 sinyal lolos | 0 diblokir (bias) | 267 difilter lainnya
+2026-07-07 07:22:15,758 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:226 | MINCONF:39 | REGIME_MINCONF:1 | DUPLICATE:1
+2026-07-07 07:22:15,774 [INFO] main — [SR_GUARD] 2 sinyal diblokir siklus ini
+2026-07-07 07:22:16,806 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=BUY)
+2026-07-07 07:22:16,827 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:22:16,986 [INFO] main — [CORR] 1/1 sinyal lolos korelasi filter
+2026-07-07 07:22:16,988 [INFO] main — 📊 Signal Filter: 1 -> 1
+2026-07-07 07:22:16,989 [INFO] main — 🎚️  Regime Risk Multiplier: 50.0%
+2026-07-07 07:22:16,990 [INFO] main — 📈 POSITION SIZING:
+2026-07-07 07:22:16,993 [INFO] main —   SAFEUSDT     | Conf:  71.00 | Size: $   0.50 (  0.5%)
+2026-07-07 07:22:16,994 [INFO] main —   Total Allocated: $0.50
+2026-07-07 07:22:16,996 [INFO] main — 📊 Sinyal hari ini: 1/50
+2026-07-07 07:22:17,017 [INFO] main — 📡 1/1 sinyal memenuhi syarat trade
+2026-07-07 07:22:23,730 [INFO] exit_monitor — Monitoring exit: SAFEUSDT
+2026-07-07 07:22:23,775 [INFO] virtual_trader — [DUPLICATE] SAFEUSDT/1h BUY sudah ada posisi terbuka, skip
+2026-07-07 07:22:23,781 [INFO] main — [TRADE] SAFEUSDT BUY conf=71.0 WR=0% level=⚡ SIAP ENTRY — KONFIRMASI DULU
+2026-07-07 07:24:23,899 [INFO] main — 🔍 Scan dimulai — 00:24:23
+2026-07-07 07:24:27,340 [INFO] market_context — BTC Trend: SIDEWAYS (WEAK) | Price: 64040.40 | ADX: 28.5
+2026-07-07 07:24:27,916 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:24:28,581 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:24:29,621 [INFO] data_fetcher — 🆕 New listing: CRCLGUSDT | Vol: $201,968
+2026-07-07 07:24:29,629 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $203,219
+2026-07-07 07:24:29,635 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $201,525
+2026-07-07 07:24:30,699 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'VANRYUSDT', 'HMSTRUSDT']
+2026-07-07 07:24:31,778 [INFO] data_fetcher — Top gainers: ['USUSDT', 'HMSTRUSDT', 'EPICUSDT', 'ZEUSUSDT', 'EVAAUSDT']
+2026-07-07 07:24:31,780 [INFO] data_fetcher — Top losers: ['BTC5SUSDT', 'SOL5SUSDT', 'ETH5SUSDT', 'BONKUSDT', 'LABUSDT']
+2026-07-07 07:26:31,680 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 266 difilter lainnya
+2026-07-07 07:26:31,687 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:222 | MINCONF:37 | DUPLICATE:6 | REGIME_MINCONF:1
+2026-07-07 07:26:31,715 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:26:31,717 [INFO] main — ⚠️  Tidak ada signals (empty streak: 1)
+2026-07-07 07:28:31,803 [INFO] main — 🔍 Scan dimulai — 00:28:31
+2026-07-07 07:28:32,608 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:28:33,276 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:28:34,346 [INFO] data_fetcher — 🆕 New listing: CRCLGUSDT | Vol: $202,603
+2026-07-07 07:28:34,348 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $204,808
+2026-07-07 07:28:34,351 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $201,525
+2026-07-07 07:28:35,514 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'SOLUSDT', 'VANRYUSDT']
+2026-07-07 07:28:36,634 [INFO] data_fetcher — Top gainers: ['USUSDT', 'ZEUSUSDT', 'HMSTRUSDT', 'EPICUSDT', 'EVAAUSDT']
+2026-07-07 07:28:36,635 [INFO] data_fetcher — Top losers: ['BTC5SUSDT', 'SOL5SUSDT', 'ETH5SUSDT', 'BONKUSDT', 'LABUSDT']
+2026-07-07 07:30:02,997 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 266 difilter lainnya
+2026-07-07 07:30:03,000 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:223 | MINCONF:36 | DUPLICATE:6 | REGIME_MINCONF:1
+2026-07-07 07:30:03,063 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:30:03,065 [INFO] main — ⚠️  Tidak ada signals (empty streak: 2)
+2026-07-07 07:32:03,157 [INFO] main — 🔍 Scan dimulai — 00:32:03
+2026-07-07 07:32:03,870 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:32:04,517 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:32:05,695 [INFO] data_fetcher — 🆕 New listing: DRVUSDT | Vol: $200,372
+2026-07-07 07:32:05,698 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $205,063
+2026-07-07 07:32:05,700 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $200,679
+2026-07-07 07:32:06,742 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'VANRYUSDT', 'SOLUSDT']
+2026-07-07 07:32:07,828 [INFO] data_fetcher — Top gainers: ['USUSDT', 'ZEUSUSDT', 'HMSTRUSDT', 'EPICUSDT', 'EVAAUSDT']
+2026-07-07 07:32:07,830 [INFO] data_fetcher — Top losers: ['BTC5SUSDT', 'BCH5SUSDT', 'SOL5SUSDT', 'ETH5SUSDT', 'BONKUSDT']
+2026-07-07 07:32:58,434 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 266 difilter lainnya
+2026-07-07 07:32:58,438 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:222 | MINCONF:37 | DUPLICATE:6 | REGIME_MINCONF:1
+2026-07-07 07:32:58,506 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:32:58,508 [INFO] main — ⚠️  Tidak ada signals (empty streak: 3)
+2026-07-07 07:34:58,612 [INFO] main — 🔍 Scan dimulai — 00:34:58
+2026-07-07 07:34:59,397 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:35:00,207 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:35:01,484 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $205,063
+2026-07-07 07:35:01,486 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $200,570
+2026-07-07 07:35:01,492 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $200,794
+2026-07-07 07:35:01,494 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $200,308
+2026-07-07 07:35:01,496 [INFO] data_fetcher — 🆕 New listing: DRVUSDT | Vol: $200,400
+2026-07-07 07:35:02,772 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'VANRYUSDT', 'SOLUSDT']
+2026-07-07 07:35:04,060 [INFO] data_fetcher — Top gainers: ['USUSDT', 'ZEUSUSDT', 'HMSTRUSDT', 'EPICUSDT', 'EVAAUSDT']
+2026-07-07 07:35:04,061 [INFO] data_fetcher — Top losers: ['BTC5SUSDT', 'TAIKOUSDT', 'XAG5LUSDT', 'ETH5SUSDT', 'BONKUSDT']
+2026-07-07 07:37:21,233 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 272 difilter lainnya
+2026-07-07 07:37:21,248 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:227 | MINCONF:38 | DUPLICATE:6 | REGIME_MINCONF:1
+2026-07-07 07:37:21,297 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:37:21,298 [INFO] main — ⚠️  Tidak ada signals (empty streak: 4)
+2026-07-07 07:39:21,391 [INFO] main — 🔍 Scan dimulai — 00:39:21
+2026-07-07 07:39:22,188 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:39:22,986 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:39:24,102 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $200,450
+2026-07-07 07:39:24,114 [INFO] data_fetcher — 🆕 New listing: DRVUSDT | Vol: $200,551
+2026-07-07 07:39:24,120 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $204,906
+2026-07-07 07:39:24,138 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $204,211
+2026-07-07 07:39:24,144 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $202,709
+2026-07-07 07:39:24,150 [INFO] data_fetcher — 🆕 New listing: BELUSDT | Vol: $206,456
+2026-07-07 07:39:25,295 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'VANRYUSDT', 'HMSTRUSDT']
+2026-07-07 07:39:26,734 [INFO] data_fetcher — Top gainers: ['USUSDT', 'HMSTRUSDT', 'ZEUSUSDT', 'EPICUSDT', 'EVAAUSDT']
+2026-07-07 07:39:26,735 [INFO] data_fetcher — Top losers: ['BCH5SUSDT', 'DOGE5LUSDT', 'TLMUSDT', 'XAG5LUSDT', 'BONKUSDT']
+2026-07-07 07:39:55,271 [INFO] scanner — [SR_GUARD] MONUSDT: SELL ditolak — harga tidak dekat resistance (harga=0.025, res=0.02133)
+2026-07-07 07:41:08,308 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 269 difilter lainnya
+2026-07-07 07:41:08,310 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:225 | MINCONF:38 | DUPLICATE:5 | REGIME_MINCONF:1
+2026-07-07 07:41:08,316 [INFO] main — [SR_GUARD] 1 sinyal diblokir siklus ini
+2026-07-07 07:41:09,427 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:41:09,429 [INFO] main — ⚠️  Tidak ada signals (empty streak: 5)
+2026-07-07 07:43:10,320 [INFO] main — 🔍 Scan dimulai — 00:43:10
+2026-07-07 07:43:12,257 [INFO] market_context — BTC Trend: SIDEWAYS (WEAK) | Price: 64040.40 | ADX: 28.5
+2026-07-07 07:43:12,934 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:43:13,632 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:43:14,786 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $204,674
+2026-07-07 07:43:14,789 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $200,833
+2026-07-07 07:43:14,790 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $202,158
+2026-07-07 07:43:14,791 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $208,069
+2026-07-07 07:43:14,797 [INFO] data_fetcher — 🆕 New listing: BELUSDT | Vol: $207,121
+2026-07-07 07:43:17,221 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'VANRYUSDT', 'ZEUSUSDT']
+2026-07-07 07:43:18,365 [INFO] data_fetcher — Top gainers: ['USUSDT', 'ZEUSUSDT', 'EVAAUSDT', 'HMSTRUSDT', 'EPICUSDT']
+2026-07-07 07:43:18,367 [INFO] data_fetcher — Top losers: ['PEPE5LUSDT', 'DOGE5LUSDT', 'TLMUSDT', 'LABUSDT', 'BONKUSDT']
+2026-07-07 07:44:07,473 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 270 difilter lainnya
+2026-07-07 07:44:07,475 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:225 | MINCONF:38 | DUPLICATE:6 | REGIME_MINCONF:1
+2026-07-07 07:44:07,522 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:44:07,524 [INFO] main — ⚠️  Tidak ada signals (empty streak: 6)
+2026-07-07 07:46:07,620 [INFO] main — 🔍 Scan dimulai — 00:46:07
+2026-07-07 07:46:08,392 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:46:09,126 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:46:10,269 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $203,215
+2026-07-07 07:46:10,274 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $208,069
+2026-07-07 07:46:10,275 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $205,147
+2026-07-07 07:46:10,277 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $203,521
+2026-07-07 07:46:10,279 [INFO] data_fetcher — 🆕 New listing: BELUSDT | Vol: $208,151
+2026-07-07 07:46:10,281 [INFO] data_fetcher — 🆕 New listing: EDGEXUSDT | Vol: $200,931
+2026-07-07 07:46:11,374 [INFO] data_fetcher — Volume spike pairs: ['BTCUSDT', 'ETHUSDT', 'LABUSDT', 'ZEUSUSDT', 'HMSTRUSDT']
+2026-07-07 07:46:12,546 [INFO] data_fetcher — Top gainers: ['USUSDT', 'ZEUSUSDT', 'HMSTRUSDT', 'EVAAUSDT', 'ALLOUSDT']
+2026-07-07 07:46:12,549 [INFO] data_fetcher — Top losers: ['PEPE5LUSDT', 'DOGE5LUSDT', 'BONKUSDT', 'LABUSDT', 'XAG5LUSDT']
+2026-07-07 07:48:33,413 [INFO] scanner — [SR_GUARD] IMXUSDT: BUY ditolak — harga tidak dekat support (harga=0.1449, sup=0.14049)
+2026-07-07 07:48:53,403 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 269 difilter lainnya
+2026-07-07 07:48:53,415 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:226 | MINCONF:38 | DUPLICATE:4 | REGIME_MINCONF:1
+2026-07-07 07:48:53,425 [INFO] main — [SR_GUARD] 1 sinyal diblokir siklus ini
+2026-07-07 07:48:54,414 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:48:54,415 [INFO] main — ⚠️  Tidak ada signals (empty streak: 7)
+2026-07-07 07:50:54,512 [INFO] main — 🔍 Scan dimulai — 00:50:54
+2026-07-07 07:50:55,261 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:50:55,868 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:50:57,216 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $205,815
+2026-07-07 07:50:57,220 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $203,290
+2026-07-07 07:50:57,222 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $207,849
+2026-07-07 07:50:57,224 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $208,417
+2026-07-07 07:50:57,233 [INFO] data_fetcher — 🆕 New listing: EDGEXUSDT | Vol: $208,456
+2026-07-07 07:50:57,234 [INFO] data_fetcher — 🆕 New listing: BELUSDT | Vol: $208,278
+2026-07-07 07:50:58,371 [INFO] data_fetcher — Volume spike pairs: ['ETHUSDT', 'BTCUSDT', 'LABUSDT', 'VANRYUSDT', 'HMSTRUSDT']
+2026-07-07 07:50:59,735 [INFO] data_fetcher — Top gainers: ['USUSDT', 'HMSTRUSDT', 'EVAAUSDT', 'ZEUSUSDT', 'EPICUSDT']
+2026-07-07 07:50:59,735 [INFO] data_fetcher — Top losers: ['BEATUSDT', 'DOGE5LUSDT', 'XAG5LUSDT', 'TLMUSDT', 'LABUSDT']
+2026-07-07 07:51:57,158 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 270 difilter lainnya
+2026-07-07 07:51:57,172 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:225 | MINCONF:39 | DUPLICATE:5 | REGIME_MINCONF:1
+2026-07-07 07:51:57,257 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:51:57,259 [INFO] main — ⚠️  Tidak ada signals (empty streak: 8)
+2026-07-07 07:53:57,299 [INFO] main — 🔍 Scan dimulai — 00:53:57
+2026-07-07 07:53:57,999 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:53:58,697 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:53:59,803 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $205,954
+2026-07-07 07:53:59,806 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $203,334
+2026-07-07 07:53:59,807 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $206,679
+2026-07-07 07:53:59,808 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $208,411
+2026-07-07 07:53:59,813 [INFO] data_fetcher — 🆕 New listing: EDGEXUSDT | Vol: $209,402
+2026-07-07 07:53:59,814 [INFO] data_fetcher — 🆕 New listing: BELUSDT | Vol: $208,271
+2026-07-07 07:54:00,816 [INFO] data_fetcher — Volume spike pairs: ['BTCUSDT', 'ETHUSDT', 'LABUSDT', 'VANRYUSDT', 'ZEUSUSDT']
+2026-07-07 07:54:01,759 [INFO] data_fetcher — Top gainers: ['ZEUSUSDT', 'EPICUSDT', 'EVAAUSDT', 'USUSDT', 'HMSTRUSDT']
+2026-07-07 07:54:01,760 [INFO] data_fetcher — Top losers: ['PEPE5LUSDT', 'DOGE5LUSDT', 'XAG5LUSDT', 'BONKUSDT', 'TLMUSDT']
+2026-07-07 07:55:18,560 [INFO] scanner — [SR_GUARD] ZEUSUSDT: BUY ditolak — harga tidak dekat support (harga=0.003641, sup=0.002118)
+2026-07-07 07:57:02,896 [INFO] scanner — ✅ Scan selesai — 0 sinyal lolos | 0 diblokir (bias) | 269 difilter lainnya
+2026-07-07 07:57:02,909 [INFO] scanner — 📋 Breakdown filter: INVALID_SIGNAL_NO TRADE:226 | MINCONF:38 | DUPLICATE:4 | REGIME_MINCONF:1
+2026-07-07 07:57:02,919 [INFO] main — [SR_GUARD] 1 sinyal diblokir siklus ini
+2026-07-07 07:57:03,907 [INFO] scanner — [THRESHOLD] Auto-Adaptive: 41 (F&G=27, BTC=SIDEWAYS, Signal=None)
+2026-07-07 07:57:03,909 [INFO] main — ⚠️  Tidak ada signals (empty streak: 9)
+2026-07-07 07:59:06,854 [INFO] main — 🔍 Scan dimulai — 00:59:06
+2026-07-07 07:59:09,363 [INFO] market_context — BTC Trend: SIDEWAYS (WEAK) | Price: 64040.40 | ADX: 28.5
+2026-07-07 07:59:09,962 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:59:10,646 [INFO] market_context — Market Context: BTC: 🟡 SIDEWAYS (WEAK) | F&G: 😰 27 Fear | Bias: ✅ BUY OK / ✅ SELL OK
+2026-07-07 07:59:12,067 [INFO] data_fetcher — 🆕 New listing: VRUSDT | Vol: $203,671
+2026-07-07 07:59:12,072 [INFO] data_fetcher — 🆕 New listing: METAGUSDT | Vol: $209,421
+2026-07-07 07:59:12,073 [INFO] data_fetcher — 🆕 New listing: MU3LUSDT | Vol: $206,462
+2026-07-07 07:59:12,075 [INFO] data_fetcher — 🆕 New listing: CL3SUSDT | Vol: $207,731
+2026-07-07 07:59:12,079 [INFO] data_fetcher — 🆕 New listing: BELUSDT | Vol: $208,026
+2026-07-07 07:59:12,081 [INFO] data_fetcher — 🆕 New listing: EDGEXUSDT | Vol: $214,167
+2026-07-07 07:59:13,201 [INFO] data_fetcher — Volume spike pairs: ['BTCUSDT', 'ETHUSDT', 'LABUSDT', 'VANRYUSDT', 'ZEUSUSDT']
+2026-07-07 07:59:14,311 [INFO] data_fetcher — Top gainers: ['ZEUSUSDT', 'EVAAUSDT', 'USUSDT', 'HMSTRUSDT', 'EPICUSDT']
+2026-07-07 07:59:14,312 [INFO] data_fetcher — Top losers: ['BASUSDT', 'DOGE5LUSDT', 'XAG5LUSDT', 'BONKUSDT', 'VELVETUSDT']
+[Tue Jul  7 01:00:35 UTC 2026] Menjalankan ai-exit.sh...
 Selesai. Istirahat 5 menit...
