@@ -1,1 +1,20 @@
-❌ Bot sudah jalan dengan PID 31805. Hentikan dulu sebelum menjalankan instance baru.
+2026-07-08 03:16:40,589 [INFO] main — ============================================================
+2026-07-08 03:16:40,591 [INFO] main — 🤖 AI Crypto Signal Bot STARTED (v2 + Dynamic Risk)
+2026-07-08 03:16:40,591 [INFO] main — ============================================================
+2026-07-08 03:16:40,598 [INFO] exit_monitor — Exit monitor started
+2026-07-08 03:16:40,599 [INFO] main — 🌐 Dashboard: http://localhost:5000
+2026-07-08 03:16:40,605 [INFO] api_server — 🌐 Dashboard API berjalan di http://0.0.0.0:5000
+ * Serving Flask app 'api_server'
+ * Debug mode: off
+2026-07-08 03:16:41,768 [INFO] main — [STARTUP] Menjalankan backtest startup...
+2026-07-08 03:16:41,772 [INFO] main — 🔄 Bot berjalan. Ctrl+C untuk stop.
+2026-07-08 03:16:42,817 [INFO] data_fetcher — Gate.io: 2193 simbol aktif
+2026-07-08 03:16:45,618 [INFO] backtester — ✅ BTCUSDT/1h | Trades: 3 | WR: 100.0% | PnL: 6.52%
+2026-07-08 03:16:48,599 [INFO] backtester — ✅ ETHUSDT/1h | Trades: 1 | WR: 100.0% | PnL: 1.73%
+2026-07-08 03:16:50,901 [INFO] backtester — ✅ BNBUSDT/1h | Trades: 1 | WR: 0.0% | PnL: -0.75%
+2026-07-08 03:16:53,695 [INFO] backtester — ✅ SOLUSDT/1h | Trades: 6 | WR: 16.7% | PnL: -6.56%
+2026-07-08 03:16:56,915 [INFO] backtester — ✅ XRPUSDT/1h | Trades: 7 | WR: 71.4% | PnL: 6.44%
+2026-07-08 03:17:00,188 [INFO] backtester — ✅ ADAUSDT/1h | Trades: 6 | WR: 0.0% | PnL: -10.66%
+2026-07-08 03:17:03,542 [INFO] backtester — ✅ AVAXUSDT/1h | Trades: 4 | WR: 0.0% | PnL: -8.06%
+2026-07-08 03:17:09,454 [INFO] backtester — ✅ LTCUSDT/1h | Trades: 1 | WR: 0.0% | PnL: -1.87%
+2026-07-08 03:17:11,751 [INFO] backtester — ✅ BCHUSDT/1h | Trades: 4 | WR: 75.0% | PnL: 7.54%
