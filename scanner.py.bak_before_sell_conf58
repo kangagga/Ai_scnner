@@ -360,11 +360,9 @@ def _analyse_single(symbol, timeframe, min_score=0):
         logger.debug(f"[ADAPTIVE] error — {_e}")
 
     # Min confidence per signal type
-    # [FIX 2026-07-07] SELL min_conf diturunkan 65->58 berdasarkan backtest:
-    # trades 33->45, winrate tetap 66.7%, total_pnl +41.65%->+57.25% (5 pair, 90 hari)
     MIN_CONF = {
         "BUY"            : 68,
-        "SELL"           : 58,
+        "SELL"           : 65,
         "BUY (SETUP)"    : 50,
         "SELL (SETUP)"   : 50,
         "BUY (REVERSAL)" : 55,
