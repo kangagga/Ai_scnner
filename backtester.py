@@ -15,22 +15,16 @@ from indicators   import institutional_ai_v4
 logger = logging.getLogger(__name__)
 
 VALID_SIGNALS = {
-    # [FIX 2026-07-07] disinkronkan ulang dengan scanner.py — plain BUY/SELL
-    # sudah diaktifkan lagi sejak MIN_CONF diperketat (68/65), tapi backtester
-    # sempat tertinggal di kondisi lama (hanya SETUP/REVERSAL). Backtest
-    # sebelumnya jadi tidak representatif karena skip mayoritas sinyal live.
-    "BUY", "SELL",
-    "BUY (REVERSAL)", "SELL (REVERSAL)",
-    "BUY (SETUP)", "SELL (SETUP)",
+    # [SR-ONLY MODE 2026-07-09] disinkronkan dengan scanner.py — SR-only.
+    "BUY (SR BOUNCE)", "SELL (SR BOUNCE)",
+    "BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)",
 }
 
 MIN_CONF = {
-    "BUY"            : 68,
-    "SELL"           : 58,  # [FIX 2026-07-07] diturunkan dari 65, lihat scanner.py
-    "BUY (SETUP)"    : 50,
-    "SELL (SETUP)"   : 50,
-    "BUY (REVERSAL)" : 55,
-    "SELL (REVERSAL)": 50,
+    "BUY (SR BOUNCE)"   : 40,
+    "SELL (SR BOUNCE)"  : 40,
+    "BUY (SR BREAKOUT)" : 45,
+    "SELL (SR BREAKDOWN)": 45,
 }
 
 def _detect_regime_from_row(row) -> str:

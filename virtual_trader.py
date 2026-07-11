@@ -143,6 +143,10 @@ def add_virtual_trade(signal: dict):
         _score  = signal.get("score", 0)
         _smc    = signal.get("smc_data", {}).get("score", 0)
         _rr     = signal.get("rr_ratio", 0)
+        if not _rr and _entry and _sl and _tp1:
+            _risk = abs(_entry - _sl)
+            _reward = abs(_tp1 - _entry)
+            _rr = round(_reward / _risk, 2) if _risk > 0 else 0
         _msg = (
             f"🚀 <b>TRADE DIBUKA</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -197,11 +201,11 @@ def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float
     trade_amount = 25.0
     pnl_usdt = trade_amount * pnl_pct / 100.0
     
-    # Exit price
-    if pnl_pct >= 0:
+    # Exit price (arah beda untuk BUY vs SELL)
+    if signal.startswith("BUY"):
         exit_price = entry * (1 + pnl_pct / 100)
     else:
-        exit_price = entry * (1 + pnl_pct / 100)
+        exit_price = entry * (1 - pnl_pct / 100)
     
     result = "WIN" if pnl_pct > 0 else "LOSS"
     cur.execute("""

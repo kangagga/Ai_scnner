@@ -80,6 +80,14 @@ def add_trade(signal: dict):
             "signal": signal.get("signal", ""),
             "timeframe": signal.get("timeframe", ""),
             "symbol": symbol,
+            "atr": signal.get("atr", 0),
+            "trailing_stop": round(
+                signal.get("entry", 0) - 2.0 * signal.get("atr", 0)
+                if signal.get("signal", "").startswith("BUY")
+                else signal.get("entry", 0) + 2.0 * signal.get("atr", 0), 8
+            ) if signal.get("atr", 0) > 0 else signal.get("sl", 0),
+            "highest_price": signal.get("entry", 0),
+            "lowest_price": signal.get("entry", 0),
             "opened_at": datetime.now().astimezone().isoformat(),
         }
     logger.info(f"Monitoring exit: {symbol}")
@@ -138,6 +146,29 @@ def check_exits(send_alert_fn):
             logger.warning(f"[EXIT_MONITOR] Gagal ambil harga {symbol}, skip siklus ini")
             continue
         is_buy = trade["signal"].startswith("BUY")
+
+        # Update trailing stop dinamis
+        _atr = trade.get("atr", 0)
+        if _atr > 0 and key in _active_trades:
+            with _lock:
+                if is_buy:
+                    prev_high = _active_trades[key].get("highest_price", trade["entry"])
+                    if price > prev_high:
+                        _active_trades[key]["highest_price"] = price
+                        new_trail = round(price - 2.0 * _atr, 8)
+                        if new_trail > _active_trades[key]["sl"]:
+                            _active_trades[key]["sl"] = new_trail
+                            logger.info("[TRAIL] " + symbol + " BUY SL naik ke " + str(new_trail))
+                else:
+                    prev_low = _active_trades[key].get("lowest_price", trade["entry"])
+                    if price < prev_low:
+                        _active_trades[key]["lowest_price"] = price
+                        new_trail = round(price + 2.0 * _atr, 8)
+                        if new_trail < _active_trades[key]["sl"]:
+                            _active_trades[key]["sl"] = new_trail
+                            logger.info("[TRAIL] " + symbol + " SELL SL turun ke " + str(new_trail))
+                trade = dict(_active_trades[key])
+
         hit = None
         if is_buy:
             if price <= trade["sl"]:

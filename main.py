@@ -79,6 +79,11 @@ _daily_reset_date = datetime.now().date()
 
 
 # ════════════════════════════════════════════════════════════
+# [MODEL 3 - 2026-07-10] Auto-execution scanner dimatikan. Bot tetap scan &
+# kirim notifikasi Telegram, tapi TIDAK otomatis buka posisi. Entry manual
+# lewat command /execute <PAIR> <BUY/SELL> setelah analisa /analyze <PAIR>.
+AUTO_EXECUTE = False
+
 # POSITION SIZING & CORRELATION FILTER FUNCTIONS
 # ════════════════════════════════════════════════════════════
 
@@ -452,6 +457,11 @@ def job_scan():
                             f"[LIQ_VETO] {sig.get('symbol')}: liq_score={liq_score}/10 "
                             f"slippage={slippage}% — entry dibatalkan (liquidity buruk)"
                         )
+                        continue
+
+                    if not AUTO_EXECUTE:
+                        if ("EKSEKUSI" in level) or ("SIAP ENTRY" in level):
+                            logger.info(f"[MANUAL_MODE] {sig.get('symbol')} {sig.get('signal')} conf={conf} WR={wr}% level={level} -- auto-execute OFF, tunggu /execute manual")
                         continue
 
                     if ("EKSEKUSI" in level) or ("SIAP ENTRY" in level):

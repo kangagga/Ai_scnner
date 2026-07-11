@@ -89,19 +89,8 @@ class RiskState:
                     self.trading_halted = False
                     self.halt_reason = ""
                     
-                    # Hitung ulang consecutive loss dari trade terbaru
-                    cur.execute("""
-                        SELECT pnl_usdt FROM virtual_trades 
-                        WHERE closed=1 
-                        ORDER BY closed_at DESC 
-                        LIMIT 50
-                    """)
-                    for (pnl,) in cur.fetchall():
-                        if pnl < 0:
-                            self.consecutive_loss += 1
-                        else:
-                            break
-                    
+                    # [PATCH] Perhitungan ulang consecutive_loss dari DB dinonaktifkan
+                    # consecutive_loss akan menggunakan nilai dari risk_state.json
                     # Hitung total win/loss langsung dari DB
                     cur.execute("SELECT COUNT(*), SUM(CASE WHEN pnl_usdt > 0 THEN 1 ELSE 0 END), SUM(CASE WHEN pnl_usdt < 0 THEN 1 ELSE 0 END) FROM virtual_trades WHERE closed=1")
                     total, wins, losses = cur.fetchone()

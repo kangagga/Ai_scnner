@@ -354,6 +354,13 @@ def institutional_ai_v4(df):
         (data['close'] > data['resistance'].shift()) &
         (data['close'].shift() <= data['resistance'].shift())
     )
+    data['broke_support'] = (
+        (data['close'] < data['support'].shift()) &
+        (data['close'].shift() >= data['support'].shift())
+    )
+    data['candle_confirms_breakdown'] = (
+        (data['close'] < data['support']) | (_close_position < 0.3)
+    ).fillna(False)
 
     data['rsi_div']  = rsi_divergence(data['close'], data['rsi'])
     data['macd_div'] = macd_divergence(data['close'], data['macd_hist'])
@@ -560,12 +567,12 @@ def institutional_ai_v4(df):
     )
 
     buy_setup_cond = (
-        (data['squeeze_score'] > 55) &
+        (data['squeeze_score'] > 40) &          # [LOOSENED 2026-07-09] was > 55
         data['vol_dry_up'] &
-        (setup_buy_score >= 40) &
+        (setup_buy_score >= 35) &                # was >= 40
         data['trend_up_weak'] &
-        (data['rsi'] > 35) & (data['rsi'] < 65) &
-        (data['adx'] < 25) &
+        (data['rsi'] > 30) & (data['rsi'] < 70) &  # was 35-65
+        (data['adx'] < 30) &                      # was < 25
         (data['macd_hist'] > 0) &
         (data['shooting_star'] == 0) &
         (data['evening_star'] == 0) &
@@ -574,9 +581,9 @@ def institutional_ai_v4(df):
         ~_fake_signal
     )
     sell_setup_cond = (
-        (setup_sell_score >= 35) &
+        (setup_sell_score >= 30) &                # was >= 35
         data['trend_down_weak'] &
-        (data['rsi'] > 20) & (data['rsi'] < 72) &
+        (data['rsi'] > 18) & (data['rsi'] < 75) &  # was 20-72
         (data['macd_hist'] < 0) &
         (data['hammer'] == 0) &
         (data['morning_star'] == 0) &
@@ -647,18 +654,21 @@ def institutional_ai_v4(df):
         ~(data['doji'] == 1) &
         ~_fake_signal
     )
-    oversold_cond   = data['reversal_bull'] & (data['rsi'] < 32) & (data['vol_ratio'] > 1.0)
-    overbought_cond = data['reversal_bear'] & (data['rsi'] > 68) & (data['vol_ratio'] > 1.0)
+    oversold_cond   = data['reversal_bull'] & (data['rsi'] < 36) & (data['vol_ratio'] > 0.8)  # [LOOSENED 2026-07-09] was rsi<32, vol_ratio>1.0
+    overbought_cond = data['reversal_bear'] & (data['rsi'] > 64) & (data['vol_ratio'] > 0.8)  # [LOOSENED 2026-07-09] was rsi>68, vol_ratio>1.0
 
     data['signal'] = "NO TRADE"
-    data.loc[buy_setup_cond,     'signal'] = "BUY (SETUP)"
-    data.loc[sell_setup_cond,    'signal'] = "SELL (SETUP)"
     data.loc[buy_momentum_cond,  'signal'] = "BUY"
     data.loc[sell_momentum_cond, 'signal'] = "SELL"
     data.loc[buy_breakout_cond,  'signal'] = "BUY"
     data.loc[sell_breakout_cond, 'signal'] = "SELL"
     data.loc[buy_confirm_cond,   'signal'] = "BUY"
     data.loc[sell_confirm_cond,  'signal'] = "SELL"
+    # [FIX 2026-07-09] SETUP & REVERSAL dipindah ke akhir (prioritas tertinggi) --
+    # sebelumnya sinyal SETUP yang valid bisa ketimpa "BUY"/"SELL" polos yang
+    # sudah dinonaktifkan di VALID_SIGNALS, lalu dibuang scanner sbg invalid.
+    data.loc[buy_setup_cond,     'signal'] = "BUY (SETUP)"
+    data.loc[sell_setup_cond,    'signal'] = "SELL (SETUP)"
     data.loc[oversold_cond,      'signal'] = "BUY (REVERSAL)"
     data.loc[overbought_cond,    'signal'] = "SELL (REVERSAL)"
 
@@ -735,6 +745,76 @@ def institutional_ai_v4(df):
                                       data['close'] - 2.0 * data['atr'],
                                       data['close'] + 2.0 * data['atr'])
     data['rr_ratio']      = abs(data['tp1'] - data['close']) / (abs(data['close'] - data['sl']) + 1e-9)
+
+    # ══════════════════════════════════════════════════════════
+    # [SR-ONLY MODE 2026-07-09] Override total: signal murni dari
+    # Support/Resistance + Volume + Candle Pattern. TIDAK pakai RSI/MACD/EMA.
+    # Semua kondisi lama (SETUP/MOMENTUM/BREAKOUT/CONFIRM/REVERSAL) di atas
+    # diabaikan -- override final di bawah ini yang menentukan sinyal akhir.
+    # ══════════════════════════════════════════════════════════
+    buy_sr_bounce_cond = (
+        data['near_support'] &
+        ((data['hammer'] == 1) | data['bull_engulf'] | (data['morning_star'] == 1)) &
+        (data['rvol'] > 0.8) &
+        ~data['fake_breakdown']
+    )
+    sell_sr_bounce_cond = (
+        data['near_resistance'] &
+        ((data['shooting_star'] == 1) | data['bear_engulf'] | (data['evening_star'] == 1)) &
+        (data['rvol'] > 0.8) &
+        ~data['fake_breakout']
+    )
+    buy_sr_breakout_cond = (
+        data['broke_resistance'] &
+        (data['rvol'] > 1.3) &
+        ~data['fake_breakout'] &
+        data['candle_confirms_breakout']
+    )
+    sell_sr_breakdown_cond = (
+        data['broke_support'] &
+        (data['rvol'] > 1.3) &
+        ~data['fake_breakdown'] &
+        data['candle_confirms_breakdown']
+    )
+
+    data['signal'] = "NO TRADE"
+    data.loc[buy_sr_bounce_cond,     'signal'] = "BUY (SR BOUNCE)"
+    data.loc[sell_sr_bounce_cond,    'signal'] = "SELL (SR BOUNCE)"
+    data.loc[buy_sr_breakout_cond,   'signal'] = "BUY (SR BREAKOUT)"
+    data.loc[sell_sr_breakdown_cond, 'signal'] = "SELL (SR BREAKDOWN)"
+
+    _sr_confidence = (
+        (data['rvol'].clip(0, 3) / 3 * 50) + (_body_ratio.clip(0, 1) * 50)
+    ).clip(0, 100)
+    data['confidence'] = np.where(data['signal'] != "NO TRADE", _sr_confidence, 0)
+
+    data['position_size'] = np.where(
+        data['signal'].isin(["BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)"]),
+        np.where(data['confidence'] >= 70, 0.5, 0.3),
+        np.where(
+            data['signal'].isin(["BUY (SR BOUNCE)", "SELL (SR BOUNCE)"]),
+            np.where(data['confidence'] >= 70, 0.3, 0.2),
+            0.0
+        )
+    )
+
+    _sr_sl_mult = np.where(data['signal'].isin(["BUY (SR BOUNCE)", "SELL (SR BOUNCE)"]), 1.0, 1.5)
+    data['sl']  = np.where(data['signal'].str.startswith("BUY"),
+                            data['close'] - _sr_sl_mult * data['atr'],
+                            data['close'] + _sr_sl_mult * data['atr'])
+    data['tp1'] = np.where(data['signal'].str.startswith("BUY"),
+                            data['close'] + 2.0 * data['atr'],
+                            data['close'] - 2.0 * data['atr'])
+    data['tp2'] = np.where(data['signal'].str.startswith("BUY"),
+                            data['close'] + 3.5 * data['atr'],
+                            data['close'] - 3.5 * data['atr'])
+    data['tp3'] = np.where(data['signal'].str.startswith("BUY"),
+                            data['close'] + 5.0 * data['atr'],
+                            data['close'] - 5.0 * data['atr'])
+    data['trailing_stop'] = np.where(data['signal'].str.startswith("BUY"),
+                            data['close'] - 2.0 * data['atr'],
+                            data['close'] + 2.0 * data['atr'])
+    data['rr_ratio'] = abs(data['tp1'] - data['close']) / (abs(data['close'] - data['sl']) + 1e-9)
 
     for col in ['confidence', 'position_size', 'sl', 'tp1', 'tp2', 'rr_ratio',
                 'trend_score', 'momentum_score', 'volume_score', 'volatility_score',

@@ -63,11 +63,10 @@ SIGNAL_COOLDOWN = {
 DEFAULT_COOLDOWN_MINUTES = 45
 
 VALID_SIGNALS = {
-    # [DISABLED 2026-07-03] "BUY", "SELL" — data virtual_trading.db: WR 22-30%, total PnL -$25.33 (186 trades)
-    # vs SETUP: WR 46-56%, total PnL +$6.03 (50 trades). Biasa jauh lebih buruk, dimatikan.
-    "BUY", "SELL",
-    "BUY (REVERSAL)", "SELL (REVERSAL)",
-    "BUY (SETUP)", "SELL (SETUP)",
+    # [SR-ONLY MODE 2026-07-09] Ganti total ke sinyal berbasis Support/Resistance.
+    # SETUP/REVERSAL/BUY/SELL lama semua dinonaktifkan, diganti murni S/R + volume + candle.
+    "BUY (SR BOUNCE)", "SELL (SR BOUNCE)",
+    "BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)",
 }
 
 _last_signal_state: Dict[str, tuple] = {}
@@ -612,14 +611,20 @@ def _analyse_single(symbol, timeframe, min_score=0):
         near_support    = support > 0 and abs(entry_price - support) / entry_price <= 0.025
         near_resistance = resistance > 0 and abs(entry_price - resistance) / entry_price <= 0.025
 
-        if signal.startswith("BUY") and not near_support:
-            logger.info(f"[SR_GUARD] {symbol}: BUY ditolak — harga tidak dekat support (harga={entry_price}, sup={support})")
-            _sr_guard_log.append({"signal": "BUY", "symbol": symbol, "price": entry_price, "support": support, "resistance": resistance, "confidence": confidence})
-            return None
-        if signal.startswith("SELL") and not near_resistance:
-            logger.info(f"[SR_GUARD] {symbol}: SELL ditolak — harga tidak dekat resistance (harga={entry_price}, res={resistance})")
-            _sr_guard_log.append({"signal": "SELL", "symbol": symbol, "price": entry_price, "support": support, "resistance": resistance, "confidence": confidence})
-            return None
+        # [FIX 2026-07-10] BREAKOUT/BREAKDOWN dikecualikan dari guard ini --
+        # sinyal itu justru terjadi saat harga MELEWATI level, bukan mantul darinya.
+        # Guard lama cuma cocok untuk sinyal BOUNCE (mean-reversion di level S/R).
+        is_breakout_type = "BREAKOUT" in signal or "BREAKDOWN" in signal
+
+        if not is_breakout_type:
+            if signal.startswith("BUY") and not near_support:
+                logger.info(f"[SR_GUARD] {symbol}: BUY ditolak — harga tidak dekat support (harga={entry_price}, sup={support})")
+                _sr_guard_log.append({"signal": "BUY", "symbol": symbol, "price": entry_price, "support": support, "resistance": resistance, "confidence": confidence})
+                return None
+            if signal.startswith("SELL") and not near_resistance:
+                logger.info(f"[SR_GUARD] {symbol}: SELL ditolak — harga tidak dekat resistance (harga={entry_price}, res={resistance})")
+                _sr_guard_log.append({"signal": "SELL", "symbol": symbol, "price": entry_price, "support": support, "resistance": resistance, "confidence": confidence})
+                return None
 
     # ── SMC Layer (non-destructive) ──
     smc_bonus, smc_data, smc_report = 0, {}, ""
@@ -985,3 +990,80 @@ def simple_correlation_filter(signals):
 
     return filtered
 
+
+
+def analyze_pair_manual(symbol: str, timeframe: str = "1h") -> dict:
+    """
+    Analisa 1 pair on-demand untuk command Telegram /analyze.
+    Beda dengan _analyse_single: TIDAK skip kalau signal NO TRADE / blacklist / cooldown --
+    semua kondisi tetap dikembalikan supaya user bisa lihat kenapa sinyal gagal lolos.
+    """
+    result = {"symbol": symbol, "timeframe": timeframe, "error": None}
+    result["blacklisted"] = is_blacklisted(symbol)
+    result["cooldown"] = is_in_cooldown(symbol)
+
+    _apply_rate_limit()
+    df = _fetch_with_retry(symbol, timeframe, limit=300)
+    if df is None or len(df) < 100:
+        result["error"] = "Data tidak cukup / gagal fetch dari exchange"
+        return result
+
+    df = _cast_df(df)
+    df = institutional_ai_v4(df)
+
+    # [PATCH 2026-07-10] sr_pos + liquidity untuk risk gate /execute manual
+    sr_pos = 0.5
+    liq_score = 5
+    slippage_est = 0
+    liq_usd = 0
+    try:
+        from indicators import support_resistance
+        df_sr = support_resistance(df)
+        _sup = _safe(df_sr['support'].iloc[-1])
+        _res = _safe(df_sr['resistance'].iloc[-1])
+        _price_now = _safe(df['close'].iloc[-1])
+        if _res != _sup:
+            sr_pos = round((_price_now - _sup) / (_res - _sup), 3)
+    except Exception as _sr_e:
+        logger.debug(f"[SR_POS] error hitung sr_pos {symbol}: {_sr_e}")
+
+    try:
+        from orderbook_features import get_orderbook_features
+        from liquidity_filter import check_liquidity
+        _ob = get_orderbook_features(symbol)
+        if _ob:
+            _liq = check_liquidity(symbol, _ob)
+            liq_score = _liq.get("liq_score", 5)
+            slippage_est = _liq.get("slippage_est", 0)
+            liq_usd = _liq.get("liq_usd", 0)
+    except Exception as _liq_e:
+        logger.debug(f"[LIQ_CHECK] error hitung liquidity {symbol}: {_liq_e}")
+
+    last = df.iloc[-1]
+
+    result.update({
+        "sr_pos":        sr_pos,
+        "liq_score":     liq_score,
+        "slippage_est":  slippage_est,
+        "liq_usd":       liq_usd,
+        "signal":        str(last.get("signal", "NO TRADE")),
+        "confidence":    _safe(last.get("confidence", 0)),
+        "price":         _safe(last.get("close", 0)),
+        "adx":           _safe(last.get("adx", 0)),
+        "rsi":           _safe(last.get("rsi", 0)),
+        "macd_hist":     _safe(last.get("macd_hist", 0)),
+        "market_regime": str(last.get("market_regime", "UNKNOWN")),
+        "trend_up":      bool(last.get("trend_up", False)),
+        "trend_down":    bool(last.get("trend_down", False)),
+        "buy_combined":  _safe(last.get("buy_combined", 0)),
+        "sell_combined": _safe(last.get("sell_combined", 0)),
+        "rvol":          _safe(last.get("rvol", 0)),
+        "atr":           _safe(last.get("atr", 0)),
+        "sl":            _safe(last.get("sl", 0)),
+        "tp1":           _safe(last.get("tp1", 0)),
+        "tp2":           _safe(last.get("tp2", 0)),
+        "rr_ratio":      _safe(last.get("rr_ratio", 0)),
+    })
+
+    result["valid_signal"] = result["signal"] in VALID_SIGNALS
+    return result
