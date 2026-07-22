@@ -163,10 +163,9 @@ class RiskState:
                 total_losses = 0
                 total_trades = 0
                 if self.trade_history:
-                    last = self.trade_history[-1] if isinstance(self.trade_history[-1], dict) else {}
-                    total_wins = last.get("wins", 0)
-                    total_losses = last.get("losses", 0)
-                    total_trades = last.get("total", 0)
+                    total_trades = len(self.trade_history)
+                    total_wins = sum(1 for t in self.trade_history if isinstance(t, dict) and t.get("win"))
+                    total_losses = total_trades - total_wins
                 cur.execute("""
                     UPDATE virtual_balance SET
                         balance=?,
@@ -485,6 +484,20 @@ def resume_trading(manual: bool = False):
         logger.info("Trading di-resume secara manual.")
     else:
         logger.warning("Gunakan resume_trading(manual=True) untuk override halt.")
+
+
+
+def reset_streak_loss():
+    """Reset consecutive_loss ke 0 secara in-memory + persist ke JSON/DB.
+    Dipanggil dari /reset_streak agar _state (RAM) dan risk_state.json selalu sinkron."""
+    with _state._lock:
+        old_streak = _state.consecutive_loss
+        _state.consecutive_loss = 0
+        _state.trading_halted   = False
+        _state.halt_reason      = ""
+        _state.save()
+    logger.info(f"Streak loss direset manual: {old_streak} -> 0")
+    return old_streak
 
 
 def print_risk_status():

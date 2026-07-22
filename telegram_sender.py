@@ -95,11 +95,12 @@ def _direction_keyboard(symbol: str) -> dict:
 
 def _chart_buttons(symbol: str) -> list:
     base = symbol[:-4] if symbol.endswith("USDT") else symbol
-    tv_url = f"https://www.tradingview.com/chart/?symbol=GATEIO:{symbol}"
-    gate_url = f"https://www.gate.io/trade/{base}_USDT"
+    tv_symbol = f"{base}USDT"
+    tradingview_url = f"https://www.tradingview.com/symbols/{tv_symbol}/"
+    coingecko_url = f"https://www.coingecko.com/en/search?query={base}"
     return [[
-        {"text": "📊 TradingView", "url": tv_url},
-        {"text": "🏦 Gate.io", "url": gate_url},
+        {"text": "📈 TradingView", "url": tradingview_url},
+        {"text": "🦎 CoinGecko", "url": coingecko_url},
     ]]
 
 def _send_with_url_button(text: str, buttons: list) -> bool:
@@ -399,6 +400,37 @@ def send_top_signals(signals: list, delay: float = 1.5) -> int:
     return sent
 
 
+def _get_auto_vs_manual_summary():
+    """Return string ringkasan auto vs manual untuk disisipkan ke laporan harian."""
+    try:
+        import sqlite3
+        conn = sqlite3.connect('virtual_trading.db')
+        rows = conn.execute("""
+            SELECT
+                CASE WHEN signal LIKE '%MANUAL%' THEN 'MANUAL' ELSE 'AUTO' END AS trade_type,
+                COUNT(*),
+                SUM(CASE WHEN pnl_usdt > 0 THEN 1 ELSE 0 END),
+                ROUND(SUM(pnl_usdt), 2)
+            FROM virtual_trades
+            WHERE closed_at IS NOT NULL AND DATE(closed_at) = DATE('now')
+            GROUP BY trade_type
+        """).fetchall()
+        conn.close()
+        if not rows:
+            return ""
+        stats = {r[0]: r for r in rows}
+        lines = "\n⚖️ <b>Auto vs Manual (hari ini)</b>\n"
+        for label, icon in [("AUTO", "🤖"), ("MANUAL", "✋")]:
+            if label in stats:
+                _, total, wins, pnl = stats[label]
+                wr = round(100 * wins / total, 1) if total else 0
+                pnl_icon = "🟢" if pnl >= 0 else "🔴"
+                lines += f"{icon} {label}: {total} trade | WR {wr}% | {pnl_icon} ${pnl:,.2f}\n"
+        return lines
+    except Exception:
+        return ""
+
+
 def send_daily_report(signals: list, ai_analysis: str) -> bool:
     now = datetime.now(timezone(timedelta(hours=7))).strftime("%A, %d %B %Y")
     if not signals:
@@ -446,6 +478,15 @@ def send_daily_report(signals: list, ai_analysis: str) -> bool:
                 f"{'✅ Profitable!' if perf['win_rate'] >= 50 else '⚠️ Perlu evaluasi'}"
             )
             _send(perf_msg)
+            time.sleep(1)
+    except Exception:
+        pass
+
+    # Tambah ringkasan auto vs manual (hari ini)
+    try:
+        compare_msg = _get_auto_vs_manual_summary()
+        if compare_msg:
+            _send(compare_msg)
             time.sleep(1)
     except Exception:
         pass
@@ -804,6 +845,47 @@ def handle_commands(scan_fn=None):
             except Exception as e:
                 _send(f"❌ Error winrate_pair: {e}")
 
+        elif text == "/statscompare":
+            try:
+                import sqlite3
+                conn = sqlite3.connect('virtual_trading.db')
+                rows = conn.execute("""
+                    SELECT
+                        CASE WHEN signal LIKE '%MANUAL%' THEN 'MANUAL' ELSE 'AUTO' END AS trade_type,
+                        COUNT(*),
+                        SUM(CASE WHEN pnl_usdt > 0 THEN 1 ELSE 0 END),
+                        ROUND(SUM(pnl_usdt), 2),
+                        ROUND(AVG(pnl_usdt), 4)
+                    FROM virtual_trades
+                    WHERE closed_at IS NOT NULL
+                    GROUP BY trade_type
+                """).fetchall()
+                conn.close()
+
+                if not rows:
+                    _send("📭 Belum ada trade closed untuk dibandingkan.")
+                else:
+                    stats = {r[0]: r for r in rows}
+                    msg = "⚖️ <b>AUTO vs MANUAL</b>\n" + "═"*25 + "\n"
+
+                    for label, icon in [("AUTO", "🤖"), ("MANUAL", "✋")]:
+                        if label in stats:
+                            _, total, wins, pnl, avg_pnl = stats[label]
+                            wr = round(100 * wins / total, 1) if total else 0
+                            pnl_icon = "🟢" if pnl >= 0 else "🔴"
+                            msg += f"\n{icon} <b>{label}</b>\n"
+                            msg += f"   Trades   : {total}\n"
+                            msg += f"   Win Rate : {wr}%\n"
+                            msg += f"   PnL      : {pnl_icon} ${pnl:,.2f}\n"
+                            msg += f"   Avg/trade: ${avg_pnl:,.4f}\n"
+                        else:
+                            msg += f"\n{icon} <b>{label}</b>\n   (belum ada data)\n"
+
+                    msg += "\n" + "═"*25 + "\n🤖 AI Signal Bot"
+                    _send(msg)
+            except Exception as e:
+                _send(f"❌ Error statscompare: {e}")
+
         elif text == "/setup_stats" or text == "/sr_stats":
             try:
                 import sqlite3
@@ -1029,15 +1111,10 @@ def handle_commands(scan_fn=None):
 
         elif text == "/reset_streak":
             try:
-                import json
-                with open('risk_state.json', 'r') as f:
-                    rdata = json.load(f)
-                old_streak = rdata.get('consecutive_loss', 0)
-                rdata['consecutive_loss'] = 0
-                rdata['trading_halted'] = False
-                rdata['halt_reason'] = ''
-                with open('risk_state.json', 'w') as f:
-                    json.dump(rdata, f, indent=2)
+                import sys
+                sys.path.insert(0, '/home/userland/ai-scanner')
+                from risk_manager import reset_streak_loss
+                old_streak = reset_streak_loss()
                 _send(
                     f"✅ <b>STREAK LOSS DIRESET</b>\n{'═'*25}\n"
                     f"Sebelum : {old_streak} kali kalah beruntun\n"
@@ -1045,15 +1122,6 @@ def handle_commands(scan_fn=None):
                     f"Trading : ✅ Aktif kembali\n"
                     f"{'═'*25}\n🤖 AI Signal Bot"
                 )
-            except FileNotFoundError:
-                logger.error("[RESET_STREAK] risk_state.json tidak ditemukan")
-                _send("❌ File risk_state.json tidak ditemukan")
-            except json.JSONDecodeError as e:
-                logger.error(f"[RESET_STREAK] JSON rusak: {e}")
-                _send(f"❌ risk_state.json rusak/tidak valid: {e}")
-            except KeyError as e:
-                logger.error(f"[RESET_STREAK] Field tidak ada: {e}")
-                _send(f"❌ Field tidak ditemukan di state: {e}")
             except Exception as e:
                 logger.error(f"[RESET_STREAK] Error tidak terduga: {e}")
                 _send(f"❌ Error reset_streak: {e}")

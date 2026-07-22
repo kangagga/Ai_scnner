@@ -801,14 +801,25 @@ class AdaptiveScoreEngine:
 
         # 10. RSI overbought/oversold ekstrem berlawanan arah
         rsi = s(components.get("rsi", 50))
-        if signal.upper().startswith("BUY") and rsi > 80:
+        if signal.upper().startswith("BUY") and rsi > 70:
             p = -5.0
             penalty += p
             reasons.append(f"{p:.1f} RSI overbought ({rsi:.0f})")
-        elif signal.upper().startswith("SELL") and rsi < 20:
+        elif signal.upper().startswith("SELL") and rsi < 30:
             p = -5.0
             penalty += p
             reasons.append(f"{p:.1f} RSI oversold ({rsi:.0f})")
+
+        # 11. Blow-off top: volume ekstrem + RSI tinggi bersamaan (BUY)
+        vol_ratio_p = s(components.get("vol_ratio", 1.0))
+        if signal.upper().startswith("BUY") and vol_ratio_p > 4.0 and rsi > 70:
+            p = -10.0
+            penalty += p
+            reasons.append(f"{p:.1f} Blow-off top terdeteksi (Vol={vol_ratio_p:.1f}x, RSI={rsi:.0f})")
+        elif signal.upper().startswith("SELL") and vol_ratio_p > 4.0 and rsi < 30:
+            p = -10.0
+            penalty += p
+            reasons.append(f"{p:.1f} Capitulation dump terdeteksi (Vol={vol_ratio_p:.1f}x, RSI={rsi:.0f})")
 
         return round(penalty, 2), reasons
 

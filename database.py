@@ -3,7 +3,9 @@
 # ============================================================
 import sqlite3
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+WIB = timezone(timedelta(hours=7))
 
 logger = logging.getLogger(__name__)
 DB_PATH = "signals.db"
@@ -59,7 +61,7 @@ def save_signal(s: dict):
              win_rate, entry, sl, tp1, tp2, tp3, rr_ratio, sent)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
-            datetime.now().isoformat(),
+            datetime.now(WIB).isoformat(),
             s.get("symbol"), s.get("timeframe"), s.get("signal"),
             s.get("confidence"), s.get("momentum"), s.get("win_rate"),
             s.get("entry"), s.get("sl"), s.get("tp1"),
@@ -129,7 +131,7 @@ def update_signal_result(symbol: str, signal: str, entry: float, exit_price: flo
             )
             VALUES (?,?,?,?,?,?,?,?,?,?)
         """, (
-            datetime.now().isoformat(), symbol, signal, entry, exit_price,
+            datetime.now(WIB).isoformat(), symbol, signal, entry, exit_price,
             round(pnl, 2), result,
             timeframe if "timeframe" in dir() else "",
             fg_value, btc_trend

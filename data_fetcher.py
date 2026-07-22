@@ -2,6 +2,8 @@
 #  data_fetcher.py  – Gate.io + CMC + New Listing Detection
 # ============================================================
 import time
+import json
+import os
 import logging
 import requests
 import pandas as pd
@@ -252,8 +254,35 @@ def get_top_gainers_losers(top_n: int = 10) -> tuple:
         return [], []
 
 
+VOLUME_CACHE_FILE   = "volume_history_cache.json"
+VOLUME_CACHE_MAXAGE = 4 * 60 * 60   # simpan histori 4 jam (120 scan @ 2 menit)
+VOLUME_CHANGE_CAP   = 12.0          # abaikan pair yang change% udah > ini (udah kepump)
+
+
+def _load_volume_cache() -> dict:
+    try:
+        if os.path.exists(VOLUME_CACHE_FILE):
+            with open(VOLUME_CACHE_FILE, "r") as f:
+                return json.load(f)
+    except Exception as e:
+        logger.warning(f"Gagal load volume cache: {e}")
+    return {}
+
+
+def _save_volume_cache(cache: dict):
+    try:
+        with open(VOLUME_CACHE_FILE, "w") as f:
+            json.dump(cache, f)
+    except Exception as e:
+        logger.warning(f"Gagal simpan volume cache: {e}")
+
+
 def get_volume_spike_pairs(top_n: int = 30) -> list:
-    """Ambil pair dengan volume spike tertinggi dari Gate.io."""
+    """
+    Ambil pair yang volume-nya sedang berakselerasi (early momentum) —
+    volume sekarang jauh di atas rata-rata historinya sendiri (bukan cuma
+    dibanding pair lain), DAN change% masih moderate (belum kepump jauh).
+    """
     try:
         r = requests.get(
             "https://api.gateio.ws/api/v4/spot/tickers",
@@ -261,6 +290,9 @@ def get_volume_spike_pairs(top_n: int = 30) -> list:
         )
         r.raise_for_status()
         tickers = r.json()
+
+        now = time.time()
+        cache = _load_volume_cache()
 
         spikes = []
         for item in tickers:
@@ -272,15 +304,41 @@ def get_volume_spike_pairs(top_n: int = 30) -> list:
                 change = abs(float(item.get("change_percentage", 0)))
             except:
                 continue
-            if vol < 500000:
+            if vol < 50000:
                 continue
-            # Score = volume × perubahan harga
-            spike_score = vol * change
-            spikes.append((pair.replace("_", ""), spike_score))
+
+            symbol = pair.replace("_", "")
+
+            # Update histori volume pair ini
+            hist = cache.get(symbol, [])
+            hist.append([now, vol])
+            hist = [h for h in hist if now - h[0] <= VOLUME_CACHE_MAXAGE]
+            cache[symbol] = hist
+
+            # Butuh minimal 5 data point histori biar baseline nggak terlalu noisy
+            if len(hist) < 5:
+                continue
+
+            baseline = sum(h[1] for h in hist[:-1]) / max(len(hist) - 1, 1)
+            if baseline <= 0:
+                continue
+
+            volume_ratio = vol / baseline
+
+            # Skip kalau udah kepump jauh (bukan early momentum lagi)
+            if change > VOLUME_CHANGE_CAP:
+                continue
+            # Cuma ambil yang volume-nya beneran berakselerasi
+            if volume_ratio < 1.5:
+                continue
+
+            spikes.append((symbol, volume_ratio))
+
+        _save_volume_cache(cache)
 
         spikes.sort(key=lambda x: x[1], reverse=True)
         result = [s for s, _ in spikes[:top_n]]
-        logger.info(f"Volume spike pairs: {result[:5]}")
+        logger.info(f"Volume spike pairs (early momentum): {result[:5]}")
         return result
     except Exception as e:
         logger.warning(f"get_volume_spike_pairs error: {e}")

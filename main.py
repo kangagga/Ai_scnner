@@ -82,7 +82,7 @@ _daily_reset_date = datetime.now().date()
 # [MODEL 3 - 2026-07-10] Auto-execution scanner dimatikan. Bot tetap scan &
 # kirim notifikasi Telegram, tapi TIDAK otomatis buka posisi. Entry manual
 # lewat command /execute <PAIR> <BUY/SELL> setelah analisa /analyze <PAIR>.
-AUTO_EXECUTE = False
+AUTO_EXECUTE = True
 
 # POSITION SIZING & CORRELATION FILTER FUNCTIONS
 # ════════════════════════════════════════════════════════════
@@ -263,7 +263,7 @@ def job_scan():
     """Main scanning job dengan correlation filter + position sizing + regime adjustment"""
     global _last_signals, _daily_signal_count, _daily_reset_date, _empty_scan_count
     
-    now_str = datetime.now().strftime("%H:%M:%S")
+    now_str = datetime.now(_WIB).strftime("%H:%M:%S")
     logger.info(f"🔍 Scan dimulai — {now_str}")
     add_log("🔍", f"Scan dimulai — {now_str}")
 
@@ -342,25 +342,34 @@ def job_scan():
         btc_trend = btc_raw.get("trend", "") if isinstance(btc_raw, dict) else str(btc_raw)
         btc_upper = btc_trend.upper()
 
-        if "UPTREND" in btc_upper:
-            # BTC naik → dominan BUY, SELL hanya kalau score sangat tinggi
-            top_sig = [s for s in top_sig if
-                       s.get("signal","").startswith("BUY") or
-                       s.get("confidence", 0) >= 80]
-            max_buy, max_sell = 3, 1
-        elif "DOWNTREND" in btc_upper:
-            # BTC turun → dominan SELL, BUY hanya kalau score sangat tinggi
-            top_sig = [s for s in top_sig if
-                       s.get("signal","").startswith("SELL") or
-                       s.get("confidence", 0) >= 80]
-            max_buy, max_sell = 1, 3
-        else:
-            # SIDEWAYS → seimbang tapi ketat
-            max_buy, max_sell = 2, 2
+        # [FIX 2026-07-22] Hapus bias arah BTC — sinyal S/R (BREAKOUT/BREAKDOWN)
+        # sudah divalidasi ketat sendiri (6 lapis filter), tidak perlu digembok
+        # tambahan berdasarkan arah BTC. BTC uptrend tidak selalu berarti semua
+        # pair ikut naik; SELL breakdown yang valid secara teknikal tetap boleh lolos.
+        max_buy, max_sell = 2, 2
 
-        # Apply rasio BUY/SELL
-        buys  = [s for s in top_sig if s.get("signal","").startswith("BUY")][:max_buy]
-        sells = [s for s in top_sig if s.get("signal","").startswith("SELL")][:max_sell]
+        # [FIX] Alokasi slot terpisah BOUNCE vs BREAKOUT/BREAKDOWN (50/50) supaya
+        # BOUNCE tidak selalu kalah bersaing dari BREAKOUT akibat threshold rvol
+        # minimum yang berbeda (BOUNCE rvol>0.8 vs BREAKOUT rvol>1.3) yang membuat
+        # confidence BOUNCE struktural lebih rendah.
+        def _select_with_category_slots(signals, max_total):
+            bounce = [s for s in signals if "BOUNCE" in s.get("signal", "")]
+            others = [s for s in signals if "BOUNCE" not in s.get("signal", "")]
+            half = max_total // 2
+            selected = bounce[:half] + others[:max_total - half]
+            if len(selected) < max_total:
+                selected_ids = {id(s) for s in selected}
+                leftover = [s for s in signals if id(s) not in selected_ids]
+                selected += leftover[:max_total - len(selected)]
+            return selected[:max_total]
+
+        # Apply rasio BUY/SELL (dengan slot terpisah per kategori)
+        buys  = _select_with_category_slots(
+            [s for s in top_sig if s.get("signal","").startswith("BUY")], max_buy
+        )
+        sells = _select_with_category_slots(
+            [s for s in top_sig if s.get("signal","").startswith("SELL")], max_sell
+        )
         top_sig = buys + sells
 
         filtered_sig = filter_correlated_signals(top_sig, max_total=max_buy+max_sell)

@@ -27,6 +27,11 @@
 import pandas as pd
 import numpy as np
 
+# [BACKTEST-TUNABLE] Ambang batas 'dekat' S/R (proximity), dipakai near_support/near_resistance.
+# Default 0.005 (0.5%) sesuai SR-ONLY MODE 2026-07-09. Bisa di-override sementara oleh script
+# backtest untuk eksperimen threshold tanpa mengubah source ini secara permanen.
+SR_PROXIMITY_THRESHOLD = 0.005
+
 
 # ------------------------------------------------------------------
 #  Indikator Dasar
@@ -341,25 +346,35 @@ def institutional_ai_v4(df):
     data['volume_exhaustion'] = (data['rvol'] > 2.5) & (_body_ratio < 0.3)
 
     data = support_resistance(data)
-    data['near_support']    = (abs(data['close'] - data['support'])    / data['close']) < 0.005
-    data['near_resistance'] = (abs(data['close'] - data['resistance']) / data['close']) < 0.005
+    data['near_support']    = (abs(data['close'] - data['support'])    / data['close']) < SR_PROXIMITY_THRESHOLD
+    data['near_resistance'] = (abs(data['close'] - data['resistance']) / data['close']) < SR_PROXIMITY_THRESHOLD
     _candle_range           = (data['high'] - data['low']).replace(0, np.nan)
     _close_position         = (data['close'] - data['low']) / _candle_range
     data['candle_confirms_breakout'] = (
-        (data['close'] > data['resistance']) | (_close_position > 0.7)
+        (data['close'] > data['resistance']) & (_close_position > 0.7)
     ).fillna(False)
     data['too_close_resistance'] = data['near_resistance']
     data['too_close_support']    = data['near_support']
+    # [BREAKOUT MARGIN FIX 2026-07-22] Breakout harus tembus resistance/support
+    # dengan margin minimum (ATR-based, dengan lantai persentase) — supaya
+    # tidak menganggap selisih tipis 0.1-0.2% sebagai breakout valid.
+    _breakout_margin_atr = data['atr'] * 0.3
+    _breakout_margin_pct = data['resistance'].shift() * 0.003
+    _required_margin_up  = pd.concat([_breakout_margin_atr, _breakout_margin_pct], axis=1).max(axis=1)
+
+    _breakdown_margin_pct = data['support'].shift() * 0.003
+    _required_margin_down = pd.concat([_breakout_margin_atr, _breakdown_margin_pct], axis=1).max(axis=1)
+
     data['broke_resistance']     = (
-        (data['close'] > data['resistance'].shift()) &
+        (data['close'] > data['resistance'].shift() + _required_margin_up) &
         (data['close'].shift() <= data['resistance'].shift())
     )
     data['broke_support'] = (
-        (data['close'] < data['support'].shift()) &
+        (data['close'] < data['support'].shift() - _required_margin_down) &
         (data['close'].shift() >= data['support'].shift())
     )
     data['candle_confirms_breakdown'] = (
-        (data['close'] < data['support']) | (_close_position < 0.3)
+        (data['close'] < data['support']) & (_close_position < 0.3)
     ).fillna(False)
 
     data['rsi_div']  = rsi_divergence(data['close'], data['rsi'])
@@ -764,17 +779,40 @@ def institutional_ai_v4(df):
         (data['rvol'] > 0.8) &
         ~data['fake_breakout']
     )
+    # [OVEREXTENSION + RSI GUARD FIX 2026-07-22] Breakout hanya valid kalau
+    # close masih dekat resistance (bukan chasing pump yang udah jauh),
+    # dan RSI belum overbought/oversold ekstrem.
+    _max_extension_up   = data['resistance'] * (SR_PROXIMITY_THRESHOLD * 4)  # ~2%
+    _max_extension_down = data['support']    * (SR_PROXIMITY_THRESHOLD * 4)
+
+    data['breakout_not_overextended'] = (
+        (data['close'] - data['resistance']) <= _max_extension_up
+    )
+    data['breakdown_not_overextended'] = (
+        (data['support'] - data['close']) <= _max_extension_down
+    )
+
     buy_sr_breakout_cond = (
         data['broke_resistance'] &
         (data['rvol'] > 1.3) &
         ~data['fake_breakout'] &
-        data['candle_confirms_breakout']
+        data['candle_confirms_breakout'] &
+        ~data['trend_down'] &
+        ~data['shooting_star'].shift(1).fillna(0).astype(bool) &
+        data['breakout_not_overextended'] &
+        (data['rsi'] < 75) &
+        (data['close'] > data['ema200'])
     )
     sell_sr_breakdown_cond = (
         data['broke_support'] &
         (data['rvol'] > 1.3) &
         ~data['fake_breakdown'] &
-        data['candle_confirms_breakdown']
+        data['candle_confirms_breakdown'] &
+        ~data['trend_up'] &
+        ~data['hammer'].shift(1).fillna(0).astype(bool) &
+        data['breakdown_not_overextended'] &
+        (data['rsi'] > 25) &
+        (data['close'] < data['ema200'])
     )
 
     data['signal'] = "NO TRADE"

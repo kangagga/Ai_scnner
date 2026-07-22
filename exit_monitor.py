@@ -228,6 +228,23 @@ def check_exits(send_alert_fn):
             else:
                 emoji_result = "❌"
 
+            # [FIX 2026-07-13] Precompute pct_closed lebih awal supaya tersedia
+            # saat msg (notifikasi) dibangun; logic identik dengan blok di bawah.
+            monitoring_tp = trade.get("monitoring_tp")
+            if "TP1" in label:
+                pct_closed = 50.0
+            elif "TP2" in label:
+                pct_closed = 30.0
+            elif "TP3" in label:
+                pct_closed = 20.0
+            else:
+                if monitoring_tp == "TP3":
+                    pct_closed = 20.0
+                elif monitoring_tp == "TP2":
+                    pct_closed = 50.0
+                else:
+                    pct_closed = 100.0
+
             msg = (
                 f"{emoji_result} <b>{label}</b>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -236,7 +253,7 @@ def check_exits(send_alert_fn):
                 f"💰 Entry  : {trade['entry']}\n"
                 f"🎯 Target : {target}\n"
                 f"📈 Harga  : {price}\n"
-                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round(25.0 * pnl_pct / 100.0, 2)})\n"
+                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round(25.0 * (pct_closed / 100.0) * pnl_pct / 100.0, 2)})\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 AI Signal Bot"
             )
@@ -258,6 +275,24 @@ def check_exits(send_alert_fn):
                 except Exception as e:
                     logger.warning(f"Gagal lapor blacklist {symbol}: {e}")
 
+            # Tentukan porsi close & status final berdasarkan label & state monitoring TP
+            monitoring_tp = trade.get("monitoring_tp")
+            if "TP1" in label:
+                pct_closed, tp_level_leg, is_final_leg = 50.0, "TP1", False
+            elif "TP2" in label:
+                pct_closed, tp_level_leg, is_final_leg = 30.0, "TP2", False
+            elif "TP3" in label:
+                pct_closed, tp_level_leg, is_final_leg = 20.0, "TP3", True
+            else:
+                # SL / TRAILING STOP / TIME EXIT / BREAKEVEN - tutup sisa posisi yang masih berjalan
+                if monitoring_tp == "TP3":
+                    pct_closed = 20.0
+                elif monitoring_tp == "TP2":
+                    pct_closed = 50.0
+                else:
+                    pct_closed = 100.0
+                tp_level_leg, is_final_leg = label, True
+
             # Update virtual trading (balance & record otomatis)
             try:
                 from virtual_trader import close_virtual_trade
@@ -265,9 +300,12 @@ def check_exits(send_alert_fn):
                     symbol=symbol,
                     timeframe=trade.get("timeframe", ""),
                     signal=trade["signal"],
-                    pnl_pct=pnl_pct
+                    pnl_pct=pnl_pct,
+                    pct_closed=pct_closed,
+                    tp_level=tp_level_leg,
+                    is_final=is_final_leg
                 )
-                logger.info(f"💰 Trade closed: {symbol} {trade['signal']} | PnL: {pnl_pct:.2f}%")
+                logger.info(f"💰 Trade closed: {symbol} {trade['signal']} | PnL: {pnl_pct:.2f}% | leg={tp_level_leg} pct={pct_closed}% final={is_final_leg}")
             except (ImportError, sqlite3.Error, KeyError, ValueError) as e:
                 logger.error(f"Virtual trade error: {e}", exc_info=True)
 

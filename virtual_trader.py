@@ -56,6 +56,16 @@ def init_virtual_db():
             total_losses INTEGER,
             updated_at TEXT
         );
+        CREATE TABLE IF NOT EXISTS virtual_trade_partials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            trade_id INTEGER,
+            tp_level TEXT,
+            exit_price REAL,
+            pct_closed REAL,
+            pnl_pct REAL,
+            pnl_usdt REAL,
+            closed_at TEXT
+        );
     """)
     # Init balance kalau belum ada
     cur.execute("SELECT COUNT(*) FROM virtual_balance")
@@ -147,6 +157,8 @@ def add_virtual_trade(signal: dict):
             _risk = abs(_entry - _sl)
             _reward = abs(_tp1 - _entry)
             _rr = round(_reward / _risk, 2) if _risk > 0 else 0
+        _is_manual = "MANUAL" in str(sig_type)
+        _score_line = "N/A (Manual Override)" if _is_manual else f"{_score}/100 | SMC: {_smc}/100"
         _msg = (
             f"🚀 <b>TRADE DIBUKA</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -155,7 +167,7 @@ def add_virtual_trade(signal: dict):
             f"🛑 SL     : <code>{_sl}</code>\n"
             f"✅ TP1    : <code>{_tp1}</code>\n"
             f"⚖️  R:R   : 1:{_rr}\n"
-            f"🎯 Score  : {_score}/100 | SMC: {_smc}/100\n"
+            f"🎯 Score  : {_score_line}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
         send_alert(_msg)
@@ -175,13 +187,15 @@ def add_virtual_trade(signal: dict):
     except Exception as e:
         logger.warning(f"[RISK_SYNC] Gagal open_position: {e}")
 
-def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float):
-    """Tutup trade virtual & catat hasil"""
+def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float,
+                         pct_closed: float = 100.0, tp_level: str = "FINAL",
+                         is_final: bool = True):
+    """Tutup (partial atau final) trade virtual & catat hasil per-leg"""
     init_virtual_db()
     conn = sqlite3.connect(VIRTUAL_DB)
     cur = conn.cursor()
     now = datetime.now(WIB).isoformat()
-    
+
     # Ambil trade yang masih open
     cur.execute("""
         SELECT id, entry FROM virtual_trades
@@ -189,55 +203,80 @@ def close_virtual_trade(symbol: str, timeframe: str, signal: str, pnl_pct: float
         ORDER BY timestamp DESC LIMIT 1
     """, (symbol, timeframe, signal))
     row = cur.fetchone()
-    
+
     if not row:
         logger.warning(f"No open trade found for {symbol}/{timeframe}/{signal}")
         conn.close()
         return
-    
+
     trade_id, entry = row
-    
-    # Hitung pnl_usdt (asumsi $25 per virtual trade)
+
+    # Hitung pnl_usdt untuk porsi (pct_closed) yang ditutup di leg ini
     trade_amount = 25.0
-    pnl_usdt = trade_amount * pnl_pct / 100.0
-    
+    leg_amount = trade_amount * (pct_closed / 100.0)
+    pnl_usdt = leg_amount * pnl_pct / 100.0
+
     # Exit price (arah beda untuk BUY vs SELL)
     if signal.startswith("BUY"):
         exit_price = entry * (1 + pnl_pct / 100)
     else:
         exit_price = entry * (1 - pnl_pct / 100)
-    
-    result = "WIN" if pnl_pct > 0 else "LOSS"
+
+    # Catat leg ini sebagai partial record (selalu, baik partial maupun final)
+    cur.execute("""
+        INSERT INTO virtual_trade_partials
+        (trade_id, tp_level, exit_price, pct_closed, pnl_pct, pnl_usdt, closed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (trade_id, tp_level, exit_price, pct_closed, pnl_pct, pnl_usdt, now))
+
+    if not is_final:
+        conn.commit()
+        conn.close()
+        logger.info(
+            f"Partial close: {symbol}/{timeframe} {signal} | {tp_level} | "
+            f"{pct_closed}% | PnL leg: {pnl_pct:.2f}% / ${pnl_usdt:.2f} (sisa posisi jalan)"
+        )
+        return
+
+    # Final close: agregat semua partial (termasuk leg ini) lalu tutup trade
+    cur.execute("""
+        SELECT COALESCE(SUM(pnl_usdt), 0) FROM virtual_trade_partials WHERE trade_id=?
+    """, (trade_id,))
+    total_pnl_usdt = cur.fetchone()[0]
+    total_pnl_pct = round(total_pnl_usdt / trade_amount * 100.0, 2)
+
+    result = "WIN" if total_pnl_usdt > 0 else "LOSS"
     cur.execute("""
         UPDATE virtual_trades SET
             closed=1, exit_price=?, pnl_pct=?, pnl_usd=?, pnl_usdt=?, result=?,
             closed_at=?
         WHERE id=?
-        """, (exit_price, pnl_pct, pnl_usdt, pnl_usdt, result, now, trade_id))
-    
+        """, (exit_price, total_pnl_pct, total_pnl_usdt, total_pnl_usdt, result, now, trade_id))
+
     conn.commit()
     conn.close()
-    
-    status = "WIN" if pnl_pct > 0 else "LOSS"
+
+    status = "WIN" if total_pnl_usdt > 0 else "LOSS"
     logger.info(
-        f"Trade closed: {symbol}/{timeframe} {signal} | "
-        f"{status} | PnL: {pnl_pct:.2f}% / ${pnl_usdt:.2f}"
+        f"Trade closed (final): {symbol}/{timeframe} {signal} | "
+        f"{status} | Total PnL: {total_pnl_pct:.2f}% / ${total_pnl_usdt:.2f}"
     )
-    
-    # Sinkronisasi ke risk_manager untuk update balance & win rate
+
+    # Sinkronisasi ke risk_manager untuk update balance & win rate (sekali, agregat)
     try:
         from risk_manager import record_trade_result
-        win = pnl_pct > 0
+        win = total_pnl_usdt > 0
         record_trade_result(
             symbol=symbol,
             timeframe=timeframe,
             signal=signal,
-            pnl_usdt=pnl_usdt,
+            pnl_usdt=total_pnl_usdt,
             win=win
         )
         logger.info(f"[RISK_SYNC] record_trade_result OK: {symbol} win={win}")
     except Exception as e:
         logger.warning(f"[RISK_SYNC] Gagal record_trade_result: {e}")
+
 def get_summary():
     """Ringkasan performa virtual"""
     init_virtual_db()
