@@ -353,13 +353,23 @@ def job_scan():
         # minimum yang berbeda (BOUNCE rvol>0.8 vs BREAKOUT rvol>1.3) yang membuat
         # confidence BOUNCE struktural lebih rendah.
         def _select_with_category_slots(signals, max_total):
-            bounce = [s for s in signals if "BOUNCE" in s.get("signal", "")]
-            others = [s for s in signals if "BOUNCE" not in s.get("signal", "")]
-            half = max_total // 2
-            selected = bounce[:half] + others[:max_total - half]
+            # [FIX 2026-07-23] Deprioritize BREAKOUT/BREAKDOWN — kurang reliable
+            # dibanding BOUNCE/SETUP (data historis: SETUP WR 46-56% vs BREAKOUT 20-22%,
+            # ditambah beberapa kasus false-positive breakout hari ini).
+            # BOUNCE+SETUP dapat porsi mayoritas (75%), BREAKOUT/BREAKDOWN sisa (25%).
+            priority = [s for s in signals if
+                        "BOUNCE" in s.get("signal", "") or "SETUP" in s.get("signal", "")]
+            breakout = [s for s in signals if
+                        "BREAKOUT" in s.get("signal", "") or "BREAKDOWN" in s.get("signal", "")]
+            others   = [s for s in signals if s not in priority and s not in breakout]
+
+            priority_slots = max(1, round(max_total * 0.75)) if max_total > 0 else 0
+            breakout_slots = max_total - priority_slots
+
+            selected = priority[:priority_slots] + breakout[:breakout_slots]
             if len(selected) < max_total:
                 selected_ids = {id(s) for s in selected}
-                leftover = [s for s in signals if id(s) not in selected_ids]
+                leftover = [s for s in (priority + breakout + others) if id(s) not in selected_ids]
                 selected += leftover[:max_total - len(selected)]
             return selected[:max_total]
 

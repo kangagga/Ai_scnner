@@ -11,8 +11,35 @@ logger = logging.getLogger(__name__)
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # Cooldown per simbol (agar tidak spam sinyal sama)
-LAST_SIGNALS = {}
 COOLDOWN_MINUTES = 30
+_LAST_SIGNALS_FILE = "last_signals.json"
+
+def _load_last_signals():
+    try:
+        import json
+        with open(_LAST_SIGNALS_FILE) as f:
+            raw = json.load(f)
+        result = {}
+        for k, v in raw.items():
+            result[k] = {
+                "signal": v["signal"], "score": v["score"],
+                "time": datetime.fromisoformat(v["time"]),
+            }
+        return result
+    except Exception:
+        return {}
+
+def _save_last_signals():
+    try:
+        import json
+        raw = {k: {"signal": v["signal"], "score": v["score"], "time": v["time"].isoformat()}
+               for k, v in LAST_SIGNALS.items()}
+        with open(_LAST_SIGNALS_FILE, "w") as f:
+            json.dump(raw, f)
+    except Exception as e:
+        logger.warning(f"Gagal simpan last_signals: {e}")
+
+LAST_SIGNALS = _load_last_signals()
 
 # Emoji yang benar (bukan karakter aneh)
 SIGNAL_EMOJI = {
@@ -36,17 +63,20 @@ def should_send_signal(symbol: str, signal: str, score: int) -> bool:
             "score": score,
             "time": now
         }
+        _save_last_signals()
         return True
 
     last = LAST_SIGNALS[key]
     # Jika sinyal berubah (misal dari BUY jadi SELL) -> boleh kirim
     if last["signal"] != signal:
         LAST_SIGNALS[key] = {"signal": signal, "score": score, "time": now}
+        _save_last_signals()
         return True
 
     # Jika sinyal sama, cek cooldown
     if now - last["time"] > timedelta(minutes=COOLDOWN_MINUTES):
         LAST_SIGNALS[key] = {"signal": signal, "score": score, "time": now}
+        _save_last_signals()
         return True
 
     # Masih dalam cooldown
@@ -1108,6 +1138,23 @@ def handle_commands(scan_fn=None):
                 _send(msg)
             except Exception as e:
                 _send("❌ Virtual error: " + str(e))
+
+        elif text == "/force_reset_heat":
+            try:
+                from risk_manager import reset_positions, get_risk_status
+                reset_positions()
+                status = get_risk_status()
+                _send(
+                    f"⚠️ <b>PORTFOLIO HEAT DI-RESET PAKSA</b>\n{'═'*25}\n"
+                    f"Heat sekarang: {status.get('portfolio_heat', 0):.1f}%\n"
+                    f"Balance: ${status.get('balance', 0):.2f}\n\n"
+                    f"⚠️ Posisi lama TETAP terbuka di market — cuma catatan\n"
+                    f"risk internal yang direset. Entry baru sekarang bisa\n"
+                    f"masuk meski total eksposur sebenarnya di atas batas.\n"
+                    f"{'═'*25}\n🤖 AI Signal Bot"
+                )
+            except Exception as e:
+                _send(f"❌ Error force_reset_heat: {e}")
 
         elif text == "/reset_streak":
             try:

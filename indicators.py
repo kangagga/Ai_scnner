@@ -782,14 +782,18 @@ def institutional_ai_v4(df):
     # [OVEREXTENSION + RSI GUARD FIX 2026-07-22] Breakout hanya valid kalau
     # close masih dekat resistance (bukan chasing pump yang udah jauh),
     # dan RSI belum overbought/oversold ekstrem.
-    _max_extension_up   = data['resistance'] * (SR_PROXIMITY_THRESHOLD * 4)  # ~2%
-    _max_extension_down = data['support']    * (SR_PROXIMITY_THRESHOLD * 4)
+    # [FIX] Pakai .shift() supaya bandingkan close SEKARANG dengan support/
+    # resistance SEBELUM candle breakout/breakdown -- bukan nilai yang sudah
+    # ikut ter-update turun/naik akibat rolling window menyerap candle crash
+    # itu sendiri (bug: overextension check jadi selalu lolos di crash besar).
+    _max_extension_up   = data['resistance'].shift() * (SR_PROXIMITY_THRESHOLD * 4)  # ~2%
+    _max_extension_down = data['support'].shift()    * (SR_PROXIMITY_THRESHOLD * 4)
 
     data['breakout_not_overextended'] = (
-        (data['close'] - data['resistance']) <= _max_extension_up
+        (data['close'] - data['resistance'].shift()) <= _max_extension_up
     )
     data['breakdown_not_overextended'] = (
-        (data['support'] - data['close']) <= _max_extension_down
+        (data['support'].shift() - data['close']) <= _max_extension_down
     )
 
     buy_sr_breakout_cond = (
