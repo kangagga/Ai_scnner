@@ -94,6 +94,7 @@ MAIN_MENU_KEYBOARD = {
         ["⭐ Watchlist", "📈 Pair Status"],
         ["📊 Win Rate Pair", "📉 Sinyal Terakhir"],
         ["🔄 Scan Manual", "⚠️ Reset Streak"],
+        ["❌ Close Posisi", "💰 Virtual Balance"],
         ["❓ Bantuan"],
     ],
     "resize_keyboard": True,
@@ -1192,6 +1193,77 @@ def handle_commands(scan_fn=None):
                 _send(msg)
             except Exception as e:
                 _send("❌ Resume error: " + str(e))
+
+        elif text in ["❌ Close Posisi", "/close_menu"]:
+            # Tampilkan daftar posisi aktif untuk dipilih
+            try:
+                import json
+                with open("/home/userland/ai-scanner/active_trades.json") as f:
+                    trades = json.load(f)
+                if not trades:
+                    _send_with_keyboard("📭 Tidak ada posisi aktif.", MAIN_MENU_KEYBOARD)
+                else:
+                    # Buat keyboard dari posisi aktif
+                    pairs = list(trades.keys())
+                    rows = []
+                    for i in range(0, len(pairs), 2):
+                        row = [f"❌ {pairs[i]}"]
+                        if i+1 < len(pairs):
+                            row.append(f"❌ {pairs[i+1]}")
+                        rows.append(row)
+                    rows.append(["❌ CLOSE ALL", "⬅️ Kembali"])
+                    kb = {"keyboard": rows, "resize_keyboard": True}
+                    _send_with_keyboard("Pilih posisi yang ingin ditutup:", kb)
+            except Exception as e:
+                _send(f"❌ Error: {e}")
+
+        elif text.startswith("❌ ") and text != "❌ Bantuan":
+            target = text.replace("❌ ", "").strip()
+            try:
+                import json
+                trades_file = "/home/userland/ai-scanner/active_trades.json"
+                with open(trades_file) as f:
+                    trades = json.load(f)
+                if target == "CLOSE ALL":
+                    count = len(trades)
+                    trades = {}
+                    with open(trades_file, "w") as f:
+                        json.dump(trades, f)
+                    _send_with_keyboard(f"✅ {count} posisi berhasil ditutup.", MAIN_MENU_KEYBOARD)
+                else:
+                    key = target.replace("❌ ", "")
+                    found = [k for k in trades if k == key or k.startswith(key.split("_")[0])]
+                    if found:
+                        for k in found:
+                            del trades[k]
+                        with open(trades_file, "w") as f:
+                            json.dump(trades, f)
+                        _send_with_keyboard(f"✅ {', '.join(found)} ditutup.", MAIN_MENU_KEYBOARD)
+                    else:
+                        _send_with_keyboard(f"❌ {target} tidak ditemukan.", MAIN_MENU_KEYBOARD)
+            except Exception as e:
+                _send(f"❌ Error: {e}")
+
+        elif text in ["💰 Virtual Balance", "/virtual"]:
+            try:
+                import sys
+                sys.path.insert(0, "/home/userland/ai-scanner")
+                from virtual_trader import get_summary
+                s = get_summary()
+                emoji = "📈" if s["profit"] >= 0 else "📉"
+                msg = (f"{emoji} <b>Virtual Trading</b>\n"
+                       f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                       f"💰 Balance  : ${s['balance']:.2f}\n"
+                       f"📊 Profit   : ${s['profit']:.2f} ({s['profit_pct']}%)\n"
+                       f"🏔️ Peak     : ${s['peak']:.2f}\n"
+                       f"📉 Drawdown : {s['drawdown']}%\n"
+                       f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                       f"🎯 Total : {s['total']} trade\n"
+                       f"✅ Menang: {s['wins']} | ❌ Kalah: {s['losses']}\n"
+                       f"📈 Win Rate: {s['wr']}%")
+                _send_with_keyboard(msg, MAIN_MENU_KEYBOARD)
+            except Exception as e:
+                _send(f"❌ Error: {e}")
 
         elif text == "/help":
             _send(
