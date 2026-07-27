@@ -8,13 +8,13 @@ import logging
 import requests
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
+from config import CMC_API_KEY
 
 logger = logging.getLogger(__name__)
 
 GATE_KLINES = "https://api.gateio.ws/api/v4/spot/candlesticks"
 GATE_INFO   = "https://api.gateio.ws/api/v4/spot/tickers"
 
-CMC_API_KEY = "80fcb8071c08424098840bd02df5f0c9"
 CMC_LATEST  = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
 
 INTERVAL_GATE = {"1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1h": "1h", "4h": "4h", "1d": "1d"}
