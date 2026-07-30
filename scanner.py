@@ -40,6 +40,7 @@ from config import (
 from data_fetcher import fetch_ohlcv, fetch_symbols, get_new_listings, get_volume_spike_pairs, get_top_gainers_losers
 from blacklist    import is_blacklisted, get_blacklist, is_in_cooldown
 from indicators   import institutional_ai_v7 as institutional_ai_v4
+from chart_patterns import detect_all_patterns
 from market_context import get_market_context, is_btc_dump
 from risk_manager   import check_risk_approval, get_risk_status
 
@@ -59,6 +60,8 @@ SIGNAL_COOLDOWN = {
     "SELL"           : 45,
     "BUY (REVERSAL)" : 30,
     "SELL (REVERSAL)": 30,
+    "BUY (SR REJECTION - STRONG)" : 40,
+    "SELL (SR REJECTION - STRONG)": 40,
 }
 DEFAULT_COOLDOWN_MINUTES = 45
 
@@ -67,6 +70,8 @@ VALID_SIGNALS = {
     # SETUP/REVERSAL/BUY/SELL lama semua dinonaktifkan, diganti murni S/R + volume + candle.
     "BUY (SR BOUNCE)", "SELL (SR BOUNCE)",
     "BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)",
+    "BUY (SR REJECTION - STRONG)", "SELL (SR REJECTION - STRONG)",
+    "BUY (SETUP)", "SELL (SETUP)",
 }
 
 _last_signal_state: Dict[str, tuple] = {}
@@ -292,6 +297,15 @@ def _bump_block(reason):
 
 def _analyse_single(symbol, timeframe, min_score=0):
     smc_data = {}  # [FIX] init awal supaya tidak NameError sebelum di-set ulang baris ~540
+    # Filter stablecoin dan commodity token
+    STABLE_BLOCK = [
+        "USD1USDT", "USDTUSDT", "BUSDUSDT", "USDCUSDT", "DAIUSDT",
+        "FDUSDUSDT", "TUSDUSDT", "FRAXUSDT", "USTCUSDT", "USDDUSDT",
+        "PAXGUSDT", "XAGUUSDT",
+    ]
+    if symbol in STABLE_BLOCK:
+        return None
+
     if is_blacklisted(symbol):
         return None
     if is_in_cooldown(symbol):
@@ -711,7 +725,24 @@ def _analyse_single(symbol, timeframe, min_score=0):
     except Exception as _dp_e:
         logger.debug(f"[PENALTY] error: {_dp_e}")
 
-
+    # [CHART PATTERN CONFIRMATION] Boost confidence kalau chart pattern
+    # kompleks (H&S, Double Top/Bottom, Triangle, Wedge) searah sinyal.
+    chart_pattern_name = None
+    try:
+        _patterns = detect_all_patterns(df)
+        _wanted_dir = "bullish" if signal.startswith("BUY") else "bearish"
+        for _p in _patterns:
+            if _p.get("direction") == _wanted_dir:
+                _bonus = min(15, round(_p["strength"] * 15, 1))
+                confidence_final = round(confidence_final + _bonus, 1)
+                chart_pattern_name = _p["pattern"]
+                logger.info(
+                    f"[CHART_PATTERN] {symbol}/{timeframe}: {_p['pattern']} "
+                    f"({_wanted_dir}) strength={_p['strength']:.2f} -> +{_bonus} confidence"
+                )
+                break
+    except Exception as _cpe:
+        logger.debug(f"[CHART_PATTERN] Error {symbol}/{timeframe}: {_cpe}")
 
     return {
         "symbol"             : symbol,
@@ -749,6 +780,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "regime_advice"      : "",
         "score"              : confidence_final,
         "score_raw"          : round(confidence, 1),
+        "chart_pattern"      : chart_pattern_name,
         "smc_bonus"          : smc_bonus,
         "smc_report"         : smc_report,
         "smc_data"           : smc_data,
