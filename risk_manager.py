@@ -439,6 +439,13 @@ def open_position(symbol: str, timeframe: str, signal: str, risk_pct: float):
     _state.add_position(key, risk_pct)
 
 
+def close_position_by_key(key: str):
+    """[FIX 2026-08-05] Hapus 1 posisi dari open_positions tanpa ubah balance.
+    Dipakai saat close manual dari Telegram, supaya sinkron dengan active_trades.json."""
+    _state.remove_position(key)
+    logger.info(f"Posisi '{key}' dihapus dari risk_manager (manual close).")
+
+
 def reset_positions():
     """[FIX] Reset semua open positions (pakai jika portfolio heat stuck)."""
     _state.reset_positions()

@@ -679,8 +679,8 @@ def main():
             while True:
                 try:
                     handle_commands(scan_fn=job_scan)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logger.error(f"[CMD_LOOP] Error: {_e}", exc_info=True)
                 time.sleep(5)
 
         threading.Thread(target=_cmd_loop, daemon=True).start()

@@ -770,14 +770,16 @@ def institutional_ai_v4(df):
     buy_sr_bounce_cond = (
         data['near_support'] &
         ((data['hammer'] == 1) | data['bull_engulf'] | (data['morning_star'] == 1)) &
-        (data['rvol'] > 0.8) &
-        ~data['fake_breakdown']
+        (data['rvol'] > 1.0) &
+        ~data['fake_breakdown'] &
+        (data['adx'] > 20)
     )
     sell_sr_bounce_cond = (
         data['near_resistance'] &
         ((data['shooting_star'] == 1) | data['bear_engulf'] | (data['evening_star'] == 1)) &
-        (data['rvol'] > 0.8) &
-        ~data['fake_breakout']
+        (data['rvol'] > 1.0) &
+        ~data['fake_breakout'] &
+        (data['adx'] > 20)
     )
     # [OVEREXTENSION + RSI GUARD FIX 2026-07-22] Breakout hanya valid kalau
     # close masih dekat resistance (bukan chasing pump yang udah jauh),
@@ -798,32 +800,39 @@ def institutional_ai_v4(df):
 
     buy_sr_breakout_cond = (
         data['broke_resistance'] &
-        (data['rvol'] > 1.3) &
+        (data['rvol'] > 2.0) &
+        (data['adx'] > 25) &
         ~data['fake_breakout'] &
         data['candle_confirms_breakout'] &
         ~data['trend_down'] &
         ~data['shooting_star'].shift(1).fillna(0).astype(bool) &
         data['breakout_not_overextended'] &
-        (data['rsi'] < 75) &
+        (data['rsi'] < 70) &
         (data['close'] > data['ema200'])
     )
     sell_sr_breakdown_cond = (
         data['broke_support'] &
-        (data['rvol'] > 1.3) &
+        (data['rvol'] > 2.0) &
+        (data['adx'] > 25) &
         ~data['fake_breakdown'] &
         data['candle_confirms_breakdown'] &
         ~data['trend_up'] &
         ~data['hammer'].shift(1).fillna(0).astype(bool) &
         data['breakdown_not_overextended'] &
-        (data['rsi'] > 25) &
+        (data['rsi'] > 30) &
         (data['close'] < data['ema200'])
     )
 
     data['signal'] = "NO TRADE"
     data.loc[buy_sr_bounce_cond,     'signal'] = "BUY (SR BOUNCE)"
     data.loc[sell_sr_bounce_cond,    'signal'] = "SELL (SR BOUNCE)"
-    data.loc[buy_sr_breakout_cond,   'signal'] = "BUY (SR BREAKOUT)"
-    data.loc[sell_sr_breakdown_cond, 'signal'] = "SELL (SR BREAKDOWN)"
+    # [RESTORE 2026-08-03] BREAKOUT/BREAKDOWN dimatikan lagi -- sempat ke-
+    # revert oleh sesi lain yang edit file sama. Data historis: WR cuma 20%,
+    # entry selalu telat/exhaustion. Set True untuk aktifkan ulang.
+    ENABLE_BREAKOUT_SIGNALS = True  # [RE-ENABLED 2026-08-05] kondisi diperketat
+    if ENABLE_BREAKOUT_SIGNALS:
+        data.loc[buy_sr_breakout_cond,   'signal'] = "BUY (SR BREAKOUT)"
+        data.loc[sell_sr_breakdown_cond, 'signal'] = "SELL (SR BREAKDOWN)"
 
     _sr_confidence = (
         (data['rvol'].clip(0, 3) / 3 * 50) + (_body_ratio.clip(0, 1) * 50)
