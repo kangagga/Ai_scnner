@@ -14,3 +14,4 @@ grid_search_results.csv
 patches_applied/
 secrets_testnet.py
 config.py
+*backup*
