@@ -788,8 +788,8 @@ def institutional_ai_v4(df):
     # resistance SEBELUM candle breakout/breakdown -- bukan nilai yang sudah
     # ikut ter-update turun/naik akibat rolling window menyerap candle crash
     # itu sendiri (bug: overextension check jadi selalu lolos di crash besar).
-    _max_extension_up   = data['resistance'].shift() * (SR_PROXIMITY_THRESHOLD * 4)  # ~2%
-    _max_extension_down = data['support'].shift()    * (SR_PROXIMITY_THRESHOLD * 4)
+    _max_extension_up   = data['resistance'].shift() * (SR_PROXIMITY_THRESHOLD * 3)  # ~1.5% [TIGHTEN 2026-08-18]
+    _max_extension_down = data['support'].shift()    * (SR_PROXIMITY_THRESHOLD * 3)  # [TIGHTEN 2026-08-18]
 
     data['breakout_not_overextended'] = (
         (data['close'] - data['resistance'].shift()) <= _max_extension_up
@@ -800,8 +800,8 @@ def institutional_ai_v4(df):
 
     buy_sr_breakout_cond = (
         data['broke_resistance'] &
-        (data['rvol'] > 2.0) &
-        (data['adx'] > 25) &
+        (data['rvol'] > 2.5) &  # [TIGHTEN 2026-08-18]
+        (data['adx'] > 28) &  # [TIGHTEN 2026-08-18]
         ~data['fake_breakout'] &
         data['candle_confirms_breakout'] &
         ~data['trend_down'] &
@@ -812,8 +812,8 @@ def institutional_ai_v4(df):
     )
     sell_sr_breakdown_cond = (
         data['broke_support'] &
-        (data['rvol'] > 2.0) &
-        (data['adx'] > 25) &
+        (data['rvol'] > 2.5) &  # [TIGHTEN 2026-08-18]
+        (data['adx'] > 28) &  # [TIGHTEN 2026-08-18]
         ~data['fake_breakdown'] &
         data['candle_confirms_breakdown'] &
         ~data['trend_up'] &

@@ -354,8 +354,7 @@ def format_signal(s: dict) -> str:
         f"🔄 Trailing: <code>{fmt_price(s.get('trailing_stop', 0))}</code>\n"
         f"⚖️  R:R    : 1:{s.get('rr_ratio', 0)}\n\n"
         f"🕯️ Pattern : {s.get('candle_pattern', 'None')}\n"
-        + (f"📐 Chart   : {s.get('chart_pattern')}\n" if s.get('chart_pattern') and str(s.get('chart_pattern')).lower() != 'nan' else "")
-        + f"📉 RSI     : {rsi_s}\n"
+        f"📉 RSI     : {rsi_s}\n"
         f"⚡ MACD    : {s.get('macd_cross', 'N/A')} | Hist:{s.get('macd_hist', 'N/A')}\n"
         f"📐 EMA     : {s.get('ema_trend', 'N/A')}\n"
         f"📦 Volume  : {s.get('volume_label', 'N/A')} ({s.get('volume_ratio', 0)}x)\n"
@@ -573,6 +572,7 @@ def handle_commands(scan_fn=None):
         _last_update_id = update["update_id"]
         msg = update.get("message", {})
         text_raw = msg.get("text", "").strip()
+        logger.info("[DEBUG_RAW] repr=%r chat_id=%r CHAT_ID=%r" % (text_raw, msg.get("chat", {}).get("id"), CHAT_ID))
         chat_id = msg.get("chat", {}).get("id")
 
         if str(chat_id) != str(CHAT_ID):
@@ -603,94 +603,22 @@ def handle_commands(scan_fn=None):
             )
             continue
 
-        # [PRIORITY FIX 2026-08-05] Handler Close Posisi dipindah ke paling atas
-        # supaya tidak pernah tertelan oleh state _pending_action yang nyangkut.
-        if text_raw in ["❌ Close Posisi", "/close_menu"] or text == "/close_menu":
-            _pending_action.pop(chat_id, None)
-            logger.info(f"[CLOSE_BTN] Diterima dari chat_id={chat_id}")
-            try:
-                import json as _json
-                with open("/home/userland/ai-scanner/active_trades.json") as f:
-                    trades = _json.load(f)
-                if not trades:
-                    _send_with_keyboard("📭 Tidak ada posisi aktif.", MAIN_MENU_KEYBOARD)
-                else:
-                    pairs = list(trades.keys())
-                    rows = []
-                    for i in range(0, len(pairs), 2):
-                        row = [f"❌ {pairs[i]}"]
-                        if i+1 < len(pairs):
-                            row.append(f"❌ {pairs[i+1]}")
-                        rows.append(row)
-                    rows.append(["❌ CLOSE ALL", "⬅️ Kembali"])
-                    kb = {"keyboard": rows, "resize_keyboard": True}
-                    _send_with_keyboard("Pilih posisi yang ingin ditutup:", kb)
-            except Exception as e:
-                logger.error(f"[CLOSE_BTN] Error: {e}", exc_info=True)
-                _send(f"❌ Error: {e}")
-            continue
-
-        if text_raw.startswith("❌ ") and text_raw != "❌ Bantuan":
-            _pending_action.pop(chat_id, None)
-            target_pos = text_raw.replace("❌ ", "").strip()
-            logger.info(f"[CLOSE_BTN] Target: {target_pos}")
-            try:
-                import json as _json
-                trades_file = "/home/userland/ai-scanner/active_trades.json"
-                with open(trades_file) as f:
-                    trades = _json.load(f)
-                from exit_monitor import get_current_price
-                from virtual_trader import close_virtual_trade
-
-                def _close_vt(k, td):
-                    try:
-                        sym = td.get("symbol", k.split("_")[0])
-                        tf = td.get("timeframe", "1h")
-                        sig = td.get("signal", "")
-                        entry = td.get("entry", 0)
-                        cur_price = get_current_price(sym)
-                        if cur_price is None or entry == 0:
-                            return
-                        if sig.startswith("BUY"):
-                            pnl_pct = (cur_price - entry) / entry * 100
-                        else:
-                            pnl_pct = (entry - cur_price) / entry * 100
-                        close_virtual_trade(sym, tf, sig, pnl_pct)
-                    except Exception as _vte:
-                        logger.error(f"[CLOSE_BTN] close_virtual_trade gagal utk {k}: {_vte}")
-
-                if target_pos == "CLOSE ALL":
-                    count = len(trades)
-                    from risk_manager import close_position_by_key
-                    for k, td in trades.items():
-                        close_position_by_key(k)
-                        _close_vt(k, td)
-                    trades = {}
-                    with open(trades_file, "w") as f:
-                        _json.dump(trades, f)
-                    _send_with_keyboard(f"✅ {count} posisi berhasil ditutup.", MAIN_MENU_KEYBOARD)
-                else:
-                    key = target_pos
-                    found = [k for k in trades if k == key or k.startswith(key.split("_")[0])]
-                    if found:
-                        from risk_manager import close_position_by_key
-                        for k in found:
-                            close_position_by_key(k)
-                            _close_vt(k, trades[k])
-                            del trades[k]
-                        with open(trades_file, "w") as f:
-                            _json.dump(trades, f)
-                        _send_with_keyboard(f"✅ {', '.join(found)} ditutup.", MAIN_MENU_KEYBOARD)
-                    else:
-                        _send_with_keyboard(f"❌ {target_pos} tidak ditemukan.", MAIN_MENU_KEYBOARD)
-            except Exception as e:
-                logger.error(f"[CLOSE_BTN] Error: {e}", exc_info=True)
-                _send(f"❌ Error: {e}")
-            continue
-
+        _MENU_BUTTON_TEXTS = {
+            "⭐ Watchlist", "⬅️ Kembali", "📊 Status", "📡 Live Positions",
+            "🔍 Analyze Pair", "🎯 Execute Manual", "📈 Pair Status",
+            "📊 Win Rate Pair", "📉 Sinyal Terakhir", "🔄 Scan Manual",
+            "⚠️ Reset Streak", "❓ Bantuan", "❌ Close Posisi", "💰 Virtual Balance",
+        }
+        _is_menu_trigger = (
+            text_raw in _MENU_BUTTON_TEXTS
+            or text_raw.startswith("❌ ")
+            or text_raw.startswith("/")
+        )
         if chat_id in _pending_action:
             action = _pending_action.pop(chat_id)
-            if action == "analyze":
+            if _is_menu_trigger:
+                pass
+            elif action == "analyze":
                 if not text.startswith("/analyze") and not text.startswith("/cek"):
                     text_raw = f"/analyze {text_raw}"
                 text = text_raw.lower()
@@ -746,7 +674,7 @@ def handle_commands(scan_fn=None):
         elif text_raw == "❓ Bantuan":
             text = "/help"
 
-        if not text.startswith("/"):
+        if not text.startswith("/") and not _is_menu_trigger:
             continue
 
         if text == "/status":
@@ -1281,76 +1209,85 @@ def handle_commands(scan_fn=None):
                 _send("❌ Resume error: " + str(e))
 
         elif text_raw in ["❌ Close Posisi", "/close_menu"] or text == "/close_menu":
-            # Tampilkan daftar posisi aktif untuk dipilih
+            # [FIX 2026-08-19] Sumber data: virtual_trades (bukan active_trades.json
+            # yang tidak lagi jadi acuan /live_positions & exit_monitor)
             try:
-                import json
-                with open("/home/userland/ai-scanner/active_trades.json") as f:
-                    trades = json.load(f)
-                if not trades:
+                import sqlite3
+                conn = sqlite3.connect("virtual_trading.db")
+                rows = conn.execute(
+                    "SELECT DISTINCT symbol FROM virtual_trades WHERE closed=0 ORDER BY symbol"
+                ).fetchall()
+                conn.close()
+                pairs = [r[0] for r in rows]
+                if not pairs:
                     _send_with_keyboard("📭 Tidak ada posisi aktif.", MAIN_MENU_KEYBOARD)
                 else:
-                    # Buat keyboard dari posisi aktif
-                    pairs = list(trades.keys())
-                    rows = []
+                    rows_kb = []
                     for i in range(0, len(pairs), 2):
                         row = [f"❌ {pairs[i]}"]
                         if i+1 < len(pairs):
                             row.append(f"❌ {pairs[i+1]}")
-                        rows.append(row)
-                    rows.append(["❌ CLOSE ALL", "⬅️ Kembali"])
-                    kb = {"keyboard": rows, "resize_keyboard": True}
+                        rows_kb.append(row)
+                    rows_kb.append(["❌ CLOSE ALL", "⬅️ Kembali"])
+                    kb = {"keyboard": rows_kb, "resize_keyboard": True}
                     _send_with_keyboard("Pilih posisi yang ingin ditutup:", kb)
             except Exception as e:
                 _send(f"❌ Error: {e}")
 
-        elif text_raw.startswith("❌ ") and text_raw != "❌ Bantuan":
-            # [RESTORE 2026-08-03] Fix ini sempat hilang (ke-revert oleh sesi lain
-            # yang edit file sama). Kembalikan: (1) pakai text_raw bukan text
-            # (case-sensitivity), (2) remove_trade() thread-safe (bukan json
-            # load/dump manual yang race dengan exit_monitor thread), (3) sync
-            # ke virtual_trading.db biar tidak jadi posisi "yatim".
+        elif text.startswith("❌ ") and text != "❌ Bantuan":
+            # [FIX 2026-08-19] Tutup posisi via close_virtual_trade() -- sumber
+            # kebenaran virtual_trades, bukan sekadar hapus dari JSON terpisah.
             target = text_raw.replace("❌ ", "").strip()
             try:
-                import json
-                from exit_monitor import get_current_price, remove_trade
+                import sqlite3
+                from exit_monitor import get_current_price
                 from virtual_trader import close_virtual_trade
-                trades_file = "/home/userland/ai-scanner/active_trades.json"
-                with open(trades_file) as f:
-                    trades = json.load(f)
 
-                def _sync_close(k, t):
-                    remove_trade(k)
-                    try:
-                        price = get_current_price(t["symbol"])
-                        if price and t.get("entry"):
-                            is_buy = t["signal"].startswith("BUY")
-                            pnl_pct = ((price - t["entry"]) / t["entry"] * 100) if is_buy \
-                                else ((t["entry"] - price) / t["entry"] * 100)
-                            close_virtual_trade(
-                                symbol=t["symbol"], timeframe=t.get("timeframe", ""),
-                                signal=t["signal"], pnl_pct=pnl_pct
-                            )
-                    except Exception as _se:
-                        logger.warning(f"[CLOSE_SYNC] Gagal sync {k}: {_se}")
-
+                conn = sqlite3.connect("virtual_trading.db")
                 if target == "CLOSE ALL":
-                    count = len(trades)
-                    for k, t in trades.items():
-                        _sync_close(k, t)
-                    _send_with_keyboard(f"✅ {count} posisi berhasil ditutup.", MAIN_MENU_KEYBOARD)
+                    open_rows = conn.execute(
+                        "SELECT symbol, signal, timeframe, entry FROM virtual_trades WHERE closed=0"
+                    ).fetchall()
                 else:
-                    key = target.replace("❌ ", "")
-                    found = [k for k in trades if k == key or k.startswith(key.split("_")[0])]
-                    if found:
-                        for k in found:
-                            _sync_close(k, trades[k])
-                        _send_with_keyboard(f"✅ {', '.join(found)} ditutup.", MAIN_MENU_KEYBOARD)
+                    open_rows = conn.execute(
+                        "SELECT symbol, signal, timeframe, entry FROM virtual_trades WHERE closed=0 AND symbol=?",
+                        (target,)
+                    ).fetchall()
+                conn.close()
+
+                if not open_rows:
+                    _send_with_keyboard(f"❌ {target} tidak ditemukan.", MAIN_MENU_KEYBOARD)
+                else:
+                    closed_symbols = []
+                    for symbol, signal, timeframe, entry in open_rows:
+                        try:
+                            current = get_current_price(symbol)
+                            if current is None or entry == 0:
+                                logger.warning(f"[MANUAL_CLOSE] Gagal ambil harga {symbol}, skip")
+                                continue
+                            if signal.startswith("BUY"):
+                                pnl_pct = (current - entry) / entry * 100
+                            else:
+                                pnl_pct = (entry - current) / entry * 100
+                            close_virtual_trade(
+                             symbol=symbol, timeframe=timeframe, signal=signal,
+                                pnl_pct=pnl_pct, pct_closed=100.0,
+                                tp_level="MANUAL_CLOSE", is_final=True
+                            )
+                            closed_symbols.append(symbol)
+                        except Exception as _ce:
+                            logger.error(f"[MANUAL_CLOSE] Gagal tutup {symbol}: {_ce}")
+                    if closed_symbols:
+                        _send_with_keyboard(
+                            f"✅ {len(closed_symbols)} posisi berhasil ditutup: {', '.join(closed_symbols)}",
+                            MAIN_MENU_KEYBOARD
+                        )
                     else:
-                        _send_with_keyboard(f"❌ {target} tidak ditemukan.", MAIN_MENU_KEYBOARD)
+                        _send_with_keyboard("❌ Gagal menutup posisi (cek log).", MAIN_MENU_KEYBOARD)
             except Exception as e:
                 _send(f"❌ Error: {e}")
 
-        elif text in ["💰 Virtual Balance", "/virtual"]:
+        elif text_raw in ["💰 Virtual Balance"] or text == "/virtual":
             try:
                 import sys
                 sys.path.insert(0, "/home/userland/ai-scanner")
