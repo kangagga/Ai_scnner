@@ -9,14 +9,14 @@ def get_db():
 
 def audit_win_rate():
     issues = []
-    conn = get_db()
+    conn = sqlite3.connect("/home/userland/ai-scanner/virtual_trading.db")
     cur = conn.cursor()
-    # [FIX-TZ] Hitung cutoff pakai WIB eksplisit, bukan date('now') SQLite
-    # yang mengikuti timezone OS (UTC) sedangkan timestamp tersimpan WIB.
+    # [FIX 2026-08-20] Sumber data: virtual_trades (bukan tabel performance
+    # yang sudah tidak pernah diisi sejak sistem pindah ke virtual_trading.db)
     cutoff_wib = (datetime.now(WIB) - timedelta(days=2)).strftime("%Y-%m-%d")
     cur.execute(
-        "SELECT date(timestamp), COUNT(*), ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) / COUNT(*), 1) "
-        "FROM performance WHERE timestamp >= ? GROUP BY date(timestamp) ORDER BY date(timestamp) DESC",
+        "SELECT substr(closed_at,1,10), COUNT(*), ROUND(100.0 * SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) / COUNT(*), 1) "
+        "FROM virtual_trades WHERE closed=1 AND closed_at >= ? GROUP BY substr(closed_at,1,10) ORDER BY substr(closed_at,1,10) DESC",
         (cutoff_wib,)
     )
     rows = cur.fetchall()
@@ -32,22 +32,29 @@ def audit_win_rate():
 def audit_active_trades():
     issues = []
     try:
-        with open("/home/userland/ai-scanner/active_trades.json") as f:
-            trades = json.load(f)
-        stuck = [k for k,t in trades.items() if t.get("tp1",0)==0 and t.get("tp2",0)==0 and t.get("tp3",0)==0]
+        # [FIX 2026-08-20] Sumber data: virtual_trades WHERE closed=0 (bukan
+        # active_trades.json yang tidak lagi disentuh oleh /live_positions
+        # maupun handler Close Posisi)
+        conn = sqlite3.connect("/home/userland/ai-scanner/virtual_trading.db")
+        cur = conn.cursor()
+        cur.execute("SELECT symbol, tp1, tp2, tp3 FROM virtual_trades WHERE closed=0")
+        rows = cur.fetchall()
+        conn.close()
+        stuck = [r[0] for r in rows if (r[1] or 0) == 0 and (r[2] or 0) == 0 and (r[3] or 0) == 0]
         if stuck:
             issues.append(str(len(stuck)) + " posisi stuck TP=0")
-        if len(trades) > 30:
-            issues.append("Posisi terbuka terlalu banyak: " + str(len(trades)))
+        if len(rows) > 30:
+            issues.append("Posisi terbuka terlalu banyak: " + str(len(rows)))
     except Exception as e:
-        issues.append("Gagal baca active_trades: " + str(e))
+        issues.append("Gagal baca virtual_trades: " + str(e))
     return issues
 
 def audit_consecutive_loss():
     issues = []
-    conn = get_db()
+    # [FIX 2026-08-20] Sumber data: virtual_trades (bukan tabel performance)
+    conn = sqlite3.connect("/home/userland/ai-scanner/virtual_trading.db")
     cur = conn.cursor()
-    cur.execute("SELECT result FROM performance ORDER BY timestamp DESC LIMIT 20")
+    cur.execute("SELECT result FROM virtual_trades WHERE closed=1 ORDER BY closed_at DESC LIMIT 20")
     rows = [r[0] for r in cur.fetchall()]
     conn.close()
     streak = 0
@@ -85,10 +92,11 @@ def run_audit():
     now = datetime.now(WIB).strftime("%d/%m/%Y %H:%M")
     issues = audit_win_rate() + audit_active_trades() + audit_log_errors() + audit_consecutive_loss()
 
-    conn = get_db()
+    # [FIX 2026-08-20] Sumber data: virtual_trades (bukan tabel performance)
+    conn = sqlite3.connect("/home/userland/ai-scanner/virtual_trading.db")
     cur = conn.cursor()
     today = datetime.now(WIB).strftime("%Y-%m-%d")
-    cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM performance WHERE date(timestamp)='" + today + "'")
+    cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM virtual_trades WHERE closed=1 AND substr(closed_at,1,10)='" + today + "'")
     row = cur.fetchone()
     conn.close()
     total = row[0] or 0
