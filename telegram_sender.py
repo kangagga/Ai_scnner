@@ -732,7 +732,7 @@ def handle_commands(scan_fn=None):
         elif text == "/live_positions":
             try:
                 import sqlite3
-                from exit_monitor import get_current_price
+                from data_fetcher import get_bulk_prices
                 conn = sqlite3.connect('virtual_trading.db')
                 rows = conn.execute("""
                     SELECT symbol, signal, entry, sl, tp1, timestamp
@@ -744,12 +744,15 @@ def handle_commands(scan_fn=None):
                 if not rows:
                     _send("📭 Tidak ada posisi terbuka saat ini.")
                 else:
+                    # [FIX 2026-08-21] 1x bulk fetch harga semua pair, bukan
+                    # N sequential request (lambat di koneksi terbatas)
+                    all_prices = get_bulk_prices()
                     profitable = []
                     losing = []
 
                     for symbol, signal, entry, sl, tp1, ts in rows:
                         try:
-                            current = get_current_price(symbol)
+                            current = all_prices.get(symbol)
                             if current is None or entry == 0:
                                 continue
                             direction = "BUY" if signal.startswith("BUY") else "SELL"
@@ -868,23 +871,34 @@ def handle_commands(scan_fn=None):
                 conn = sqlite3.connect('virtual_trading.db')
                 since = (datetime.now() - timedelta(days=30)).isoformat()
                 rows = conn.execute("""
-                    SELECT symbol, COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END),
-                           ROUND(AVG(pnl_pct), 2), MIN(pnl_pct)
+                    SELECT
+                        CASE
+                            WHEN signal LIKE '%BOUNCE%' THEN 'BOUNCE'
+                            WHEN signal LIKE '%BREAKOUT%' THEN 'BREAKOUT'
+                            WHEN signal LIKE '%BREAKDOWN%' THEN 'BREAKDOWN'
+                            WHEN signal LIKE '%REJECTION%' THEN 'REJECTION'
+                            WHEN signal LIKE '%REVERSAL%' THEN 'REVERSAL'
+                            WHEN signal LIKE '%SETUP%' THEN 'SETUP'
+                            WHEN signal LIKE '%MANUAL%' THEN 'MANUAL'
+                            ELSE 'OTHER'
+                        END AS kategori,
+                        COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END),
+                        ROUND(AVG(pnl_pct), 2), ROUND(SUM(pnl_pct), 2)
                     FROM virtual_trades
                     WHERE closed=1 AND result IN ('WIN','LOSS') AND timestamp >= ?
-                    GROUP BY symbol
+                    GROUP BY kategori
                     ORDER BY AVG(pnl_pct) ASC
                 """, (since,)).fetchall()
                 conn.close()
                 if not rows:
                     _send("📭 Belum ada data trade sama sekali (30 hari terakhir).")
                 else:
-                    msg = "📊 <b>WIN RATE PER PAIR (30 hari)</b>\n" + "═"*25 + "\n"
-                    for symbol, total, wins, avg_pnl, worst_pnl in rows:
+                    msg = "📊 <b>WIN RATE PER STRATEGI (30 hari)</b>\n" + "═"*25 + "\n"
+                    for kategori, total, wins, avg_pnl, total_pnl in rows:
                         wr = round(100 * wins / total, 1) if total > 0 else 0
                         emoji = "✅" if avg_pnl > 0 else "⚠️"
                         note = " (sample kecil)" if total < 5 else ""
-                        msg += f"\n{emoji} <b>{symbol}</b>: {wr}% WR | {total} trade{note}\n   Avg PnL: {avg_pnl}% | Worst: {worst_pnl}%\n"
+                        msg += f"\n{emoji} <b>{kategori}</b>: {wr}% WR | {total} trade{note}\n   Avg PnL: {avg_pnl}% | Total: {total_pnl}%\n"
                     msg += "\n" + "═"*25 + "\n🤖 AI Signal Bot"
                     _send(msg)
             except Exception as e:
@@ -1240,7 +1254,7 @@ def handle_commands(scan_fn=None):
             target = text_raw.replace("❌ ", "").strip()
             try:
                 import sqlite3
-                from exit_monitor import get_current_price
+                from data_fetcher import get_bulk_prices
                 from virtual_trader import close_virtual_trade
 
                 conn = sqlite3.connect("virtual_trading.db")
@@ -1258,10 +1272,13 @@ def handle_commands(scan_fn=None):
                 if not open_rows:
                     _send_with_keyboard(f"❌ {target} tidak ditemukan.", MAIN_MENU_KEYBOARD)
                 else:
+                    # [FIX 2026-08-21] 1x bulk fetch harga semua pair, bukan
+                    # N sequential request (lambat di koneksi terbatas)
+                    all_prices = get_bulk_prices()
                     closed_symbols = []
                     for symbol, signal, timeframe, entry in open_rows:
                         try:
-                            current = get_current_price(symbol)
+                            current = all_prices.get(symbol)
                             if current is None or entry == 0:
                                 logger.warning(f"[MANUAL_CLOSE] Gagal ambil harga {symbol}, skip")
                                 continue
@@ -1274,6 +1291,13 @@ def handle_commands(scan_fn=None):
                                 pnl_pct=pnl_pct, pct_closed=100.0,
                                 tp_level="MANUAL_CLOSE", is_final=True
                             )
+                            # [FIX 2026-08-21] Sinkronkan exit_monitor supaya
+                            # tidak terus memonitor posisi yang sudah ditutup
+                            try:
+                                from exit_monitor import remove_trade
+                                remove_trade(symbol, timeframe)
+                            except Exception as _re:
+                                logger.warning(f"[MANUAL_CLOSE] Gagal sync exit_monitor {symbol}: {_re}")
                             closed_symbols.append(symbol)
                         except Exception as _ce:
                             logger.error(f"[MANUAL_CLOSE] Gagal tutup {symbol}: {_ce}")

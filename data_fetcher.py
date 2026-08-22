@@ -18,6 +18,29 @@ GATE_INFO   = "https://api.gateio.ws/api/v4/spot/tickers"
 CMC_LATEST  = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest"
 
 INTERVAL_GATE = {"1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1h": "1h", "4h": "4h", "1d": "1d"}
+
+def get_bulk_prices() -> dict:
+    """[ADDED 2026-08-21] Ambil harga SEMUA pair sekaligus dalam 1 API call.
+    Dipakai untuk hindari N sequential HTTP request (lambat di koneksi
+    terbatas) saat perlu cek harga banyak posisi sekaligus (mis. Live
+    Positions, Close Posisi). Return dict {symbol: harga}, contoh
+    {"BTCUSDT": 63500.0, "ETHUSDT": 3200.5}."""
+    try:
+        r = requests.get(GATE_INFO, timeout=10)
+        r.raise_for_status()
+        tickers = r.json()
+        prices = {}
+        for item in tickers:
+            pair = item.get("currency_pair", "")
+            symbol = pair.replace("_", "")
+            try:
+                prices[symbol] = float(item.get("last", 0))
+            except (ValueError, TypeError):
+                continue
+        return prices
+    except Exception as e:
+        logger.warning(f"Gagal ambil bulk prices: {e}")
+        return {}
 TIMEOUT       = 30
 
 _gate_symbols: set = set()

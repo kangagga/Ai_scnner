@@ -56,7 +56,13 @@ def _load_trades():
                 recovered += 1
             elif "opened_at" not in _active_trades[key]:
                 _active_trades[key]["opened_at"] = ts or datetime.now().astimezone().isoformat()
-        if recovered:
+        valid_keys = {f"{symbol}_{tf}" for symbol, tf, sig, entry, sl, tp1, tp2, tp3, ts in rows}
+        stale_keys = [k for k in list(_active_trades.keys()) if k not in valid_keys]
+        for k in stale_keys:
+            del _active_trades[k]
+        if stale_keys:
+            logger.info(f"[RECONCILE] {len(stale_keys)} posisi basi dihapus dari active_trades: {stale_keys}")
+        if recovered or stale_keys:
             logger.info(f"🔧 [RECONCILE] {recovered} posisi dipulihkan dari DB ke active_trades")
             _save_trades()
     except Exception as _e:
@@ -99,6 +105,29 @@ def add_trade(signal: dict):
         add_virtual_trade(signal)
     except Exception as e:
         logger.warning(f"Virtual add trade error: {e}")
+
+def remove_trade(symbol: str, timeframe: str = ""):
+    """[ADDED 2026-08-21] Hapus trade dari _active_trades saat ditutup manual
+    lewat Telegram (Close Posisi). Tanpa ini, exit_monitor tetap memonitor
+    harga posisi yang sudah closed=1 di virtual_trades, dan bisa mengirim
+    notifikasi TP/SL palsu untuk posisi yang sudah tidak ada."""
+    removed = []
+    with _lock:
+        if timeframe:
+            key = f"{symbol}_{timeframe}"
+            if key in _active_trades:
+                del _active_trades[key]
+                removed.append(key)
+        else:
+            # Timeframe tidak diketahui -> hapus semua key yang berawalan symbol_
+            for key in list(_active_trades.keys()):
+                if key == symbol or key.startswith(f"{symbol}_"):
+                    del _active_trades[key]
+                    removed.append(key)
+    if removed:
+        _save_trades()
+        logger.info(f"[SYNC_CLOSE] Dihapus dari monitoring: {removed}")
+    return removed
 
 def get_current_price(symbol: str) -> float:
     try:
