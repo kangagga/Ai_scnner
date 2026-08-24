@@ -133,7 +133,13 @@ def run_audit():
         )
         ai_prompt = (
             f"Kamu adalah auditor sistem trading bot crypto (Bahasa Indonesia, singkat max 5 kalimat).\n"
+            f"Waktu audit sekarang: {now} WIB.\n"
             f"Data audit hari ini:\n{audit_summary}\n\n"
+            f"PENTING - pertimbangkan jam audit sebelum menyimpulkan: kalau audit dijalankan "
+            f"dini hari (00:00-07:00 WIB) dan trade masih 0, itu WAJAR karena hari baru saja "
+            f"mulai -- JANGAN sebut ini sebagai anomali atau kecurigaan gangguan sistem. "
+            f"Hanya curigai 0 trade sebagai masalah kalau audit dijalankan siang/sore/malam "
+            f"(sudah banyak jam berlalu sejak tengah malam) dan tetap 0.\n"
             f"Analisa: apakah ada pola anomali yang mencurigakan (bukan soal sinyal trading, "
             f"tapi soal kesehatan sistem - misal performa tiba-tiba memburuk drastis, "
             f"terlalu banyak posisi terbuka, atau pola error yang berulang)? "
