@@ -507,6 +507,48 @@ def job_scan():
         add_log("❌", f"Error: {e}")
 
 
+def job_heartbeat():
+    """[ADDED 2026-08-25] Dead man's switch — ping Healthchecks.io tiap siklus
+    supaya kalau bot/UserLand/HP mati total, Healthchecks.io kirim alert
+    ke Telegram dari luar sistem (tidak bergantung pada bot ini hidup)."""
+    try:
+        import requests
+        from config import HEALTHCHECK_PING_URL
+        requests.get(HEALTHCHECK_PING_URL, timeout=10)
+        logger.info("[HEARTBEAT] Ping terkirim ke Healthchecks.io")
+    except Exception as e:
+        logger.warning(f"[HEARTBEAT] Gagal ping Healthchecks.io: {e}")
+
+
+def job_backup_db():
+    """[ADDED 2026-08-24] Backup harian virtual_trading.db (sumber kebenaran
+    seluruh histori trading) ke folder terpisah, dengan retensi 14 hari."""
+    import shutil as _shutil
+    from datetime import datetime as _dt
+    backup_dir = "db_backups"
+    os.makedirs(backup_dir, exist_ok=True)
+    ts = _dt.now().strftime("%Y%m%d_%H%M%S")
+    dest = os.path.join(backup_dir, f"virtual_trading_{ts}.db")
+    try:
+        _shutil.copy("virtual_trading.db", dest)
+        logger.info(f"[BACKUP] virtual_trading.db berhasil di-backup ke {dest}")
+    except Exception as e:
+        logger.error(f"[BACKUP] Gagal backup database: {e}")
+        return
+
+    try:
+        files = sorted(
+            [f for f in os.listdir(backup_dir) if f.startswith("virtual_trading_") and f.endswith(".db")],
+            reverse=True
+        )
+        RETENTION = 14
+        for old_file in files[RETENTION:]:
+            os.remove(os.path.join(backup_dir, old_file))
+            logger.info(f"[BACKUP] Backup lama dihapus: {old_file}")
+    except Exception as e:
+        logger.warning(f"[BACKUP] Gagal cleanup backup lama: {e}")
+
+
 def job_daily_report():
     """Generate daily report"""
     logger.info("📊 Generating daily report...")
@@ -659,6 +701,7 @@ def main():
     schedule.every().day.at("06:00").do(job_system_health_check)  # [LAPIS 1] system health harian
     schedule.every().day.at("07:00").do(job_code_audit)           # [LAPIS 2] audit kode harian via Groq
     schedule.every().day.at("03:00").do(lambda: __import__("database").cleanup_old_data())
+    schedule.every().day.at("04:00").do(job_backup_db)             # [ADDED 2026-08-24] backup DB harian
 
     logger.info("🔄 Bot berjalan. Ctrl+C untuk stop.")
     
@@ -684,6 +727,17 @@ def main():
                 time.sleep(5)
 
         threading.Thread(target=_cmd_loop, daemon=True).start()
+
+        # [FIXED 2026-08-25] Heartbeat jalan di thread independen, BUKAN via
+        # schedule.run_pending() -- karena job_scan bisa makan waktu 30+ menit
+        # dan schedule (single-thread, sinkron) akan menahan heartbeat sampai
+        # scan selesai, bikin Healthchecks.io false-alarm padahal bot sehat.
+        def _heartbeat_loop():
+            while True:
+                job_heartbeat()
+                time.sleep(300)  # 5 menit
+
+        threading.Thread(target=_heartbeat_loop, daemon=True).start()
 
         while True:
             schedule.run_pending()
