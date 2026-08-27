@@ -55,23 +55,18 @@ from exit_monitor    import add_trade, start_exit_monitor
 from api_server      import start_api, update_signals, add_log, \
                              update_cooldowns, set_config
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler("signal_bot.log", encoding="utf-8"),
-    ]
-)
+# [FIX 2026-08-25] Ganti logging.basicConfig() manual (FileHandler biasa,
+# tanpa batas ukuran, ke signal_bot.log) dengan setup_logging() dari
+# logger_config.py yang sudah punya RotatingFileHandler (5MB x 3 backup)
+# ke logs/bot.log -- sebelumnya setup_logging() diimpor tapi tidak pernah
+# dipanggil, jadi logs/bot.log tidak pernah ter-update.
+setup_logging()
+logger = get_logger("main")
 
-# Paksa semua timestamp log pakai WIB (UTC+7), bukan waktu lokal sistem (UTC)
+# [FIX 2026-08-26] _WIB sempat terhapus tanpa sengaja saat patch logging
+# sebelumnya, padahal dipakai di job_scan(). Dikembalikan di sini.
 from datetime import timezone as _tz, timedelta as _td
 _WIB = _tz(_td(hours=7))
-def _wib_converter(*args):
-    return datetime.now(_WIB).timetuple()
-logging.Formatter.converter = _wib_converter
-
-logger = logging.getLogger("main")
 
 _last_signals: list = []
 _daily_signal_count: int = 0

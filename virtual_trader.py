@@ -9,15 +9,22 @@ VIRTUAL_DB = "/home/userland/ai-scanner/virtual_trading.db"
 VIRTUAL_BALANCE = 1000.0  # Balance awal $1000
 
 def is_duplicate_position(symbol, timeframe, signal):
-    """Cek apakah sudah ada posisi terbuka untuk pair+timeframe+signal (read-only, tidak insert)."""
+    """Cek apakah sudah ada posisi terbuka untuk pair+timeframe (read-only,
+    tidak insert). [FIX 2026-08-26] Sebelumnya query ikut mencocokkan kolom
+    signal secara exact, sehingga "BUY (SR BOUNCE)" dan "SELL (SR BOUNCE)"
+    dianggap 2 kombinasi berbeda -- akibatnya posisi BUY dan SELL bisa
+    terbuka bersamaan di pair+timeframe yang sama (saling bertentangan,
+    tidak masuk akal secara trading). Sekarang cek per pair+timeframe saja,
+    apapun arah/jenis sinyalnya -- 1 pair+timeframe maksimal 1 posisi
+    terbuka."""
     try:
         conn = sqlite3.connect(VIRTUAL_DB)
         cur = conn.cursor()
         cur.execute("""
             SELECT id FROM virtual_trades
-            WHERE symbol=? AND timeframe=? AND signal=? AND closed=0
+            WHERE symbol=? AND timeframe=? AND closed=0
             LIMIT 1
-        """, (symbol, timeframe, signal))
+        """, (symbol, timeframe))
         result = cur.fetchone()
         conn.close()
         return result is not None
