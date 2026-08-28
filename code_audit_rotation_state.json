@@ -1,0 +1,662 @@
+{
+  "last_audited": {
+    "main.py": "2026-08-18T14:12:11.064185+07:00",
+    "scanner.py": "2026-08-18T14:12:11.064185+07:00",
+    "adaptive_brain_v6.py": "2026-08-20T14:11:50.114449+07:00",
+    "risk_manager.py": "2026-08-20T14:11:50.114449+07:00",
+    "exit_monitor.py": "2026-08-20T14:11:50.114449+07:00",
+    "virtual_trader.py": "2026-08-26T14:27:42.992325+07:00",
+    "logger_config.py": "2026-08-03T14:05:30.761911+07:00",
+    "indicators.py": "2026-08-27T14:27:17.429001+07:00",
+    "telegram_sender.py": "2026-08-26T14:27:42.992325+07:00",
+    "system_health_auditor.py": "2026-08-04T14:01:10.191507+07:00",
+    "backtester.py": "2026-08-03T14:05:30.761911+07:00",
+    "config.py": "2026-08-27T14:27:17.429001+07:00",
+    "monitor_trades.py": "2026-08-05T14:22:03.689195+07:00",
+    "liquidity_filter.py": "2026-08-04T14:01:10.191507+07:00",
+    "orderbook_features.py": "2026-08-04T14:01:10.191507+07:00",
+    "smc_scorer.py": "2026-08-05T14:22:03.689195+07:00",
+    "api_server.py": "2026-08-06T14:12:17.252594+07:00",
+    "database.py": "2026-08-05T14:22:03.689195+07:00",
+    "insert_debug.py": "2026-08-06T14:12:17.252594+07:00",
+    "bot_auditor.py": "2026-08-06T14:12:17.252594+07:00",
+    "patch_timezone_wib.py": "2026-07-08T14:00:00.325587+07:00",
+    "patch_reset_streak.py": "2026-07-10T14:00:00.639979+07:00",
+    "patch_sr_guard.py": "2026-07-10T14:00:00.639979+07:00",
+    "patch_sr_stats.py": "2026-07-10T14:00:00.639979+07:00",
+    "fix_ui_v2.py": "2026-08-07T14:19:37.012411+07:00",
+    "fix_ui_final.py": "2026-08-07T14:19:37.012411+07:00",
+    "patch_ui_2.py": "2026-07-11T14:00:00.817621+07:00",
+    "patch_ui_1.py": "2026-07-12T14:00:01.154941+07:00",
+    "patch_live_positions.py": "2026-07-12T14:00:01.154941+07:00",
+    "patch_pair_status.py": "2026-07-12T14:00:01.154941+07:00",
+    "patch_fix_winrate.py": "2026-07-13T14:00:00.357200+07:00",
+    "patch_positions_winrate.py": "2026-07-13T14:00:00.357200+07:00",
+    "fix_indent.py": "2026-08-07T14:19:37.012411+07:00",
+    "patch_chart_buttons.py": "2026-07-14T14:00:01.249856+07:00",
+    "patch_disable_autoexec2.py": "2026-07-14T14:00:01.249856+07:00",
+    "patch_disable_autoexec.py": "2026-07-14T14:00:01.249856+07:00",
+    "patch_execute_cmd.py": "2026-07-15T14:02:52.399230+07:00",
+    "patch_fix_exception.py": "2026-07-15T14:02:52.399230+07:00",
+    "patch_sr_backtester.py": "2026-07-15T14:02:52.399230+07:00",
+    "patch_sr_scanner.py": "2026-07-16T14:00:32.733404+07:00",
+    "patch_sr_2.py": "2026-07-16T14:00:32.733404+07:00",
+    "patch_sr_1.py": "2026-07-16T14:00:32.733404+07:00",
+    "grid_search.py": "2026-08-08T14:02:06.781806+07:00",
+    "api_server_addon.py": "2026-08-08T14:02:06.781806+07:00",
+    "data_fetcher.py": "2026-08-08T14:02:06.781806+07:00",
+    "test_alert_level.py": "2026-08-09T14:30:43.017467+07:00",
+    "institutional_v7_addon.py": "2026-08-09T14:30:43.017467+07:00",
+    "xgb_trainer.py": "2026-08-09T14:30:43.017467+07:00",
+    "validators.py": "2026-08-10T14:00:58.356538+07:00",
+    "trade_analyzer.py": "2026-08-10T14:00:58.356538+07:00",
+    "self_learning.py": "2026-08-12T14:16:57.027135+07:00",
+    "dynamic_penalty.py": "2026-08-12T14:16:57.027135+07:00",
+    "auto_blacklist.py": "2026-08-12T14:16:57.027135+07:00",
+    "win_rate_predictor.py": "2026-08-13T14:00:42.403205+07:00",
+    "volume_profile.py": "2026-08-13T14:00:42.403205+07:00",
+    "market_context.py": "2026-08-13T14:00:42.403205+07:00",
+    "smc_trade_counter.py": "2026-08-14T14:18:24.852755+07:00",
+    "adaptive_weights.py": "2026-08-14T14:18:24.852755+07:00",
+    "scanner_cooldown.py": "2026-08-14T14:18:24.852755+07:00",
+    "scanner_signals.py": "2026-08-15T14:33:30.420017+07:00",
+    "scanner_fetcher.py": "2026-08-15T14:33:30.420017+07:00",
+    "module_auditor.py": "2026-08-15T14:33:30.420017+07:00",
+    "volume_filter.py": "2026-08-18T14:12:11.064185+07:00",
+    "divergence_detector.py": "2026-08-19T14:14:42.628419+07:00",
+    "trend_filter.py": "2026-08-19T14:14:42.628419+07:00",
+    "retest_filter.py": "2026-08-19T14:14:42.628419+07:00",
+    "smart_zone_engine.py": "2026-08-21T14:09:28.859988+07:00",
+    "zone_detector.py": "2026-08-21T14:09:28.859988+07:00",
+    "ai_analyst.py": "2026-08-21T14:09:28.859988+07:00",
+    "gate_executor.py": "2026-08-22T14:15:12.218446+07:00",
+    "secrets_testnet.py": "2026-08-22T14:15:12.218446+07:00",
+    "send_dashboard_email.py": "2026-08-22T14:15:12.218446+07:00",
+    "chart_patterns.py": "2026-08-23T14:14:53.420743+07:00",
+    "apply_patch2.py": "2026-08-23T14:14:53.420743+07:00",
+    "debug_sats.py": "2026-08-23T14:14:53.420743+07:00",
+    "apply_patch.py": "2026-08-24T14:24:54.968916+07:00",
+    "batch_test_patterns.py": "2026-08-24T14:24:54.968916+07:00",
+    "test_patterns.py": "2026-08-24T14:24:54.968916+07:00",
+    "export_dashboard_data.py": "2026-08-25T14:21:12.742749+07:00",
+    "query.py": "2026-08-25T14:21:12.742749+07:00",
+    "email_reporter.py": "2026-08-25T14:21:12.742749+07:00",
+    "blacklist.py": "2026-08-26T14:27:42.992325+07:00",
+    "manual_close_all.py": "2026-08-10T14:00:58.356538+07:00",
+    "test_virtual_trader.py": "2026-08-27T14:27:17.429001+07:00"
+  },
+  "history": [
+    {
+      "timestamp": "2026-07-01T14:00:01.013780+07:00",
+      "files": [
+        "main.py",
+        "scanner.py",
+        "adaptive_brain_v6.py"
+      ],
+      "total_findings": 15,
+      "critical": 0,
+      "high": 6
+    },
+    {
+      "timestamp": "2026-07-02T14:00:09.947476+07:00",
+      "files": [
+        "risk_manager.py",
+        "exit_monitor.py",
+        "virtual_trader.py"
+      ],
+      "total_findings": 16,
+      "critical": 0,
+      "high": 7
+    },
+    {
+      "timestamp": "2026-07-03T14:00:25.304637+07:00",
+      "files": [
+        "logger_config.py",
+        "indicators.py",
+        "telegram_sender.py"
+      ],
+      "total_findings": 8,
+      "critical": 0,
+      "high": 1
+    },
+    {
+      "timestamp": "2026-07-04T14:00:00.356932+07:00",
+      "files": [
+        "system_health_auditor.py",
+        "backtester.py",
+        "config.py"
+      ],
+      "total_findings": 14,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-05T14:08:18.730232+07:00",
+      "files": [
+        "monitor_trades.py",
+        "liquidity_filter.py",
+        "orderbook_features.py"
+      ],
+      "total_findings": 13,
+      "critical": 0,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-07-07T14:00:01.316507+07:00",
+      "files": [
+        "smc_scorer.py",
+        "api_server.py",
+        "database.py"
+      ],
+      "total_findings": 13,
+      "critical": 0,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-07-08T14:00:00.325587+07:00",
+      "files": [
+        "insert_debug.py",
+        "bot_auditor.py",
+        "patch_timezone_wib.py"
+      ],
+      "total_findings": 12,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-10T14:00:00.639979+07:00",
+      "files": [
+        "patch_reset_streak.py",
+        "patch_sr_guard.py",
+        "patch_sr_stats.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 1
+    },
+    {
+      "timestamp": "2026-07-11T14:00:00.817621+07:00",
+      "files": [
+        "fix_ui_v2.py",
+        "fix_ui_final.py",
+        "patch_ui_2.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 2
+    },
+    {
+      "timestamp": "2026-07-12T14:00:01.154941+07:00",
+      "files": [
+        "patch_ui_1.py",
+        "patch_live_positions.py",
+        "patch_pair_status.py"
+      ],
+      "total_findings": 10,
+      "critical": 0,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-07-13T14:00:00.357200+07:00",
+      "files": [
+        "patch_fix_winrate.py",
+        "patch_positions_winrate.py",
+        "fix_indent.py"
+      ],
+      "total_findings": 10,
+      "critical": 0,
+      "high": 2
+    },
+    {
+      "timestamp": "2026-07-14T14:00:01.249856+07:00",
+      "files": [
+        "patch_chart_buttons.py",
+        "patch_disable_autoexec2.py",
+        "patch_disable_autoexec.py"
+      ],
+      "total_findings": 10,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-07-15T14:02:52.399230+07:00",
+      "files": [
+        "patch_execute_cmd.py",
+        "patch_fix_exception.py",
+        "patch_sr_backtester.py"
+      ],
+      "total_findings": 10,
+      "critical": 0,
+      "high": 2
+    },
+    {
+      "timestamp": "2026-07-16T14:00:32.733404+07:00",
+      "files": [
+        "patch_sr_scanner.py",
+        "patch_sr_2.py",
+        "patch_sr_1.py"
+      ],
+      "total_findings": 9,
+      "critical": 0,
+      "high": 1
+    },
+    {
+      "timestamp": "2026-07-17T14:00:01.829563+07:00",
+      "files": [
+        "grid_search.py",
+        "api_server_addon.py",
+        "data_fetcher.py"
+      ],
+      "total_findings": 12,
+      "critical": 0,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-07-18T14:00:01.548547+07:00",
+      "files": [
+        "test_alert_level.py",
+        "institutional_v7_addon.py",
+        "xgb_trainer.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-19T14:00:01.199590+07:00",
+      "files": [
+        "validators.py",
+        "trade_analyzer.py",
+        "self_learning.py"
+      ],
+      "total_findings": 12,
+      "critical": 0,
+      "high": 5
+    },
+    {
+      "timestamp": "2026-07-20T14:04:11.730495+07:00",
+      "files": [
+        "dynamic_penalty.py",
+        "auto_blacklist.py",
+        "win_rate_predictor.py"
+      ],
+      "total_findings": 12,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-21T14:17:09.808643+07:00",
+      "files": [
+        "volume_profile.py",
+        "market_context.py",
+        "smc_trade_counter.py"
+      ],
+      "total_findings": 14,
+      "critical": 0,
+      "high": 6
+    },
+    {
+      "timestamp": "2026-07-22T14:00:01.515644+07:00",
+      "files": [
+        "adaptive_weights.py",
+        "scanner_cooldown.py",
+        "scanner_signals.py"
+      ],
+      "total_findings": 14,
+      "critical": 0,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-07-23T14:02:17.833523+07:00",
+      "files": [
+        "scanner_fetcher.py",
+        "module_auditor.py",
+        "volume_filter.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 2
+    },
+    {
+      "timestamp": "2026-07-24T14:00:12.146404+07:00",
+      "files": [
+        "divergence_detector.py",
+        "trend_filter.py",
+        "retest_filter.py"
+      ],
+      "total_findings": 13,
+      "critical": 0,
+      "high": 2
+    },
+    {
+      "timestamp": "2026-07-26T14:00:06.542640+07:00",
+      "files": [
+        "smart_zone_engine.py",
+        "zone_detector.py",
+        "ai_analyst.py"
+      ],
+      "total_findings": 14,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-27T14:02:41.546679+07:00",
+      "files": [
+        "gate_executor.py",
+        "secrets_testnet.py",
+        "send_dashboard_email.py"
+      ],
+      "total_findings": 7,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-28T14:00:02.212679+07:00",
+      "files": [
+        "chart_patterns.py",
+        "apply_patch2.py",
+        "debug_sats.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 1
+    },
+    {
+      "timestamp": "2026-07-29T14:00:00.966735+07:00",
+      "files": [
+        "apply_patch.py",
+        "batch_test_patterns.py",
+        "test_patterns.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-30T14:00:01.271384+07:00",
+      "files": [
+        "export_dashboard_data.py",
+        "query.py",
+        "email_reporter.py"
+      ],
+      "total_findings": 12,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-07-31T14:00:00.379400+07:00",
+      "files": [
+        "blacklist.py",
+        "scanner.py",
+        "main.py"
+      ],
+      "total_findings": 11,
+      "critical": 0,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-08-01T14:18:31.332740+07:00",
+      "files": [
+        "adaptive_brain_v6.py",
+        "exit_monitor.py",
+        "risk_manager.py"
+      ],
+      "total_findings": 15,
+      "critical": 0,
+      "high": 6
+    },
+    {
+      "timestamp": "2026-08-02T14:00:41.155208+07:00",
+      "files": [
+        "virtual_trader.py",
+        "telegram_sender.py",
+        "indicators.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-03T14:05:30.761911+07:00",
+      "files": [
+        "logger_config.py",
+        "backtester.py",
+        "config.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-04T14:01:10.191507+07:00",
+      "files": [
+        "system_health_auditor.py",
+        "orderbook_features.py",
+        "liquidity_filter.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-05T14:22:03.689195+07:00",
+      "files": [
+        "monitor_trades.py",
+        "database.py",
+        "smc_scorer.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-06T14:12:17.252594+07:00",
+      "files": [
+        "api_server.py",
+        "insert_debug.py",
+        "bot_auditor.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-07T14:19:37.012411+07:00",
+      "files": [
+        "fix_ui_v2.py",
+        "fix_ui_final.py",
+        "fix_indent.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-08T14:02:06.781806+07:00",
+      "files": [
+        "data_fetcher.py",
+        "grid_search.py",
+        "api_server_addon.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-09T14:30:43.017467+07:00",
+      "files": [
+        "test_alert_level.py",
+        "institutional_v7_addon.py",
+        "xgb_trainer.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-10T14:00:58.356538+07:00",
+      "files": [
+        "manual_close_all.py",
+        "validators.py",
+        "trade_analyzer.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-12T14:16:57.027135+07:00",
+      "files": [
+        "self_learning.py",
+        "dynamic_penalty.py",
+        "auto_blacklist.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-13T14:00:42.403205+07:00",
+      "files": [
+        "win_rate_predictor.py",
+        "volume_profile.py",
+        "market_context.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-14T14:18:24.852755+07:00",
+      "files": [
+        "smc_trade_counter.py",
+        "adaptive_weights.py",
+        "scanner_cooldown.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-15T14:33:30.420017+07:00",
+      "files": [
+        "scanner_signals.py",
+        "scanner_fetcher.py",
+        "module_auditor.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-18T14:12:11.064185+07:00",
+      "files": [
+        "volume_filter.py",
+        "main.py",
+        "scanner.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-19T14:14:42.628419+07:00",
+      "files": [
+        "divergence_detector.py",
+        "trend_filter.py",
+        "retest_filter.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-20T14:11:50.114449+07:00",
+      "files": [
+        "risk_manager.py",
+        "exit_monitor.py",
+        "adaptive_brain_v6.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    },
+    {
+      "timestamp": "2026-08-21T14:09:28.859988+07:00",
+      "files": [
+        "ai_analyst.py",
+        "smart_zone_engine.py",
+        "zone_detector.py"
+      ],
+      "total_findings": 14,
+      "critical": 3,
+      "high": 6
+    },
+    {
+      "timestamp": "2026-08-22T14:15:12.218446+07:00",
+      "files": [
+        "gate_executor.py",
+        "secrets_testnet.py",
+        "send_dashboard_email.py"
+      ],
+      "total_findings": 8,
+      "critical": 2,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-08-23T14:14:53.420743+07:00",
+      "files": [
+        "chart_patterns.py",
+        "apply_patch2.py",
+        "debug_sats.py"
+      ],
+      "total_findings": 10,
+      "critical": 1,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-08-24T14:24:54.968916+07:00",
+      "files": [
+        "apply_patch.py",
+        "batch_test_patterns.py",
+        "test_patterns.py"
+      ],
+      "total_findings": 9,
+      "critical": 1,
+      "high": 3
+    },
+    {
+      "timestamp": "2026-08-25T14:21:12.742749+07:00",
+      "files": [
+        "export_dashboard_data.py",
+        "query.py",
+        "email_reporter.py"
+      ],
+      "total_findings": 11,
+      "critical": 1,
+      "high": 4
+    },
+    {
+      "timestamp": "2026-08-26T14:27:42.992325+07:00",
+      "files": [
+        "blacklist.py",
+        "virtual_trader.py",
+        "telegram_sender.py"
+      ],
+      "total_findings": 14,
+      "critical": 3,
+      "high": 6
+    },
+    {
+      "timestamp": "2026-08-27T14:27:17.429001+07:00",
+      "files": [
+        "test_virtual_trader.py",
+        "indicators.py",
+        "config.py"
+      ],
+      "total_findings": 0,
+      "critical": 0,
+      "high": 0
+    }
+  ]
+}

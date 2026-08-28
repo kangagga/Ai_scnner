@@ -1,0 +1,846 @@
+{
+  "blacklist": {
+    "FDUSDUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "stablecoin_permanent"
+    },
+    "USDPUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "stablecoin_permanent"
+    },
+    "BUSDUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "stablecoin_permanent"
+    },
+    "TUSDUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "stablecoin_permanent"
+    },
+    "USDCUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "stablecoin_permanent"
+    },
+    "DAIUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "stablecoin_permanent"
+    },
+    "AVAXUSDT": {
+      "until": "2099-12-31T00:00:00",
+      "reason": "win_rate_0pct_14trades"
+    },
+    "LINK3LUSDT_cooldown": {
+      "until": "2026-06-27T16:28:01.856193+00:00",
+      "reason": "loss_cooldown"
+    },
+    "SOL5SUSDT_cooldown": {
+      "until": "2026-06-27T19:04:30.480651+00:00",
+      "reason": "loss_cooldown"
+    },
+    "SPCX3LUSDT_cooldown": {
+      "until": "2026-06-28T14:57:15.636875+00:00",
+      "reason": "loss_cooldown"
+    },
+    "CPOOLUSDT_cooldown": {
+      "until": "2026-07-01T20:02:22.410632+00:00",
+      "reason": "loss_cooldown"
+    },
+    "AAPLXUSDT_cooldown": {
+      "until": "2026-08-21T15:33:00.485182+00:00",
+      "reason": "loss_cooldown"
+    },
+    "NXPCUSDT_cooldown": {
+      "until": "2026-08-22T08:51:05.331578+00:00",
+      "reason": "loss_cooldown"
+    },
+    "JASMYUSDT_cooldown": {
+      "until": "2026-08-25T22:47:47.630738+00:00",
+      "reason": "loss_cooldown"
+    }
+  },
+  "false_signals": {
+    "CFXUSDT": {
+      "count": 0,
+      "last": "2026-06-18T02:55:55.958341"
+    },
+    "ETHBTC": {
+      "count": 0,
+      "last": "2026-06-19T08:36:20.728467"
+    },
+    "DOTBTC": {
+      "count": 0,
+      "last": "2026-06-19T08:36:23.802010"
+    },
+    "AVAX5LUSDT": {
+      "count": 1,
+      "last": "2026-06-20T07:12:42.770267"
+    },
+    "EPICUSDT": {
+      "count": 1,
+      "last": "2026-06-20T07:14:59.043229"
+    },
+    "AVAXUSDT": {
+      "count": 1,
+      "last": "2026-06-20T07:15:17.210795"
+    },
+    "ACPUSDT": {
+      "count": 1,
+      "last": "2026-06-20T08:39:32.947159"
+    },
+    "SKYAIUSDT": {
+      "count": 1,
+      "last": "2026-06-20T10:54:42.268937"
+    },
+    "BLUAIUSDT": {
+      "count": 0,
+      "last": "2026-06-20T12:58:02.668142"
+    },
+    "EIGENUSDT": {
+      "count": 0,
+      "last": "2026-08-12T14:55:29.978940"
+    },
+    "BICOUSDT": {
+      "count": 1,
+      "last": "2026-06-27T14:32:08.150943"
+    },
+    "ZEC3SUSDT": {
+      "count": 1,
+      "last": "2026-06-20T13:24:26.474325"
+    },
+    "ENAUSDT": {
+      "count": 0,
+      "last": "2026-08-02T02:07:17.789192"
+    },
+    "SOL3SUSDT": {
+      "count": 0,
+      "last": "2026-06-21T08:36:46.534670"
+    },
+    "METISUSDT": {
+      "count": 0,
+      "last": "2026-08-20T18:34:36.302343"
+    },
+    "BELUSDT": {
+      "count": 1,
+      "last": "2026-06-22T08:59:19.401026"
+    },
+    "GMXUSDT": {
+      "count": 0,
+      "last": "2026-08-07T03:59:51.520201"
+    },
+    "USUSDT": {
+      "count": 0,
+      "last": "2026-06-20T22:30:29.672578"
+    },
+    "LRCUSDT": {
+      "count": 1,
+      "last": "2026-08-21T21:59:15.881748"
+    },
+    "LABUSDT": {
+      "count": 1,
+      "last": "2026-07-20T13:27:43.077865"
+    },
+    "AXSUSDT": {
+      "count": 1,
+      "last": "2026-08-07T02:48:38.827375"
+    },
+    "SANDUSDT": {
+      "count": 0,
+      "last": "2026-06-21T03:32:04.822992"
+    },
+    "MDTUSDT": {
+      "count": 0,
+      "last": "2026-08-21T20:30:58.353089"
+    },
+    "WETUSDT": {
+      "count": 0,
+      "last": "2026-06-23T06:23:28.711319"
+    },
+    "GMTUSDT": {
+      "count": 1,
+      "last": "2026-06-21T04:28:36.572283"
+    },
+    "API3USDT": {
+      "count": 0,
+      "last": "2026-08-07T00:57:39.923079"
+    },
+    "ALGOUSDT": {
+      "count": 1,
+      "last": "2026-06-21T05:02:51.299463"
+    },
+    "SOL5SUSDT": {
+      "count": 0,
+      "last": "2026-06-27T17:04:29.178606"
+    },
+    "ALICEUSDT": {
+      "count": 1,
+      "last": "2026-06-21T05:25:01.163614"
+    },
+    "JUPUSDT": {
+      "count": 0,
+      "last": "2026-07-25T07:53:26.403467"
+    },
+    "HFTUSDT": {
+      "count": 1,
+      "last": "2026-06-21T06:57:00.868601"
+    },
+    "CATIUSDT": {
+      "count": 0,
+      "last": "2026-08-09T12:38:53.850370"
+    },
+    "ETH5SUSDT": {
+      "count": 1,
+      "last": "2026-06-21T08:35:34.579294"
+    },
+    "ETH3SUSDT": {
+      "count": 1,
+      "last": "2026-06-21T08:36:12.038076"
+    },
+    "ENJUSDT": {
+      "count": 0,
+      "last": "2026-08-09T23:16:13.396950"
+    },
+    "AAVEUSDT": {
+      "count": 0,
+      "last": "2026-08-02T08:18:39.119176"
+    },
+    "SEIUSDT": {
+      "count": 0,
+      "last": "2026-07-08T18:52:28.316857"
+    },
+    "TNSRUSDT": {
+      "count": 0,
+      "last": "2026-06-21T19:10:12.023644"
+    },
+    "NAWSUSDT": {
+      "count": 1,
+      "last": "2026-06-21T14:29:31.293663"
+    },
+    "XLMUSDT": {
+      "count": 0,
+      "last": "2026-08-02T08:06:27.556771"
+    },
+    "ARUSDT": {
+      "count": 0,
+      "last": "2026-08-18T23:11:27.106332"
+    },
+    "WUSDT": {
+      "count": 1,
+      "last": "2026-08-06T21:47:31.191624"
+    },
+    "ALTUSDT": {
+      "count": 1,
+      "last": "2026-08-06T05:09:00.078479"
+    },
+    "BLUEUSDT": {
+      "count": 1,
+      "last": "2026-06-21T20:27:33.928062"
+    },
+    "AEROUSDT": {
+      "count": 0,
+      "last": "2026-08-09T03:01:33.119970"
+    },
+    "LTCUSDT": {
+      "count": 1,
+      "last": "2026-06-21T21:10:33.942557"
+    },
+    "QNTUSDT": {
+      "count": 1,
+      "last": "2026-06-21T21:18:37.798246"
+    },
+    "SOL3LUSDT": {
+      "count": 1,
+      "last": "2026-06-21T23:33:21.361308"
+    },
+    "SOLUSDT": {
+      "count": 0,
+      "last": "2026-08-02T02:07:35.213187"
+    },
+    "FILUSDT": {
+      "count": 1,
+      "last": "2026-08-28T02:30:50.134653"
+    },
+    "SLXUSDT": {
+      "count": 0,
+      "last": "2026-06-23T00:54:08.872852"
+    },
+    "SHIBUSDT": {
+      "count": 0,
+      "last": "2026-07-25T01:53:03.007650"
+    },
+    "DOGEUSDT": {
+      "count": 0,
+      "last": "2026-07-20T18:54:08.766552"
+    },
+    "ROSEUSDT": {
+      "count": 1,
+      "last": "2026-06-22T01:26:27.808072"
+    },
+    "KASUSDT": {
+      "count": 0,
+      "last": "2026-08-04T13:50:50.204121"
+    },
+    "VELVETUSDT": {
+      "count": 1,
+      "last": "2026-06-22T02:26:18.022804"
+    },
+    "VANRYUSDT": {
+      "count": 1,
+      "last": "2026-06-22T02:49:14.416417"
+    },
+    "DRIFTUSDT": {
+      "count": 1,
+      "last": "2026-06-22T04:07:16.930927"
+    },
+    "CSPRUSDT": {
+      "count": 0,
+      "last": "2026-06-30T14:52:01.679038"
+    },
+    "NAORISUSDT": {
+      "count": 1,
+      "last": "2026-06-22T08:48:10.769385"
+    },
+    "ASTERUSDT": {
+      "count": 1,
+      "last": "2026-06-22T11:49:19.033301"
+    },
+    "SYNUSDT": {
+      "count": 0,
+      "last": "2026-06-22T17:40:00.793014"
+    },
+    "AEVOUSDT": {
+      "count": 1,
+      "last": "2026-08-26T00:34:51.582964"
+    },
+    "BTTUSDT": {
+      "count": 1,
+      "last": "2026-06-22T18:20:23.496531"
+    },
+    "PENDLEUSDT": {
+      "count": 1,
+      "last": "2026-07-31T02:43:58.396134"
+    },
+    "ESPORTSUSDT": {
+      "count": 1,
+      "last": "2026-06-23T02:42:25.117835"
+    },
+    "PROUSDT": {
+      "count": 1,
+      "last": "2026-06-23T06:12:47.167615"
+    },
+    "XIONUSDT": {
+      "count": 1,
+      "last": "2026-06-23T11:46:53.250600"
+    },
+    "AVGOONUSDT": {
+      "count": 1,
+      "last": "2026-07-02T14:03:04.731910"
+    },
+    "UBUSDT": {
+      "count": 0,
+      "last": "2026-06-23T23:50:55.139144"
+    },
+    "PUMPUSDT": {
+      "count": 1,
+      "last": "2026-06-23T21:04:45.047521"
+    },
+    "USDYUSDT": {
+      "count": 1,
+      "last": "2026-06-24T07:10:23.517440"
+    },
+    "SPCXXUSDT": {
+      "count": 0,
+      "last": "2026-08-20T08:30:34.991173"
+    },
+    "ONDOUSDT": {
+      "count": 1,
+      "last": "2026-08-04T06:47:48.700211"
+    },
+    "PEPEUSDT": {
+      "count": 1,
+      "last": "2026-07-31T13:02:14.096706"
+    },
+    "NIGHTUSDT": {
+      "count": 0,
+      "last": "2026-06-29T03:33:55.093765"
+    },
+    "FLRUSDT": {
+      "count": 1,
+      "last": "2026-06-24T20:49:41.435029"
+    },
+    "MNTUSDT": {
+      "count": 1,
+      "last": "2026-06-24T20:50:07.130725"
+    },
+    "CCUSDT": {
+      "count": 0,
+      "last": "2026-06-30T14:28:21.263159"
+    },
+    "XAU5LUSDT": {
+      "count": 1,
+      "last": "2026-06-24T21:41:40.610135"
+    },
+    "ATHUSDT": {
+      "count": 1,
+      "last": "2026-06-24T22:00:50.278102"
+    },
+    "IAUONUSDT": {
+      "count": 1,
+      "last": "2026-06-24T23:44:56.490347"
+    },
+    "ARBUSDT": {
+      "count": 0,
+      "last": "2026-08-07T19:53:04.079295"
+    },
+    "VIRTUALUSDT": {
+      "count": 1,
+      "last": "2026-06-27T14:13:24.941174"
+    },
+    "LINK3LUSDT": {
+      "count": 1,
+      "last": "2026-06-27T14:28:00.641558"
+    },
+    "ETH5LUSDT": {
+      "count": 1,
+      "last": "2026-06-27T15:08:02.925964"
+    },
+    "ETHUSDT": {
+      "count": 1,
+      "last": "2026-08-02T17:25:15.576860"
+    },
+    "XRPUSDT": {
+      "count": 0,
+      "last": "2026-07-26T22:35:20.291667"
+    },
+    "LINK5LUSDT": {
+      "count": 1,
+      "last": "2026-06-27T15:11:23.483039"
+    },
+    "ETH3LUSDT": {
+      "count": 1,
+      "last": "2026-06-27T15:11:48.136523"
+    },
+    "LINKUSDT": {
+      "count": 0,
+      "last": "2026-07-25T13:44:00.962393"
+    },
+    "BTC5LUSDT": {
+      "count": 1,
+      "last": "2026-06-27T15:12:05.179661"
+    },
+    "GTUSDT": {
+      "count": 1,
+      "last": "2026-06-27T16:31:39.573667"
+    },
+    "TRXUSDT": {
+      "count": 1,
+      "last": "2026-07-23T10:52:52.363123"
+    },
+    "MEGAUSDT": {
+      "count": 1,
+      "last": "2026-06-28T02:35:31.821410"
+    },
+    "WLFIUSDT": {
+      "count": 1,
+      "last": "2026-06-28T08:39:04.712857"
+    },
+    "AAPLONUSDT": {
+      "count": 1,
+      "last": "2026-06-29T00:02:00.029382"
+    },
+    "AMZNONUSDT": {
+      "count": 1,
+      "last": "2026-06-29T01:37:37.630954"
+    },
+    "BABAONUSDT": {
+      "count": 1,
+      "last": "2026-06-29T02:07:58.945200"
+    },
+    "ZROUSDT": {
+      "count": 0,
+      "last": "2026-07-21T20:14:16.782730"
+    },
+    "COAIUSDT": {
+      "count": 1,
+      "last": "2026-06-29T08:35:41.968726"
+    },
+    "COINONUSDT": {
+      "count": 1,
+      "last": "2026-06-29T17:13:44.993370"
+    },
+    "PAXGUSDT": {
+      "count": 1,
+      "last": "2026-06-30T06:29:13.475025"
+    },
+    "XAUTUSDT": {
+      "count": 0,
+      "last": "2026-07-30T01:04:54.925318"
+    },
+    "ONGUSDT": {
+      "count": 1,
+      "last": "2026-06-30T07:18:33.613013"
+    },
+    "MEMEUSDT": {
+      "count": 1,
+      "last": "2026-06-30T09:10:28.789535"
+    },
+    "JELLYJELLYUSDT": {
+      "count": 1,
+      "last": "2026-06-30T13:15:33.704407"
+    },
+    "ARIAUSDT": {
+      "count": 1,
+      "last": "2026-06-30T17:31:59.289536"
+    },
+    "BELIEVEUSDT": {
+      "count": 1,
+      "last": "2026-06-30T19:23:46.157906"
+    },
+    "ACN1USDT": {
+      "count": 1,
+      "last": "2026-06-30T21:00:10.189624"
+    },
+    "CHZUSDT": {
+      "count": 1,
+      "last": "2026-07-01T14:20:36.197169"
+    },
+    "TSTBSCUSDT": {
+      "count": 1,
+      "last": "2026-07-01T15:42:10.797311"
+    },
+    "ELIZAOSUSDT": {
+      "count": 1,
+      "last": "2026-07-01T15:59:28.316480"
+    },
+    "CPOOLUSDT": {
+      "count": 1,
+      "last": "2026-07-01T18:02:21.051809"
+    },
+    "FETUSDT": {
+      "count": 0,
+      "last": "2026-07-14T08:38:42.419533"
+    },
+    "PIUSDT": {
+      "count": 0,
+      "last": "2026-08-05T03:57:52.772107"
+    },
+    "JPMONUSDT": {
+      "count": 1,
+      "last": "2026-07-02T13:55:03.912325"
+    },
+    "B2USDT": {
+      "count": 1,
+      "last": "2026-07-02T14:07:11.687775"
+    },
+    "PIPPINUSDT": {
+      "count": 1,
+      "last": "2026-07-03T12:16:29.457851"
+    },
+    "HBARUSDT": {
+      "count": 0,
+      "last": "2026-07-27T12:40:20.191299"
+    },
+    "BTCUSDT": {
+      "count": 1,
+      "last": "2026-08-03T03:48:13.158891"
+    },
+    "OKBUSDT": {
+      "count": 1,
+      "last": "2026-07-06T12:45:24.878644"
+    },
+    "ORDIUSDT": {
+      "count": 1,
+      "last": "2026-07-22T02:49:06.710863"
+    },
+    "SAFEUSDT": {
+      "count": 1,
+      "last": "2026-07-07T04:47:43.594770"
+    },
+    "YFIUSDT": {
+      "count": 1,
+      "last": "2026-07-08T02:02:56.478741"
+    },
+    "MONUSDT": {
+      "count": 1,
+      "last": "2026-07-08T17:53:01.665591"
+    },
+    "STRKUSDT": {
+      "count": 1,
+      "last": "2026-07-19T15:23:03.912294"
+    },
+    "OPUSDT": {
+      "count": 0,
+      "last": "2026-07-27T14:30:41.091976"
+    },
+    "APTUSDT": {
+      "count": 0,
+      "last": "2026-08-02T19:15:31.627315"
+    },
+    "INJUSDT": {
+      "count": 0,
+      "last": "2026-08-02T08:39:08.464880"
+    },
+    "WLDUSDT": {
+      "count": 0,
+      "last": "2026-08-09T06:52:19.407788"
+    },
+    "BNBUSDT": {
+      "count": 1,
+      "last": "2026-07-25T13:46:15.518299"
+    },
+    "BCHUSDT": {
+      "count": 0,
+      "last": "2026-07-22T05:31:43.350550"
+    },
+    "TAOUSDT": {
+      "count": 0,
+      "last": "2026-08-06T09:42:12.310599"
+    },
+    "CSCOONUSDT": {
+      "count": 1,
+      "last": "2026-07-15T14:27:21.577503"
+    },
+    "WIFUSDT": {
+      "count": 1,
+      "last": "2026-07-15T15:59:25.640254"
+    },
+    "NEARUSDT": {
+      "count": 1,
+      "last": "2026-07-17T03:25:14.983616"
+    },
+    "ADAUSDT": {
+      "count": 0,
+      "last": "2026-07-26T16:17:29.691137"
+    },
+    "TRUMPUSDT": {
+      "count": 1,
+      "last": "2026-07-18T13:36:23.456921"
+    },
+    "RECALLUSDT": {
+      "count": 1,
+      "last": "2026-07-19T00:52:56.947028"
+    },
+    "RENDERUSDT": {
+      "count": 1,
+      "last": "2026-07-20T00:16:34.017345"
+    },
+    "HOODONUSDT": {
+      "count": 1,
+      "last": "2026-07-22T22:00:04.902842"
+    },
+    "SUIUSDT": {
+      "count": 1,
+      "last": "2026-08-03T03:46:47.867944"
+    },
+    "DOTUSDT": {
+      "count": 0,
+      "last": "2026-08-03T01:54:43.805448"
+    },
+    "UNIUSDT": {
+      "count": 0,
+      "last": "2026-08-02T18:03:54.184557"
+    },
+    "CRVUSDT": {
+      "count": 0,
+      "last": "2026-08-02T18:38:27.487654"
+    },
+    "BONKUSDT": {
+      "count": 1,
+      "last": "2026-07-30T17:08:37.652507"
+    },
+    "ICPUSDT": {
+      "count": 0,
+      "last": "2026-08-02T06:00:39.967587"
+    },
+    "NVDAONUSDT": {
+      "count": 1,
+      "last": "2026-08-02T02:15:38.820145"
+    },
+    "ATOMUSDT": {
+      "count": 0,
+      "last": "2026-08-12T10:30:22.575685"
+    },
+    "AEONUSDT": {
+      "count": 1,
+      "last": "2026-08-02T07:27:28.584232"
+    },
+    "TIAUSDT": {
+      "count": 0,
+      "last": "2026-08-02T23:08:12.868710"
+    },
+    "EGLDUSDT": {
+      "count": 1,
+      "last": "2026-08-02T12:00:37.491921"
+    },
+    "VETUSDT": {
+      "count": 1,
+      "last": "2026-08-02T12:04:12.053972"
+    },
+    "SNXUSDT": {
+      "count": 1,
+      "last": "2026-08-03T05:26:01.411386"
+    },
+    "PTBUSDT": {
+      "count": 1,
+      "last": "2026-08-03T11:07:07.226476"
+    },
+    "ETHFIUSDT": {
+      "count": 0,
+      "last": "2026-08-21T19:04:39.492929"
+    },
+    "ONUSDT": {
+      "count": 1,
+      "last": "2026-08-03T20:43:10.382546"
+    },
+    "QQQGUSDT": {
+      "count": 0,
+      "last": "2026-08-13T14:33:47.279211"
+    },
+    "CVXUSDT": {
+      "count": 1,
+      "last": "2026-08-04T18:13:48.729372"
+    },
+    "PIXELUSDT": {
+      "count": 1,
+      "last": "2026-08-06T22:15:33.887607"
+    },
+    "TBKUSDT": {
+      "count": 1,
+      "last": "2026-08-08T13:57:59.567088"
+    },
+    "XRPBTC": {
+      "count": 1,
+      "last": "2026-08-08T15:56:27.291214"
+    },
+    "IDUSDT": {
+      "count": 1,
+      "last": "2026-08-09T07:51:37.251924"
+    },
+    "TURBOUSDT": {
+      "count": 1,
+      "last": "2026-08-09T08:20:36.147974"
+    },
+    "PRLUSDT": {
+      "count": 1,
+      "last": "2026-08-09T22:01:25.864599"
+    },
+    "MSFTGUSDT": {
+      "count": 1,
+      "last": "2026-08-10T13:31:30.453845"
+    },
+    "RAINUSDT": {
+      "count": 1,
+      "last": "2026-08-10T16:03:19.415071"
+    },
+    "PLTRGUSDT": {
+      "count": 0,
+      "last": "2026-08-24T13:31:16.207282"
+    },
+    "PLTRONUSDT": {
+      "count": 1,
+      "last": "2026-08-10T21:16:02.247124"
+    },
+    "SPCXONUSDT": {
+      "count": 1,
+      "last": "2026-08-11T15:24:23.309634"
+    },
+    "GOOGLGUSDT": {
+      "count": 1,
+      "last": "2026-08-11T15:31:29.908134"
+    },
+    "IBMGUSDT": {
+      "count": 1,
+      "last": "2026-08-12T13:58:38.437253"
+    },
+    "JPMGUSDT": {
+      "count": 1,
+      "last": "2026-08-13T00:34:56.697358"
+    },
+    "MSTRXUSDT": {
+      "count": 1,
+      "last": "2026-08-13T13:43:44.925174"
+    },
+    "SMHGUSDT": {
+      "count": 1,
+      "last": "2026-08-13T14:40:54.605674"
+    },
+    "METAGUSDT": {
+      "count": 1,
+      "last": "2026-08-14T12:37:34.729478"
+    },
+    "MANAUSDT": {
+      "count": 1,
+      "last": "2026-08-14T16:14:51.046161"
+    },
+    "NILUSDT": {
+      "count": 1,
+      "last": "2026-08-15T09:35:23.269055"
+    },
+    "ADABTC": {
+      "count": 1,
+      "last": "2026-08-18T03:45:52.482249"
+    },
+    "SKHYNIXGUSDT": {
+      "count": 1,
+      "last": "2026-08-19T08:03:03.671012"
+    },
+    "AMDONUSDT": {
+      "count": 1,
+      "last": "2026-08-19T12:38:04.166756"
+    },
+    "STXUSDT": {
+      "count": 1,
+      "last": "2026-08-19T14:54:14.278817"
+    },
+    "SKHYGUSDT": {
+      "count": 1,
+      "last": "2026-08-19T18:10:12.306943"
+    },
+    "NESUSDT": {
+      "count": 1,
+      "last": "2026-08-20T16:13:30.954466"
+    },
+    "NVDAGUSDT": {
+      "count": 1,
+      "last": "2026-08-21T09:10:20.998120"
+    },
+    "SPCXGUSDT": {
+      "count": 1,
+      "last": "2026-08-21T09:50:08.947435"
+    },
+    "AAPLXUSDT": {
+      "count": 1,
+      "last": "2026-08-21T13:31:57.084887"
+    },
+    "MRVLGUSDT": {
+      "count": 1,
+      "last": "2026-08-21T14:15:38.168583"
+    },
+    "OPENAIUSDT": {
+      "count": 1,
+      "last": "2026-08-21T14:23:17.064243"
+    },
+    "NXPCUSDT": {
+      "count": 1,
+      "last": "2026-08-22T06:51:01.055650"
+    },
+    "1INCHUSDT": {
+      "count": 1,
+      "last": "2026-08-23T23:02:38.726176"
+    },
+    "JASMYUSDT": {
+      "count": 1,
+      "last": "2026-08-25T20:47:44.385201"
+    },
+    "ILVUSDT": {
+      "count": 1,
+      "last": "2026-08-26T13:26:55.351310"
+    },
+    "JNJGUSDT": {
+      "count": 1,
+      "last": "2026-08-27T13:46:13.070570"
+    },
+    "TSLAGUSDT": {
+      "count": 1,
+      "last": "2026-08-27T14:27:16.919570"
+    }
+  }
+}

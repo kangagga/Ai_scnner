@@ -1,0 +1,21 @@
+{
+  "balance": 117.38062221994701,
+  "peak_balance": 118.733122219947,
+  "daily_pnl": -0.5225,
+  "daily_date": "2026-08-28",
+  "consecutive_loss": 1,
+  "open_positions": {
+    "QQQGUSDT_1h_SELL (SR BOUNCE)": 1.5000000000000004,
+    "ETHUSDT_1h_SELL (SR BOUNCE)": 1.499999999999996
+  },
+  "trade_history": [
+    {
+      "time": "2026-08-28T02:30:51.746364",
+      "pnl": -0.5225,
+      "win": false,
+      "balance": 117.38
+    }
+  ],
+  "trading_halted": false,
+  "halt_reason": ""
+}

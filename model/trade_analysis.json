@@ -1,0 +1,237 @@
+{
+  "overall": {
+    "total": 138,
+    "win_rate": 30.4,
+    "profit_factor": 0.69,
+    "avg_rr": 1.42,
+    "max_drawdown": -83.69
+  },
+  "per_pair": {
+    "AVAXUSDT": {
+      "total": 14,
+      "win_rate": 0.0,
+      "profit_factor": 0.0,
+      "avg_rr": 1.5
+    },
+    "AXSUSDT": {
+      "total": 4,
+      "win_rate": 50.0,
+      "profit_factor": 1.56,
+      "avg_rr": 1.5
+    },
+    "BELUSDT": {
+      "total": 4,
+      "win_rate": 25.0,
+      "profit_factor": 0.43,
+      "avg_rr": 1.5
+    },
+    "BTCUSDT": {
+      "total": 7,
+      "win_rate": 42.9,
+      "profit_factor": 0.0,
+      "avg_rr": 1.0
+    },
+    "BTTUSDT": {
+      "total": 3,
+      "win_rate": 33.3,
+      "profit_factor": 1.21,
+      "avg_rr": 0.0
+    },
+    "FILUSDT": {
+      "total": 3,
+      "win_rate": 66.7,
+      "profit_factor": 3.71,
+      "avg_rr": 1.5
+    },
+    "JUPUSDT": {
+      "total": 3,
+      "win_rate": 33.3,
+      "profit_factor": 0.61,
+      "avg_rr": 1.5
+    },
+    "LABUSDT": {
+      "total": 4,
+      "win_rate": 50.0,
+      "profit_factor": 5.14,
+      "avg_rr": 1.5
+    },
+    "LRCUSDT": {
+      "total": 3,
+      "win_rate": 100.0,
+      "profit_factor": 0.0,
+      "avg_rr": 1.5
+    },
+    "SOL3SUSDT": {
+      "total": 3,
+      "win_rate": 33.3,
+      "profit_factor": 1.57,
+      "avg_rr": 1.5
+    },
+    "SOLUSDT": {
+      "total": 4,
+      "win_rate": 25.0,
+      "profit_factor": 0.64,
+      "avg_rr": 1.25
+    },
+    "SYNUSDT": {
+      "total": 3,
+      "win_rate": 33.3,
+      "profit_factor": 0.79,
+      "avg_rr": 1.5
+    }
+  },
+  "per_signal": {
+    "BUY": {
+      "total": 81,
+      "win_rate": 23.5,
+      "profit_factor": 0.56
+    },
+    "BUY (SETUP)": {
+      "total": 9,
+      "win_rate": 55.6,
+      "profit_factor": 1.75
+    },
+    "SELL": {
+      "total": 43,
+      "win_rate": 32.6,
+      "profit_factor": 0.89
+    },
+    "SELL (SETUP)": {
+      "total": 5,
+      "win_rate": 80.0,
+      "profit_factor": 1.74
+    }
+  },
+  "per_session": {
+    "ASIA": {
+      "total": 59,
+      "win_rate": 33.9,
+      "profit_factor": 0.76
+    },
+    "EUROPE": {
+      "total": 36,
+      "win_rate": 30.6,
+      "profit_factor": 0.66
+    },
+    "US": {
+      "total": 43,
+      "win_rate": 25.6,
+      "profit_factor": 0.61
+    }
+  },
+  "per_hour": {
+    "0": {
+      "total": 1,
+      "win_rate": 0.0
+    },
+    "1": {
+      "total": 4,
+      "win_rate": 0.0
+    },
+    "2": {
+      "total": 14,
+      "win_rate": 28.6
+    },
+    "3": {
+      "total": 9,
+      "win_rate": 44.4
+    },
+    "4": {
+      "total": 13,
+      "win_rate": 30.8
+    },
+    "5": {
+      "total": 7,
+      "win_rate": 42.9
+    },
+    "6": {
+      "total": 3,
+      "win_rate": 100.0
+    },
+    "7": {
+      "total": 8,
+      "win_rate": 25.0
+    },
+    "8": {
+      "total": 9,
+      "win_rate": 33.3
+    },
+    "9": {
+      "total": 1,
+      "win_rate": 100.0
+    },
+    "11": {
+      "total": 5,
+      "win_rate": 40.0
+    },
+    "13": {
+      "total": 12,
+      "win_rate": 8.3
+    },
+    "14": {
+      "total": 7,
+      "win_rate": 42.9
+    },
+    "15": {
+      "total": 2,
+      "win_rate": 50.0
+    },
+    "16": {
+      "total": 5,
+      "win_rate": 20.0
+    },
+    "17": {
+      "total": 8,
+      "win_rate": 37.5
+    },
+    "18": {
+      "total": 6,
+      "win_rate": 16.7
+    },
+    "19": {
+      "total": 2,
+      "win_rate": 0.0
+    },
+    "20": {
+      "total": 2,
+      "win_rate": 0.0
+    },
+    "21": {
+      "total": 1,
+      "win_rate": 0.0
+    },
+    "22": {
+      "total": 8,
+      "win_rate": 25.0
+    },
+    "23": {
+      "total": 11,
+      "win_rate": 36.4
+    }
+  },
+  "per_timeframe": {
+    "1h": {
+      "total": 136,
+      "win_rate": 29.4,
+      "profit_factor": 0.67
+    },
+    "4h": {
+      "total": 2,
+      "win_rate": 100.0,
+      "profit_factor": 0.0
+    }
+  },
+  "best_pairs": {
+    "LRCUSDT": 100.0,
+    "FILUSDT": 66.7,
+    "AXSUSDT": 50.0
+  },
+  "worst_pairs": {
+    "AVAXUSDT": 0.0,
+    "BELUSDT": 25.0,
+    "SOLUSDT": 25.0
+  },
+  "penalty_rules": [],
+  "_note": "Penalty di-DISABLE sementara. Re-enable setelah 50 trades SMC terkumpul.",
+  "_relaxed_at": "2026-06-23"
+}
