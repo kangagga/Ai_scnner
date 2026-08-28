@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 MAX_RETRIES        = 3
 BASE_DELAY         = 1.5
 RATE_LIMIT_PER_SEC = 2
-MAX_WORKERS        = 10
+MAX_WORKERS        = 4
 TASK_TIMEOUT_SEC   = 90
 CACHE_TTL_SEC      = 600
 

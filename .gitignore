@@ -15,3 +15,11 @@ patches_applied/
 secrets_testnet.py
 config.py
 *backup*
+venv/
+*.lock
+__pycache__/
+*.pyc
+venv/
+*.lock
+__pycache__/
+*.pyc
