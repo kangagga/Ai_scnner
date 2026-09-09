@@ -21,12 +21,21 @@ def audit_win_rate():
     )
     rows = cur.fetchall()
     conn.close()
-    if len(rows) >= 2:
-        wr_today, wr_yesterday = rows[0][2], rows[1][2]
-        if wr_today < 50:
-            issues.append("Peringatan Win rate rendah hari ini: " + str(wr_today) + "%")
-        if wr_yesterday - wr_today > 20:
-            issues.append("Win rate drop " + str(round(wr_yesterday-wr_today,1)) + "% dari kemarin")
+
+    # [FIX 2026-08-29] Jangan asumsikan rows[0] = hari ini. Kalau hari ini
+    # belum ada trade sama sekali, baris hari ini HILANG dari hasil GROUP BY
+    # (bukan muncul dengan total=0), sehingga rows[0] sebenarnya data KEMARIN
+    # -- menyebabkan label "hari ini"/"kemarin" salah satu hari (off-by-one).
+    today_str = datetime.now(WIB).strftime("%Y-%m-%d")
+    yesterday_str = (datetime.now(WIB) - timedelta(days=1)).strftime("%Y-%m-%d")
+    wr_by_date = {r[0]: r[2] for r in rows}
+    wr_today = wr_by_date.get(today_str)
+    wr_yesterday = wr_by_date.get(yesterday_str)
+
+    if wr_today is not None and wr_today < 50:
+        issues.append("Peringatan Win rate rendah hari ini: " + str(wr_today) + "%")
+    if wr_today is not None and wr_yesterday is not None and wr_yesterday - wr_today > 20:
+        issues.append("Win rate drop " + str(round(wr_yesterday-wr_today,1)) + "% dari kemarin")
     return issues
 
 def audit_active_trades():
@@ -96,7 +105,7 @@ def run_audit():
     conn = sqlite3.connect("/home/userland/ai-scanner/virtual_trading.db")
     cur = conn.cursor()
     today = datetime.now(WIB).strftime("%Y-%m-%d")
-    cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM virtual_trades WHERE closed=1 AND substr(closed_at,1,10)='" + today + "'")
+    cur.execute("SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END), SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END), ROUND(AVG(pnl_pct),2), ROUND(SUM(pnl_pct),2) FROM virtual_trades WHERE closed=1 AND substr(closed_at,1,10)=?", (today,))
     row = cur.fetchone()
     conn.close()
     total = row[0] or 0
@@ -163,18 +172,27 @@ def get_summary_today():
     """Return ringkasan trading hari ini untuk /health"""
     from datetime import datetime
     try:
-        db = get_db()
-        today = datetime.now().strftime("%Y-%m-%d")
-        
-        # Ambil trades hari ini - sesuaikan query sama struktur DB lo
-        trades = db.get(f"trades_{today}") if hasattr(db, 'get') else []
-        
-        if not trades:
-            return {'status': '✅ Online', 'date': today, 'total_trades': 0}
-        
-        wins = sum(1 for t in trades if t.get('is_win'))
-        total = len(trades)
-        
+        today = datetime.now(WIB).strftime("%Y-%m-%d")
+        conn = sqlite3.connect("/home/userland/ai-scanner/virtual_trading.db")
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*), SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END) "
+            "FROM virtual_trades WHERE closed=1 AND substr(closed_at,1,10)=?",
+            (today,)
+        )
+        row = cur.fetchone()
+        total = row[0] or 0
+        wins = row[1] or 0
+
+        cur.execute("SELECT COUNT(*) FROM virtual_trades WHERE closed=0")
+        active_row = cur.fetchone()
+        active_positions = active_row[0] or 0
+
+        conn.close()
+
+        if not total:
+            return {'status': '✅ Online', 'date': today, 'total_trades': 0, 'active_positions': active_positions}
+
         return {
             'status': '✅ Running',
             'date': today,
@@ -182,7 +200,7 @@ def get_summary_today():
             'wins': wins,
             'losses': total - wins,
             'win_rate': f"{(wins/total*100):.1f}%" if total else 'N/A',
-            'active_positions': sum(1 for t in trades if t.get('status') == 'open')
+            'active_positions': active_positions
         }
     except Exception as e:
-        return {'status': f'⚠️ {str(e)}', 'date': datetime.now().strftime("%Y-%m-%d")}
+        return {'status': f'⚠️ {str(e)}', 'date': datetime.now(WIB).strftime("%Y-%m-%d")}

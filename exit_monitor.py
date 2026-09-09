@@ -240,6 +240,8 @@ def check_exits(send_alert_fn):
             pnl_pct = round((price - trade["entry"]) / trade["entry"] * 100, 2)
             if not trade["signal"].startswith("BUY"):
                 pnl_pct = -pnl_pct
+            if "STOP LOSS" in label and trade["entry"] and abs(target - trade["entry"]) <= abs(trade["entry"]) * 0.0005:
+                label = "STOP LOSS (BREAKEVEN)"
             if abs(pnl_pct) < 0.1:
                 label = "BREAKEVEN"
                 pnl_pct = 0.0
@@ -296,7 +298,7 @@ def check_exits(send_alert_fn):
             send_alert_fn(msg)
 
             # Auto-blacklist setelah SL
-            if "STOP LOSS" in label:
+            if "STOP LOSS" in label and "BREAKEVEN" not in label:
                 try:
                     from blacklist import report_false_signal
                     report_false_signal(symbol)
@@ -335,6 +337,19 @@ def check_exits(send_alert_fn):
                     is_final=is_final_leg
                 )
                 logger.info(f"💰 Trade closed: {symbol} {trade['signal']} | PnL: {pnl_pct:.2f}% | leg={tp_level_leg} pct={pct_closed}% final={is_final_leg}")
+
+                # [SYNC 2026-08-29] Catat hasil ke tabel performance (signals.db)
+                # supaya winrate bisa dihitung tanpa perlu backfill manual.
+                try:
+                    from database import update_signal_result
+                    update_signal_result(
+                        symbol=symbol,
+                        signal=trade["signal"],
+                        entry=trade["entry"],
+                        exit_price=price
+                    )
+                except Exception as e:
+                    logger.warning(f"[PERF_SYNC] Gagal sync ke performance: {e}")
             except (ImportError, sqlite3.Error, KeyError, ValueError) as e:
                 logger.error(f"Virtual trade error: {e}", exc_info=True)
 

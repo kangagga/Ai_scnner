@@ -582,13 +582,13 @@ def institutional_ai_v4(df):
     )
 
     buy_setup_cond = (
-        (data['squeeze_score'] > 40) &          # [LOOSENED 2026-07-09] was > 55
+        (data['squeeze_score'] > 30) &          # [LOOSENED 2026-07-09] was > 55
         data['vol_dry_up'] &
         (setup_buy_score >= 35) &                # was >= 40
         data['trend_up_weak'] &
         (data['rsi'] > 30) & (data['rsi'] < 70) &  # was 35-65
         (data['adx'] < 30) &                      # was < 25
-        (data['macd_hist'] > 0) &
+        (data['macd_hist'] > 0) &  # [TIGHTEN 2026-09-07] was > -0.15, cegah BUY SETUP saat MACD masih bearish
         (data['shooting_star'] == 0) &
         (data['evening_star'] == 0) &
         (data['bear_engulf'] == 0) &
@@ -767,6 +767,10 @@ def institutional_ai_v4(df):
     # Semua kondisi lama (SETUP/MOMENTUM/BREAKOUT/CONFIRM/REVERSAL) di atas
     # diabaikan -- override final di bawah ini yang menentukan sinyal akhir.
     # ══════════════════════════════════════════════════════════
+    # [REVERTED 2026-09-08] Fallback candle directional dihapus -- terbukti
+    # meloloskan sinyal berkualitas rendah (Pattern: None, indikator saling
+    # bertentangan seperti MACD bearish vs BUY, atau EMA above200 vs SELL).
+    # Kembali ke syarat pattern spesifik yang lebih presisi meski lebih jarang.
     buy_sr_bounce_cond = (
         data['near_support'] &
         ((data['hammer'] == 1) | data['bull_engulf'] | (data['morning_star'] == 1)) &
@@ -839,13 +843,30 @@ def institutional_ai_v4(df):
     ).clip(0, 100)
     data['confidence'] = np.where(data['signal'] != "NO TRADE", _sr_confidence, 0)
 
+    # [RESTORE SETUP 2026-09-07] SETUP diaktifkan lagi sebagai FALLBACK --
+    # hanya mengisi baris yang masih "NO TRADE" setelah semua kondisi SR
+    # dicek (SR tetap prioritas utama, tidak diganggu). Data historis:
+    # SELL (SETUP) WR 66.7% avg +0.99%/trade -- salah satu sinyal terbaik,
+    # sayang kalau dibiarkan mati total oleh override SR-only.
+    _setup_fallback_buy  = (data['signal'] == "NO TRADE") & buy_setup_cond
+    _setup_fallback_sell = (data['signal'] == "NO TRADE") & sell_setup_cond
+
+    data.loc[_setup_fallback_buy,  'signal']     = "BUY (SETUP)"
+    data.loc[_setup_fallback_sell, 'signal']     = "SELL (SETUP)"
+    data.loc[_setup_fallback_buy,  'confidence'] = setup_buy_score.clip(0, 100)
+    data.loc[_setup_fallback_sell, 'confidence'] = setup_sell_score.clip(0, 100)
+
     data['position_size'] = np.where(
         data['signal'].isin(["BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)"]),
         np.where(data['confidence'] >= 70, 0.5, 0.3),
         np.where(
             data['signal'].isin(["BUY (SR BOUNCE)", "SELL (SR BOUNCE)"]),
             np.where(data['confidence'] >= 70, 0.3, 0.2),
-            0.0
+            np.where(
+                data['signal'].isin(["BUY (SETUP)", "SELL (SETUP)"]),
+                np.where(data['confidence'] >= 70, 0.3, 0.2),
+                0.0
+            )
         )
     )
 

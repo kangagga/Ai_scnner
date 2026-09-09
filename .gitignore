@@ -23,3 +23,20 @@ venv/
 *.lock
 __pycache__/
 *.pyc
+
+# Pattern baru untuk backup file sesi patch 2026-09-07
+*.bak.*
+*.bak2.*
+audit_log/
+model/
+
+# Runtime state files (auto-generated, tidak perlu di-track)
+active_trades.json
+blacklist.json
+bot.lock
+bot_start_time.txt
+code_audit_rotation_state.json
+last_signals.json
+risk_state.json
+volume_history_cache.json
+watchdog.lock

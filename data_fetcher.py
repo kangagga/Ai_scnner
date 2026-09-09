@@ -213,6 +213,19 @@ def fetch_symbols(min_volume_usdt: float = 200000) -> list:
                 continue
 
             symbol = pair.replace("_", "")
+
+            # [ADDED 2026-09-07] Skip pair yang di-exclude permanen
+            from config import EXCLUDED_SYMBOLS
+            if symbol in EXCLUDED_SYMBOLS:
+                continue
+
+            # [ADDED 2026-09-07] Skip leveraged token (3L/3S/5L/5S dst) --
+            # decay alami dari rebalancing harian bikin price action-nya
+            # nggak murni tracking underlying 1:1, analisa SR jadi tidak valid.
+            import re as _re
+            if _re.search(r'\d+(?:[LS])?USDT$', symbol):
+                continue
+
             all_pairs.append((symbol, vol_24h))
 
             if _known_symbols and symbol not in _known_symbols:
@@ -398,6 +411,18 @@ def get_new_listings(min_volume_usdt: float = 200000) -> list:
                 continue
 
             symbol = pair.replace("_", "")
+
+            # [ADDED 2026-09-07] Sinkronkan filter exclude dengan fetch_symbols()
+            # -- sebelumnya get_new_listings() punya loop terpisah tanpa filter
+            # ini, jadi pair yang sudah di-exclude tetap muncul sebagai
+            # "new listing" tiap kali fungsi ini dipanggil.
+            from config import EXCLUDED_SYMBOLS
+            if symbol in EXCLUDED_SYMBOLS:
+                continue
+            import re as _re
+            if _re.search(r'\d+(?:[LS])?USDT$', symbol):
+                continue
+
             if symbol not in _known_symbols:
                 new_pairs.append(symbol)
                 logger.info(f"🆕 New listing: {symbol} | Vol: ${vol_24h:,.0f}")

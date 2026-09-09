@@ -1,3 +1,4 @@
+import re
 import logging
 import time
 import random
@@ -343,32 +344,23 @@ def _analyse_single(symbol, timeframe, min_score=0):
         _bump_block(f"INVALID_SIGNAL_{signal}")
         return None
 
+    # [ADDED 2026-09-05] Blokir SELL (SR BREAKDOWN) - data 49 trade historis:
+    # WR 42.9%, avg -0.35%/trade, total -16.95%.
+    if signal == "SELL (SR BREAKDOWN)":
+        logger.debug(f"[SIGNAL_BLOCK] {symbol}/{timeframe}: {signal} dinonaktifkan (avg PnL historis negatif)")
+        _bump_block("SIGNAL_SELL_BREAKDOWN")
+        return None
+
     # ── ADAPTIVE CONFIDENCE MULTIPLIER berdasarkan market regime ──
     try:
         from market_context import detect_market_regime
         _reg_info = detect_market_regime(symbol, timeframe)
         _regime   = _reg_info.get("regime", "NEUTRAL")
 
-        # Multiplier per regime, dibedakan arah sinyal
-        ADAPTIVE_MULT = {
-            "TRENDING": {"BUY": 1.15, "SELL": 1.15},   # tren kuat — boost ikut arah
-            "BREAKOUT": {"BUY": 1.25, "SELL": 1.10},   # breakout — boost breakout BUY lebih besar
-            "RANGING":  {"BUY": 0.85, "SELL": 0.85},   # sideways — kurangi confidence trend-following
-            "VOLATILE": {"BUY": 0.70, "SELL": 0.70},   # volatil ekstrem — sangat hati-hati
-            "NEUTRAL":  {"BUY": 1.00, "SELL": 1.00},
-            "UNKNOWN":  {"BUY": 0.50, "SELL": 0.50},   # data tidak jelas — sangat dikurangi
-        }
-        # [DISABLED 2026-07-03] ADAPTIVE_MULT dimatikan — redundant dengan blokir regime
-        # NEUTRAL/VOLATILE/UNKNOWN + regime_min_conf yang sudah ada di bawah.
-        # Terlalu banyak lapis filter regime bikin sinyal jarang lolos.
-        _direction = "BUY" if signal.startswith("BUY") else "SELL"
-        # _mult = ADAPTIVE_MULT.get(_regime, {}).get(_direction, 1.0)
-        # confidence_before_adaptive = confidence
-        # confidence = round(confidence * _mult, 1)
-        # logger.debug(
-        #     f"[ADAPTIVE] {symbol}/{timeframe} regime={_regime} dir={_direction} "
-        #     f"mult={_mult}x conf {confidence_before_adaptive:.1f}→{confidence:.1f}"
-        # )
+        # [REMOVED 2026-09-07] ADAPTIVE_MULT dead code dihapus -- sudah
+        # dinonaktifkan sejak 2026-07-03, redundant dengan blokir regime
+        # NEUTRAL/VOLATILE/UNKNOWN + regime_min_conf. Lihat scanner.py.bak.*
+        # untuk versi lengkap jika perlu dikembalikan.
     except Exception as _e:
         logger.debug(f"[ADAPTIVE] error — {_e}")
 
@@ -414,7 +406,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
             "TRENDING" : 50,
             "BREAKOUT" : 55,
             "RANGING"  : 48,
-            "NEUTRAL"  : 60,  # lebih ketat karena data historis WR NEUTRAL rendah (~30%)
+            "NEUTRAL"  : 60,  # [REVERTED 2026-09-08] balik ke nilai original -- volume sinyal turun ~44% (9.4/hari -> 5.25/hari) sejak rangkaian patch 5 Sept, salah satu penyebabnya NEUTRAL terlalu ketat (60->72->65). Exclude tokenized stock & leveraged token TETAP dipertahankan karena itu perbaikan kualitas yang valid.
         }.get(reg, 50)
 
         if confidence < regime_min_conf:
@@ -831,6 +823,11 @@ def scan_all_fast(symbols=None, timeframe="all", min_score=0):
             all_symbols     = fetch_symbols()
             combined = gainers + losers + new_listings + spike_pairs + WATCHLIST + all_symbols
             LEVERAGED_SUFFIXES = ("3L","5L","3S","5S","2L","2S","10L","10S")
+            STABLECOIN_BASES = {
+                "USDT", "USDC", "DAI", "TUSD", "BUSD", "FDUSD", "USDD",
+                "PYUSD", "GUSD", "USDP", "USDG", "EURT", "EURC", "USTC",
+                "FRAX", "LUSD",
+            }
             seen, symbols = set(), []
             for s in combined:
                 if s not in seen:
@@ -838,10 +835,18 @@ def scan_all_fast(symbols=None, timeframe="all", min_score=0):
                     base = s[:-4] if s.endswith("USDT") else s
                     if base.endswith(LEVERAGED_SUFFIXES):
                         continue
+                    if base in STABLECOIN_BASES:
+                        continue
                     symbols.append(s)
             symbols = symbols[:PAIR_LIMIT]
         except Exception:
             symbols = WATCHLIST[:PAIR_LIMIT]
+
+    # [ADDED 2026-09-07] GLOBAL FILTER — block numbered/leveraged USDT pairs
+    symbols = [
+        s for s in symbols
+        if not re.search(r'\d+(?:[LS])?USDT$', s)
+    ]
 
     tfs       = TIMEFRAMES if timeframe == "all" else [timeframe]
     tasks     = [(sym, tf) for sym in symbols for tf in tfs]

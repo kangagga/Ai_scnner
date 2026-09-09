@@ -91,7 +91,7 @@ MAIN_MENU_KEYBOARD = {
     "keyboard": [
         ["📊 Status", "📡 Live Positions"],
         ["🔍 Analyze Pair", "🎯 Execute Manual"],
-        ["⭐ Watchlist", "📈 Pair Status"],
+        ["⭐ Watchlist", "🏥 Health Report"],
         ["📊 Win Rate Pair", "📉 Sinyal Terakhir"],
         ["🔄 Scan Manual", "⚠️ Reset Streak"],
         ["❌ Close Posisi", "💰 Virtual Balance"],
@@ -128,10 +128,10 @@ def _chart_buttons(symbol: str) -> list:
     base = symbol[:-4] if symbol.endswith("USDT") else symbol
     tv_symbol = f"{base}USDT"
     tradingview_url = f"https://www.tradingview.com/symbols/{tv_symbol}/"
-    coingecko_url = f"https://www.coingecko.com/en/search?query={base}"
+    bybit_url = f"https://www.bybit.com/trade/usdt/{tv_symbol}"
     return [[
         {"text": "📈 TradingView", "url": tradingview_url},
-        {"text": "🦎 CoinGecko", "url": coingecko_url},
+        {"text": "📊 Bybit", "url": bybit_url},
     ]]
 
 def _send_with_url_button(text: str, buttons: list) -> bool:
@@ -605,7 +605,7 @@ def handle_commands(scan_fn=None):
 
         _MENU_BUTTON_TEXTS = {
             "⭐ Watchlist", "⬅️ Kembali", "📊 Status", "📡 Live Positions",
-            "🔍 Analyze Pair", "🎯 Execute Manual", "📈 Pair Status",
+            "🔍 Analyze Pair", "🎯 Execute Manual", "🏥 Health Report",
             "📊 Win Rate Pair", "📉 Sinyal Terakhir", "🔄 Scan Manual",
             "⚠️ Reset Streak", "❓ Bantuan", "❌ Close Posisi", "💰 Virtual Balance",
         }
@@ -661,8 +661,8 @@ def handle_commands(scan_fn=None):
             _pending_action[chat_id] = "execute"
             _send("🎯 Ketik: <code>PAIR BUY</code> atau <code>PAIR SELL</code>\nContoh: <code>BTCUSDT BUY</code>")
             continue
-        elif text_raw == "📈 Pair Status":
-            text = "/pair_status"
+        elif text_raw == "🏥 Health Report":
+            text = "/health_report"
         elif text_raw == "📊 Win Rate Pair":
             text = "/winrate_pair"
         elif text_raw == "📉 Sinyal Terakhir":
@@ -1144,6 +1144,52 @@ def handle_commands(scan_fn=None):
                 _send(msg)
             except Exception as e:
                 _send("❌ Health check error: " + str(e))
+
+        elif text == "/health_report":
+            try:
+                import sys
+                sys.path.insert(0, '/home/userland/ai-scanner')
+                from trade_analyzer import analyze
+
+                result = analyze()
+                if not result:
+                    _send("📭 Data belum cukup untuk analisa (min 10 trades).")
+                else:
+                    o = result.get("overall", {})
+                    msg = "📈 <b>HEALTH REPORT — TRADE ANALYSIS</b>\n"
+                    msg += "═"*25 + "\n"
+                    msg += f"Total Trades  : {o.get('total')}\n"
+                    msg += f"Win Rate      : {o.get('win_rate')}%\n"
+                    msg += f"Profit Factor : {o.get('profit_factor')}\n"
+                    msg += f"Avg R:R       : {o.get('avg_rr')}\n"
+                    msg += f"Max Drawdown  : {o.get('max_drawdown')}%\n"
+
+                    # Top 5 kombinasi regime+signal+session TERBAIK (min 5 trade)
+                    per_regime = result.get("per_regime", {})
+                    valid = [v for v in per_regime.values() if v['total'] >= 5]
+                    best = sorted(valid, key=lambda x: -x['avg_pnl'])[:5]
+                    worst = sorted(valid, key=lambda x: x['avg_pnl'])[:5]
+
+                    msg += "\n<b>🏆 Top 5 Kombinasi Terbaik</b> (min 5 trade)\n"
+                    for v in best:
+                        msg += f"  {v['regime']}|{v['signal']}|{v['session']}: WR={v['win_rate']}% avg={v['avg_pnl']}% ({v['total']}x)\n"
+
+                    msg += "\n<b>⚠️ Top 5 Kombinasi Terburuk</b> (min 5 trade)\n"
+                    for v in worst:
+                        msg += f"  {v['regime']}|{v['signal']}|{v['session']}: WR={v['win_rate']}% avg={v['avg_pnl']}% ({v['total']}x)\n"
+
+                    # Penalty rules v2 (3 dimensi)
+                    rules = result.get("penalty_rules_v2", [])
+                    if rules:
+                        msg += "\n<b>🔧 Saran Penalty Rules</b>\n"
+                        for r in rules[:8]:
+                            _reason_safe = r['reason'].replace("<", "&lt;").replace(">", "&gt;")
+                            msg += f"  {_reason_safe} → {r['penalty']}\n"
+
+                    msg += "\n" + "═"*25 + "\n🤖 AI Signal Bot"
+                    _send(msg)
+            except Exception as e:
+                _send(f"❌ Error health_report: {e}")
 
         elif text == "/virtual":
             try:
