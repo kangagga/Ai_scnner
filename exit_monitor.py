@@ -96,6 +96,25 @@ def add_trade(signal: dict):
             "lowest_price": signal.get("entry", 0),
             "opened_at": datetime.now().astimezone().isoformat(),
         }
+
+        # [FIX 2026-09-21] PHASE 3: lookup trade_id untuk MAE/MFE tracking.
+        # add_virtual_trade() sudah insert baris ini sebelum add_trade() dipanggil
+        # (lihat urutan di main.py), jadi trade_id sudah bisa dicari di DB.
+        try:
+            import sqlite3
+            from virtual_trader import VIRTUAL_DB
+            _conn = sqlite3.connect(VIRTUAL_DB)
+            _cur = _conn.cursor()
+            _cur.execute("""SELECT id FROM virtual_trades
+                             WHERE symbol=? AND timeframe=? AND signal=? AND closed=0
+                             ORDER BY id DESC LIMIT 1""", (symbol, tf, signal.get("signal", "")))
+            _row = _cur.fetchone()
+            _conn.close()
+            if _row:
+                _active_trades[key]["trade_id"] = _row[0]
+        except Exception as _te:
+            logger.warning(f"[TRADE_FEATURES] Gagal lookup trade_id {symbol}: {_te}")
+
     logger.info(f"Monitoring exit: {symbol}")
     _save_trades()
 
@@ -197,6 +216,26 @@ def check_exits(send_alert_fn):
                             _active_trades[key]["sl"] = new_trail
                             logger.info("[TRAIL] " + symbol + " SELL SL turun ke " + str(new_trail))
                 trade = dict(_active_trades[key])
+
+                # [FIX 2026-09-21] PHASE 3: update MAE/MFE selama trade masih open.
+                # MAE = seberapa jauh harga sempat melawan posisi (adverse).
+                # MFE = seberapa jauh harga sempat menguntungkan posisi (favorable).
+                _tid = trade.get("trade_id")
+                if _tid and trade.get("entry", 0) > 0:
+                    try:
+                        from trade_features import update_mae_mfe
+                        _entry = trade["entry"]
+                        _hi = trade.get("highest_price", _entry)
+                        _lo = trade.get("lowest_price", _entry)
+                        if is_buy:
+                            _mfe = round((_hi - _entry) / _entry * 100, 3)
+                            _mae = round((_lo - _entry) / _entry * 100, 3)
+                        else:
+                            _mfe = round((_entry - _lo) / _entry * 100, 3)
+                            _mae = round((_entry - _hi) / _entry * 100, 3)
+                        update_mae_mfe(_tid, _mae, _mfe)
+                    except Exception as _me:
+                        logger.debug(f"[TRADE_FEATURES] Gagal update MAE/MFE {symbol}: {_me}")
 
         hit = None
         if is_buy:

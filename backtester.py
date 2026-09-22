@@ -15,9 +15,11 @@ from indicators   import institutional_ai_v4
 logger = logging.getLogger(__name__)
 
 VALID_SIGNALS = {
-    # [SR-ONLY MODE 2026-07-09] disinkronkan dengan scanner.py — SR-only.
+    # [SYNCED 2026-09-10] disinkronkan dengan scanner.py — SR + SETUP + MOMENTUM.
     "BUY (SR BOUNCE)", "SELL (SR BOUNCE)",
     "BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)",
+    "BUY (SETUP)", "SELL (SETUP)",
+    "BUY (MOMENTUM)", "SELL (MOMENTUM)",
 }
 
 MIN_CONF = {
@@ -25,6 +27,10 @@ MIN_CONF = {
     "SELL (SR BOUNCE)"  : 40,
     "BUY (SR BREAKOUT)" : 45,
     "SELL (SR BREAKDOWN)": 45,
+    "BUY (SETUP)"        : 55,
+    "SELL (SETUP)"       : 55,
+    "BUY (MOMENTUM)"     : 60,
+    "SELL (MOMENTUM)"    : 60,
 }
 
 def _detect_regime_from_row(row) -> str:

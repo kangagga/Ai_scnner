@@ -128,10 +128,10 @@ def _chart_buttons(symbol: str) -> list:
     base = symbol[:-4] if symbol.endswith("USDT") else symbol
     tv_symbol = f"{base}USDT"
     tradingview_url = f"https://www.tradingview.com/symbols/{tv_symbol}/"
-    bybit_url = f"https://www.bybit.com/trade/usdt/{tv_symbol}"
+    tokocrypto_url = f"https://www.tokocrypto.com/id/trade/{base}_USDT"
     return [[
         {"text": "📈 TradingView", "url": tradingview_url},
-        {"text": "📊 Bybit", "url": bybit_url},
+        {"text": "📊 Tokocrypto", "url": tokocrypto_url},
     ]]
 
 def _send_with_url_button(text: str, buttons: list) -> bool:
@@ -317,7 +317,31 @@ def format_signal(s: dict) -> str:
     if s.get("is_duplicate"):
         alert_level = "⚠️ SKIPPED - DUPLICATE"
 
+    # [FIX 2026-09-21] Sinyal EGLDUSDT (liq=2/10, slip=9.84%) tampil "SIAP ENTRY"
+    # padahal LIQ_VETO di main.py (liq_score<5 atau slippage>3%) pasti akan menolaknya
+    # sebelum sempat jadi trade. Beri label jujur di notifikasi -- sama persis syarat
+    # veto di main.py, supaya user tidak perlu menganalisa manual tiap kali muncul.
+    _liq_score = s.get("liq_score", 5)
+    _slippage  = s.get("slippage_est", 0)
+    if _liq_score < 5 or _slippage > 3.0:
+        alert_level = "⛔ LIQUIDITY BURUK — AKAN DIABAIKAN OTOMATIS"
+
     bar = "█" * int(score / 10) + "░" * (10 - int(score / 10))
+
+    # [FIX 2026-09-20] Momentum Entry Quality breakdown -- hasil audit kasus PENGUUSDT.
+    # Tampilkan transparan kenapa score MOMENTUM naik/turun, bukan cuma angka polos.
+    momentum_breakdown = ""
+    if "MOMENTUM" in s.get("signal", ""):
+        res_pen = s.get("momentum_res_penalty", 0)
+        ema_pen = s.get("momentum_ema_penalty", 0)
+        dist_pct = s.get("momentum_dist_res_pct", 0)
+        if res_pen != 0 or ema_pen != 0:
+            lines = ["📊 ENTRY QUALITY CHECK:"]
+            if res_pen != 0:
+                lines.append(f"  ⚠️ Jarak S/R: {dist_pct:.2f}% ({res_pen:+.0f})")
+            if ema_pen != 0:
+                lines.append(f"  ⚠️ Posisi EMA200 tidak searah ({ema_pen:+.0f})")
+            momentum_breakdown = "\n".join(lines) + "\n"
 
     rsi_val = s.get("rsi", 50)
     rsi_s = (f"🔴OB({rsi_val})" if rsi_val > 70
@@ -366,6 +390,7 @@ def format_signal(s: dict) -> str:
         f"⚖️  B/S     : {s.get('buy_sell_ratio',1):.2f} ({s.get('buy_pressure','N/A')}) | Large={s.get('large_trade_bias','N/A')} | VP adj={s.get('vp_bonus',0):+d}\n"
         f"💧 Liq     : ${s.get('liq_usd',0):,.0f} (score={s.get('liq_score',5)}/10) | slip={s.get('slippage_est',0):.3f}% | adj={s.get('liq_adj',0):+d}\n\n"
         f"{_fmt_smc(s)}"
+        f"{momentum_breakdown}"
         f"🏔️  Resist : <code>{s.get('resistance', 'N/A')}</code>\n"
         f"🛡️  Support: <code>{s.get('support', 'N/A')}</code>\n"
         f"📌 Pivot   : <code>{s.get('pivot', 'N/A')}</code>\n"
@@ -376,6 +401,9 @@ def format_signal(s: dict) -> str:
 
 def send_signal(signal: dict) -> bool:
     """Kirim 1 sinyal (tanpa cooldown)"""
+    # Jangan kirim sinyal duplikat ke Telegram
+    if signal.get("is_duplicate"):
+        return False
     symbol = signal.get("symbol", "")
     if symbol:
         return _send_with_url_button(format_signal(signal), _chart_buttons(symbol))
@@ -1209,6 +1237,19 @@ def handle_commands(scan_fn=None):
                 msg += "✅ Menang: " + str(s["wins"]) + " | ❌ Kalah: " + str(s["losses"]) + "\n"
                 msg += "📈 Win Rate: " + str(s["wr"]) + "%\n"
                 msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+
+                from pending_signals import get_all_pending
+                pending = get_all_pending()
+                if pending:
+                    msg += "⏳ <b>PENDING (menunggu konfirmasi)</b>\n"
+                    for p in pending:
+                        status_icon = "🔍 due, tunggu scan berikutnya" if p["is_due"] else f"⏱️ {p['remaining_min']} menit lagi"
+                        msg += f"  {p['symbol']} {p['timeframe']} {p['signal']} — {status_icon}\n"
+                    msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+                else:
+                    msg += "⏳ Tidak ada kandidat PENDING saat ini\n"
+                    msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
+
                 msg += "🤖 AI Signal Bot"
                 _send(msg)
             except Exception as e:
@@ -1373,7 +1414,21 @@ def handle_commands(scan_fn=None):
                        f"━━━━━━━━━━━━━━━━━━━━━━\n"
                        f"🎯 Total : {s['total']} trade\n"
                        f"✅ Menang: {s['wins']} | ❌ Kalah: {s['losses']}\n"
-                       f"📈 Win Rate: {s['wr']}%")
+                       f"📈 Win Rate: {s['wr']}%\n"
+                       f"━━━━━━━━━━━━━━━━━━━━━━")
+
+                from pending_signals import get_all_pending
+                pending = get_all_pending()
+                if pending:
+                    msg += "\n⏳ <b>PENDING (menunggu konfirmasi)</b>\n"
+                    for p in pending:
+                        status_icon = "🔍 due, tunggu scan berikutnya" if p["is_due"] else f"⏱️ {p['remaining_min']} menit lagi"
+                        msg += f"  {p['symbol']} {p['timeframe']} {p['signal']} — {status_icon}\n"
+                    msg += "━━━━━━━━━━━━━━━━━━━━━━"
+                else:
+                    msg += "\n⏳ Tidak ada kandidat PENDING saat ini\n"
+                    msg += "━━━━━━━━━━━━━━━━━━━━━━"
+
                 _send_with_keyboard(msg, MAIN_MENU_KEYBOARD)
             except Exception as e:
                 _send(f"❌ Error: {e}")

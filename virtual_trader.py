@@ -150,6 +150,15 @@ def add_virtual_trade(signal: dict):
          signal.get("resistance", 0),
          1))
     conn.commit()
+    trade_id = cur.lastrowid
+
+    # [FIX 2026-09-21] PHASE 3: simpan fitur mentah untuk analisis nanti (MAE/MFE,
+    # ATR extension, dst). Gagal di sini TIDAK boleh menggagalkan trade utama.
+    try:
+        from trade_features import save_features
+        save_features(trade_id, signal)
+    except Exception as _fe:
+        logger.warning(f"[TRADE_FEATURES] Gagal simpan fitur {symbol}: {_fe}")
 
     # ── Notifikasi Telegram saat posisi dibuka ──
     try:

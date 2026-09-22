@@ -41,7 +41,11 @@ def load_rules() -> list:
 def get_dynamic_penalty(signal: str, hour: int = None,
                         regime: str = "NEUTRAL") -> tuple:
     session  = get_session(hour)
-    sig_base = signal.split(" ")[0]
+    # [FIX 2026-09-20] Bug ditemukan: sig_base memotong "BUY (MOMENTUM)" jadi "BUY",
+    # padahal rules di trade_analysis.json menyimpan signal LENGKAP. Akibatnya
+    # get_dynamic_penalty() SELALU return (0, "OK") sejak awal dibuat -- diverifikasi
+    # via test langsung. Gunakan signal penuh untuk matching.
+    sig_base = signal
     is_setup = "(SETUP)" in signal or "(REVERSAL)" in signal
     rules    = load_rules()
     matched  = {}

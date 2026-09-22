@@ -206,6 +206,14 @@ class RiskState:
                 self.peak_balance = self.balance
             if win:
                 self.consecutive_loss = 0
+                # [FIX 2026-09-18] Auto-clear halt "kalah beruntun" begitu ada WIN.
+                # Sebelumnya halt jenis ini TIDAK PERNAH auto-clear -- ditemukan
+                # nyangkut 2 hari (16-18 Sept) meski streak sudah reset ke 0,
+                # memblokir semua trade secara diam-diam tanpa notifikasi.
+                if self.trading_halted and "kalah beruntun" in self.halt_reason.lower():
+                    logger.info(f"[AUTO_CLEAR] Halt '{self.halt_reason}' di-clear otomatis (ada WIN baru, streak reset ke 0)")
+                    self.trading_halted = False
+                    self.halt_reason    = ""
             else:
                 self.consecutive_loss += 1
             self.trade_history.append({

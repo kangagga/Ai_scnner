@@ -342,6 +342,7 @@ def institutional_ai_v4(df):
     _body                 = abs(data['close'] - data['open'])
     _range                = (data['high'] - data['low']).replace(0, 1e-9)
     _body_ratio           = _body / _range
+    data['body_ratio']        = _body_ratio
     data['smart_volume']      = (data['rvol'] > 1.5) & (_body_ratio > 0.6)
     data['volume_exhaustion'] = (data['rvol'] > 2.5) & (_body_ratio < 0.3)
 
@@ -838,18 +839,94 @@ def institutional_ai_v4(df):
         data.loc[buy_sr_breakout_cond,   'signal'] = "BUY (SR BREAKOUT)"
         data.loc[sell_sr_breakdown_cond, 'signal'] = "SELL (SR BREAKDOWN)"
 
+    # [NEW 2026-09-10] Strategi MOMENTUM independen -- fallback ketiga setelah
+    # SR dan SETUP. Menangkap volume spike + price change cepat yang tidak
+    # tertangkap pola SR presisi. Confidence dihitung dari kombinasi rvol dan
+    # kekuatan price change, bukan cuma pass/fail seperti SETUP.
+    _price_change_3 = data['close'].pct_change(3)
+    _momentum_buy_cond = (
+        (_price_change_3 > 0.02) &
+        (data['rvol'] > 2.0) &
+        (data['rsi'] < 75) &
+        (data['adx'] > 20) &
+        ~data['fake_breakout']
+    )
+    _momentum_sell_cond = (
+        (_price_change_3 < -0.02) &
+        (data['rvol'] > 2.0) &
+        (data['rsi'] > 25) &
+        (data['adx'] > 20) &
+        ~data['fake_breakdown']
+    )
+    _momentum_buy_score = (
+        (_price_change_3.clip(0, 0.10) / 0.10 * 50) +
+        (data['rvol'].clip(0, 5) / 5 * 50)
+    ).clip(0, 100)
+    _momentum_sell_score = (
+        (_price_change_3.clip(-0.10, 0).abs() / 0.10 * 50) +
+        (data['rvol'].clip(0, 5) / 5 * 50)
+    ).clip(0, 100)
+
+    # [FIX 2026-09-20] Entry Quality Filter -- hasil audit kasus PENGUUSDT.
+    # Base score MOMENTUM di atas TIDAK mengecek jarak ke resistance atau posisi
+    # EMA200, sehingga entry yang overextended/mepet resistance tetap dapat score
+    # tinggi. Tambahkan penalty berbasis data historis (lihat config.py untuk
+    # justifikasi angka). Ini penalty, bukan hard block -- sinyal tetap muncul.
+    try:
+        from config import (
+            MOMENTUM_RESISTANCE_NEAR_PCT, MOMENTUM_RESISTANCE_NEAR_PENALTY,
+            MOMENTUM_RESISTANCE_MID_PCT, MOMENTUM_RESISTANCE_MID_PENALTY,
+            MOMENTUM_BELOW_EMA200_PENALTY,
+        )
+
+        # -- BUY: cek jarak ke resistance (entry mepet resistance = risiko rejection) --
+        _dist_res_pct = (abs(data['close'] - data['resistance']) / data['close'] * 100)
+        _buy_res_penalty = np.where(
+            _dist_res_pct < MOMENTUM_RESISTANCE_NEAR_PCT, MOMENTUM_RESISTANCE_NEAR_PENALTY,
+            np.where(_dist_res_pct < MOMENTUM_RESISTANCE_MID_PCT, MOMENTUM_RESISTANCE_MID_PENALTY, 0)
+        )
+        # -- BUY: cek posisi vs EMA200 (BUY momentum tapi tren mayor masih bearish) --
+        _buy_ema_penalty = np.where(data['close'] < data['ema200'], MOMENTUM_BELOW_EMA200_PENALTY, 0)
+        _momentum_buy_score = (_momentum_buy_score + _buy_res_penalty + _buy_ema_penalty).clip(0, 100)
+        data['momentum_res_penalty'] = _buy_res_penalty
+        data['momentum_ema_penalty'] = _buy_ema_penalty
+        data['momentum_dist_res_pct'] = _dist_res_pct
+
+        # -- SELL: cek jarak ke support (entry mepet support = risiko bounce) --
+        _dist_sup_pct = (abs(data['close'] - data['support']) / data['close'] * 100)
+        _sell_sup_penalty = np.where(
+            _dist_sup_pct < MOMENTUM_RESISTANCE_NEAR_PCT, MOMENTUM_RESISTANCE_NEAR_PENALTY,
+            np.where(_dist_sup_pct < MOMENTUM_RESISTANCE_MID_PCT, MOMENTUM_RESISTANCE_MID_PENALTY, 0)
+        )
+        # -- SELL: cek posisi vs EMA200 (SELL momentum tapi tren mayor masih bullish) --
+        _sell_ema_penalty = np.where(data['close'] > data['ema200'], MOMENTUM_BELOW_EMA200_PENALTY, 0)
+        _momentum_sell_score = (_momentum_sell_score + _sell_sup_penalty + _sell_ema_penalty).clip(0, 100)
+        if 'momentum_res_penalty' not in data.columns:
+            data['momentum_res_penalty'] = _sell_sup_penalty
+            data['momentum_ema_penalty'] = _sell_ema_penalty
+            data['momentum_dist_res_pct'] = _dist_sup_pct
+    except Exception as _mq_e:
+        logger.debug(f"[MOMENTUM_QUALITY] Error: {_mq_e}")
+
+    _momentum_fallback_buy  = (data['signal'] == "NO TRADE") & _momentum_buy_cond
+    _momentum_fallback_sell = (data['signal'] == "NO TRADE") & _momentum_sell_cond
+
+    data.loc[_momentum_fallback_buy,  'signal']     = "BUY (MOMENTUM)"
+    data.loc[_momentum_fallback_sell, 'signal']     = "SELL (MOMENTUM)"
+    data.loc[_momentum_fallback_buy,  'confidence'] = _momentum_buy_score.clip(0, 100)
+    data.loc[_momentum_fallback_sell, 'confidence'] = _momentum_sell_score.clip(0, 100)
+
     _sr_confidence = (
         (data['rvol'].clip(0, 3) / 3 * 50) + (_body_ratio.clip(0, 1) * 50)
     ).clip(0, 100)
     data['confidence'] = np.where(data['signal'] != "NO TRADE", _sr_confidence, 0)
 
-    # [RESTORE SETUP 2026-09-07] SETUP diaktifkan lagi sebagai FALLBACK --
-    # hanya mengisi baris yang masih "NO TRADE" setelah semua kondisi SR
-    # dicek (SR tetap prioritas utama, tidak diganggu). Data historis:
-    # SELL (SETUP) WR 66.7% avg +0.99%/trade -- salah satu sinyal terbaik,
-    # sayang kalau dibiarkan mati total oleh override SR-only.
-    _setup_fallback_buy  = (data['signal'] == "NO TRADE") & buy_setup_cond
-    _setup_fallback_sell = (data['signal'] == "NO TRADE") & sell_setup_cond
+    # [RESTORE v2 2026-09-10] SETUP diaktifkan lagi TAPI dengan confidence
+    # minimum lebih tinggi (55) supaya tidak mendominasi dengan sinyal
+    # marginal (32-55) seperti kejadian sebelumnya. SETUP tetap fallback --
+    # hanya isi baris yang masih "NO TRADE" setelah SR dicek.
+    _setup_fallback_buy  = (data['signal'] == "NO TRADE") & buy_setup_cond & (setup_buy_score >= 55)
+    _setup_fallback_sell = (data['signal'] == "NO TRADE") & sell_setup_cond & (setup_sell_score >= 55)
 
     data.loc[_setup_fallback_buy,  'signal']     = "BUY (SETUP)"
     data.loc[_setup_fallback_sell, 'signal']     = "SELL (SETUP)"
@@ -865,7 +942,11 @@ def institutional_ai_v4(df):
             np.where(
                 data['signal'].isin(["BUY (SETUP)", "SELL (SETUP)"]),
                 np.where(data['confidence'] >= 70, 0.3, 0.2),
-                0.0
+                np.where(
+                    data['signal'].isin(["BUY (MOMENTUM)", "SELL (MOMENTUM)"]),
+                    np.where(data['confidence'] >= 70, 0.2, 0.15),
+                    0.0
+                )
             )
         )
     )

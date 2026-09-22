@@ -28,6 +28,20 @@ try:
 except ImportError:
     LIQ_AVAILABLE = False
 
+
+def _dynamic_round(price: float, sig_figs: int = 6) -> float:
+    """Bulatkan ke N angka signifikan (bukan N desimal tetap).
+    Penting untuk token harga sangat kecil (misal 1e-8) yang butuh
+    presisi lebih dari 8 desimal supaya entry/SL/TP tidak kepotong jadi sama."""
+    if not price:
+        return 0.0
+    from math import floor, log10
+    try:
+        decimals = sig_figs - int(floor(log10(abs(price)))) - 1
+        return round(price, max(decimals, 0))
+    except (ValueError, OverflowError):
+        return round(price, 8)
+
 try:
     from smc_scorer import smc_confidence, format_smc_report
     SMC_AVAILABLE = True
@@ -73,6 +87,7 @@ VALID_SIGNALS = {
     "BUY (SR BREAKOUT)", "SELL (SR BREAKDOWN)",
     "BUY (SR REJECTION - STRONG)", "SELL (SR REJECTION - STRONG)",
     "BUY (SETUP)", "SELL (SETUP)",
+    "BUY (MOMENTUM)", "SELL (MOMENTUM)",
 }
 
 _last_signal_state: Dict[str, tuple] = {}
@@ -216,13 +231,13 @@ def _calculate_tp_levels(entry, sl, signal, atr=0, regime="NEUTRAL", smc_score=0
             m3 *= scale
 
     if signal.startswith("BUY"):
-        tp["tp1"] = round(entry + risk * m1, 8)
-        tp["tp2"] = round(entry + risk * m2, 8)
-        tp["tp3"] = round(entry + risk * m3, 8)
+        tp["tp1"] = _dynamic_round(entry + risk * m1)
+        tp["tp2"] = _dynamic_round(entry + risk * m2)
+        tp["tp3"] = _dynamic_round(entry + risk * m3)
     else:
-        tp["tp1"] = round(entry - risk * m1, 8)
-        tp["tp2"] = round(entry - risk * m2, 8)
-        tp["tp3"] = round(entry - risk * m3, 8)
+        tp["tp1"] = _dynamic_round(entry - risk * m1)
+        tp["tp2"] = _dynamic_round(entry - risk * m2)
+        tp["tp3"] = _dynamic_round(entry - risk * m3)
 
     tp["mult"] = (round(m1,2), round(m2,2), round(m3,2))
     return tp
@@ -372,6 +387,8 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "SELL"           : 58,
         "BUY (SETUP)"    : 50,
         "SELL (SETUP)"   : 50,
+        "BUY (MOMENTUM)" : 60,
+        "SELL (MOMENTUM)": 60,
         "BUY (REVERSAL)" : 55,
         "SELL (REVERSAL)": 50,
     }
@@ -436,9 +453,9 @@ def _analyse_single(symbol, timeframe, min_score=0):
     try:
         from data_fetcher import get_realtime_price
         rt_price = get_realtime_price(symbol)
-        entry = round(rt_price, 8) if rt_price and rt_price > 0 else round(_safe(last["close"]), 8)
+        entry = _dynamic_round(rt_price) if rt_price and rt_price > 0 else _dynamic_round(_safe(last["close"]))
     except:
-        entry = round(_safe(last["close"]), 8)
+        entry = _dynamic_round(_safe(last["close"]))
 
     # Adaptive SL multiplier berdasarkan regime — VOLATILE perlu SL lebih lebar,
     # RANGING bisa lebih sempit karena gerak harga terbatas
@@ -467,19 +484,19 @@ def _analyse_single(symbol, timeframe, min_score=0):
             sl_raw = entry - atr_val if signal.startswith("BUY") else entry + atr_val
         else:
             sl_raw = entry * (1 - 0.02 * _sl_mult) if signal.startswith("BUY") else entry * (1 + 0.02 * _sl_mult)
-    sl = round(sl_raw, 8)
+    sl = _dynamic_round(sl_raw)
 
     # Enforce minimum SL — jangan biarkan SL lebih sempit dari minimum timeframe
     if signal.startswith("BUY") and (entry - sl) < _min_sl_d:
-        sl = round(entry - _min_sl_d, 8)
+        sl = _dynamic_round(entry - _min_sl_d)
     elif not signal.startswith("BUY") and (sl - entry) < _min_sl_d:
-        sl = round(entry + _min_sl_d, 8)
+        sl = _dynamic_round(entry + _min_sl_d)
 
     max_sl = entry * 0.03 * _sl_mult
     if signal.startswith("BUY") and (entry - sl) > max_sl:
-        sl = round(entry - max_sl, 8)
+        sl = _dynamic_round(entry - max_sl)
     elif not signal.startswith("BUY") and (sl - entry) > max_sl:
-        sl = round(entry + max_sl, 8)
+        sl = _dynamic_round(entry + max_sl)
 
     tp_levels = _calculate_tp_levels(
         entry, sl, signal,
@@ -613,14 +630,19 @@ def _analyse_single(symbol, timeframe, min_score=0):
 
     # ── SR Guard (entry hanya dekat S/R) ──
     if support > 0 or resistance > 0:
-        entry_price = round(_safe(last.get("close", 0)), 8)
-        near_support    = support > 0 and abs(entry_price - support) / entry_price <= 0.025
-        near_resistance = resistance > 0 and abs(entry_price - resistance) / entry_price <= 0.025
+        entry_price = _dynamic_round(_safe(last.get("close", 0)))
+        near_support    = support > 0 and abs(entry_price - support) / entry_price <= 0.04
+        near_resistance = resistance > 0 and abs(entry_price - resistance) / entry_price <= 0.04
 
         # [FIX 2026-07-10] BREAKOUT/BREAKDOWN dikecualikan dari guard ini --
         # sinyal itu justru terjadi saat harga MELEWATI level, bukan mantul darinya.
         # Guard lama cuma cocok untuk sinyal BOUNCE (mean-reversion di level S/R).
-        is_breakout_type = "BREAKOUT" in signal or "BREAKDOWN" in signal
+        # [FIX 2026-09-11] SETUP dan MOMENTUM juga dikecualikan -- keduanya tidak
+        # berbasis proximity-ke-SR (SETUP = kombinasi indikator, MOMENTUM = price
+        # change + volume spike). Data live menunjukkan guard 4% memblokir mayoritas
+        # sinyal confidence tinggi (70-90) dari kedua strategi ini secara tidak adil.
+        is_breakout_type = ("BREAKOUT" in signal or "BREAKDOWN" in signal
+                             or "SETUP" in signal or "MOMENTUM" in signal)
 
         if not is_breakout_type:
             if signal.startswith("BUY") and not near_support:
@@ -756,7 +778,10 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "adx"                : round(_safe(last.get("adx", 0)), 2),
         "squeeze_score"      : round(_safe(last.get("squeeze_score", 0)), 1),
         "ema_trend"          : ema_trend,
-        "momentum_score"     : 0,
+        "momentum_score"     : round(_safe(last.get("confidence", 0)), 1) if "MOMENTUM" in signal else 0,
+        "momentum_res_penalty"    : round(_safe(last.get("momentum_res_penalty", 0)), 1),
+        "momentum_ema_penalty"    : round(_safe(last.get("momentum_ema_penalty", 0)), 1),
+        "momentum_dist_res_pct"   : round(_safe(last.get("momentum_dist_res_pct", 0)), 2),
         "win_rate"           : 0,
         "fear_greed_value"   : 0,
         "fear_greed_label"   : "",
@@ -806,6 +831,8 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "resistance"         : resistance,
         "support"            : support,
         "pivot"              : pivot,
+        "atr"                : round(_safe(last.get("atr", 0)), 8),
+        "body_ratio"         : round(_safe(last.get("body_ratio", 0)), 3),
     }
 
 def scan_all_fast(symbols=None, timeframe="all", min_score=0):

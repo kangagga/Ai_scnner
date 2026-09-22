@@ -262,6 +262,14 @@ def job_scan():
     logger.info(f"🔍 Scan dimulai — {now_str}")
     add_log("🔍", f"Scan dimulai — {now_str}")
 
+    # [FIX 2026-09-21] Cek kandidat PENDING (state machine minimal untuk "SIAP ENTRY")
+    # sebelum scan baru dimulai -- promote ke ACTIVE atau drop sebagai INVALID.
+    try:
+        from pending_signals import check_pending_signals
+        check_pending_signals()
+    except Exception as _pe:
+        logger.warning(f"[PENDING] Error check_pending_signals: {_pe}")
+
     # ── Self-Learning: retrain XGB + update analysis setiap 20 trade baru ──
     try:
         from self_learning import run_self_learning
@@ -389,6 +397,11 @@ def job_scan():
         # STEP 5: Attach position size ke setiap signal
         for sig in filtered_sig:
             sig['position_size'] = positions.get(sig['symbol'], 0)
+            # [PATCH] MOMENTUM masih strategi baru & belum terbukti konsisten
+            # (backtest: profit terkonsentrasi di 2/13 pair, WR bervariasi liar)
+            # -> kecilkan size sampai data live terkumpul cukup.
+            if "MOMENTUM" in sig.get("signal", ""):
+                sig['position_size'] *= 0.5
         
         # Log position sizing
         logger.info("📈 POSITION SIZING:")
@@ -491,8 +504,19 @@ def job_scan():
                         if not risk_check.get("approved"):
                             logger.info(f"[RISK_BLOCKED] {sig.get('symbol')}: {risk_check.get('reasons')}")
                             continue
-                        add_virtual_trade(sig)
-                        exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
+
+                        # [FIX 2026-09-21] State machine minimal -- hasil audit PENGUUSDT.
+                        # "SIAP ENTRY" sebelumnya diperlakukan SAMA seperti "EKSEKUSI" (langsung
+                        # add_virtual_trade), padahal labelnya bilang "KONFIRMASI DULU". Sekarang
+                        # SIAP ENTRY disimpan sebagai PENDING dulu, dicek ulang setelah candle
+                        # berikutnya terbentuk (lihat pending_signals.py + check_pending_signals()
+                        # di awal job_scan). EKSEKUSI tetap tidak berubah sama sekali.
+                        if "EKSEKUSI" in level:
+                            add_virtual_trade(sig)
+                            exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
+                        else:  # SIAP ENTRY
+                            from pending_signals import add_pending
+                            add_pending(sig)
                         logger.info(f"[TRADE] {sig["symbol"]} {sig["signal"]} conf={conf} WR={wr}% level={level}")
             except Exception as e:
                 logger.warning(f"[TRADE] Error: {e}")
