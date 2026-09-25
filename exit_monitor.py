@@ -197,6 +197,7 @@ def check_exits(send_alert_fn):
         is_buy = trade["signal"].startswith("BUY")
 
         # Update trailing stop dinamis
+        _sl_before_trail = _active_trades.get(key, {}).get('sl')
         _atr = trade.get("atr", 0)
         if key in _active_trades:
             with _lock:
@@ -247,6 +248,18 @@ def check_exits(send_alert_fn):
                     logger.debug(f"[BREAKEVEN] Error {symbol}: {_be}")
 
                 trade = dict(_active_trades[key])
+
+                # === LIVE TRADING: sinkronkan SL exchange kalau trailing/breakeven geser SL ===
+                if trade.get("is_live") and _sl_before_trail is not None and trade.get("sl") != _sl_before_trail:
+                    try:
+                        from gate_executor import update_sl_order
+                        _sl_sync_result = update_sl_order(symbol, is_buy, trade["sl"])
+                        if _sl_sync_result.get("ok"):
+                            logger.info(f"[LIVE] SL exchange disinkronkan: {symbol} @ {trade['sl']}")
+                        else:
+                            logger.error(f"[LIVE] Gagal sinkron SL exchange {symbol}: {_sl_sync_result.get('error')}")
+                    except Exception as _sle:
+                        logger.error(f"[LIVE] Error tak terduga saat sinkron SL {symbol}: {_sle}", exc_info=True)
 
                 # [FIX 2026-09-21] PHASE 3: update MAE/MFE selama trade masih open.
                 # MAE = seberapa jauh harga sempat melawan posisi (adverse).
