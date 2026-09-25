@@ -8,7 +8,7 @@ from gate_api import ApiClient, Configuration, FuturesApi, FuturesOrder
 from gate_api.exceptions import ApiException, GateApiException
 
 from gate_api import FuturesInitialOrder, FuturesPriceTrigger, FuturesPriceTriggeredOrder
-from config import GATE_TESTNET_API_KEY, GATE_TESTNET_API_SECRET, GATE_TESTNET_HOST, EXECUTE_TESTNET
+from config import GATE_TESTNET_API_KEY, GATE_TESTNET_API_SECRET, GATE_TESTNET_HOST, EXECUTE_TESTNET, LIVE_ACCOUNT_BALANCE, LIVE_LEVERAGE
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +260,15 @@ def usd_to_contracts(symbol, usd_amount, price):
     if specs.get("order_size_max"):
         size = min(size, specs["order_size_max"])
     return size
+
+
+def scale_to_live_size(paper_position_size: float, paper_capital: float = 100.0) -> float:
+    """Skalakan position_size dari paper trading (asumsi modal $100) ke modal
+    LIVE asli (LIVE_ACCOUNT_BALANCE). [ADD 2026-09-25]
+    Proporsi antar sinyal tetap sama, cuma diskalakan turun ke modal real."""
+    if paper_capital <= 0:
+        return 0.0
+    return paper_position_size * (LIVE_ACCOUNT_BALANCE / paper_capital)
 
 
 def execute_signal(sig: dict):
