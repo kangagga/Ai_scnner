@@ -1385,6 +1385,16 @@ def handle_commands(scan_fn=None):
                                 remove_trade(symbol, timeframe)
                             except Exception as _re:
                                 logger.warning(f"[MANUAL_CLOSE] Gagal sync exit_monitor {symbol}: {_re}")
+                            # === LIVE TRADING: tutup juga posisi live di Gate.io kalau ada ===
+                            try:
+                                from gate_executor import close_position_partial
+                                live_close = close_position_partial(symbol, 100.0)
+                                if live_close.get("ok"):
+                                    logger.info(f"[LIVE] Posisi live {symbol} berhasil ditutup manual: {live_close.get('data')}")
+                                else:
+                                    logger.info(f"[LIVE] Tidak ada posisi live untuk ditutup atau gagal: {symbol} | {live_close.get('error')}")
+                            except Exception as _le:
+                                logger.error(f"[LIVE] Error tak terduga saat manual close live {symbol}: {_le}", exc_info=True)
                             closed_symbols.append(symbol)
                         except Exception as _ce:
                             logger.error(f"[MANUAL_CLOSE] Gagal tutup {symbol}: {_ce}")
