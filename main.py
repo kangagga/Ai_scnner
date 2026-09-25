@@ -513,6 +513,7 @@ def job_scan():
                         # di awal job_scan). EKSEKUSI tetap tidak berubah sama sekali.
                         if "EKSEKUSI" in level:
                             add_virtual_trade(sig)
+                            sig['is_live'] = True
                             exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
                             
                             # === LIVE TRADING (testnet dulu, EXECUTE_TESTNET toggle di config.py) ===

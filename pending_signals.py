@@ -125,6 +125,7 @@ def check_pending_signals():
             if moved_favorable:
                 logger.info(f"[PENDING->CONFIRMED] {symbol}/{timeframe} {orig_signal}: harga lanjut searah ({entry} -> {price}), promote ke ACTIVE")
                 add_virtual_trade(sig)
+                sig['is_live'] = True
                 exit_add_trade(sig)
                 
                 # === LIVE TRADING (testnet dulu, EXECUTE_TESTNET toggle di config.py) ===

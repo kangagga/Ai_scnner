@@ -95,6 +95,7 @@ def add_trade(signal: dict):
             "highest_price": signal.get("entry", 0),
             "lowest_price": signal.get("entry", 0),
             "opened_at": datetime.now().astimezone().isoformat(),
+            "is_live": signal.get("is_live", False),
         }
 
         # [FIX 2026-09-21] PHASE 3: lookup trade_id untuk MAE/MFE tracking.
