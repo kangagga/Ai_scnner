@@ -89,6 +89,74 @@ def place_sl_order(symbol: str, is_buy: bool, sl_price: float):
         logger.error(f"[gate_executor] Gagal pasang SL exchange {gate_symbol}: {e}")
         return {"ok": False, "error": str(e)}
 
+def get_open_position(symbol: str):
+    """Baca posisi AKTUAL yang lagi terbuka di Gate.io untuk symbol ini.
+    [ADD 2026-09-25] Dipakai sebagai dasar hitungan partial-close (TP1/TP2/TP3)
+    supaya persentase yang ditutup dihitung dari ukuran posisi SEBENARNYA di
+    exchange, bukan dari catatan lokal bot yang bisa saja sudah tidak sinkron.
+    Return: {"ok": True, "data": {"size": int, "entry_price": float, ...}} atau
+    {"ok": True, "data": None} kalau tidak ada posisi terbuka, atau {"ok": False, "error": ...}."""
+    gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    try:
+        pos = _futures_api.get_position(SETTLE, gate_symbol)
+        size = int(pos.size)
+        if size == 0:
+            return {"ok": True, "data": None}
+        return {
+            "ok": True,
+            "data": {
+                "size": size,
+                "entry_price": float(pos.entry_price) if pos.entry_price else None,
+                "leverage": pos.leverage,
+                "unrealised_pnl": float(pos.unrealised_pnl) if pos.unrealised_pnl else None,
+            },
+        }
+    except (GateApiException, ApiException) as e:
+        logger.error(f"[gate_executor] Gagal baca posisi {gate_symbol}: {e}")
+        return {"ok": False, "error": str(e)}
+
+
+def close_position_partial(symbol: str, pct_closed: float):
+    """Tutup SEBAGIAN posisi yang lagi terbuka di Gate.io (reduce-only market order).
+    [ADD 2026-09-25] Dipakai untuk TP1/TP2/TP3 partial-close. pct_closed dihitung
+    dari ukuran posisi AKTUAL (lewat get_open_position()), bukan dari catatan lokal.
+
+    symbol     : contoh "BTC_USDT"
+    pct_closed : persentase dari SISA posisi sekarang yang mau ditutup (0-100)
+
+    Return: {"ok": True, "data": {...}} atau {"ok": False, "error": "..."}
+    """
+    if pct_closed <= 0 or pct_closed > 100:
+        return {"ok": False, "error": f"pct_closed tidak valid: {pct_closed} (harus 0-100)"}
+
+    pos_result = get_open_position(symbol)
+    if not pos_result.get("ok"):
+        return {"ok": False, "error": f"Gagal baca posisi sebelum partial-close: {pos_result.get('error')}"}
+
+    pos_data = pos_result.get("data")
+    if not pos_data:
+        return {"ok": False, "error": f"Tidak ada posisi terbuka untuk {symbol}, tidak ada yang bisa ditutup"}
+
+    current_size = pos_data["size"]  # positif = long, negatif = short
+    is_long = current_size > 0
+
+    close_size = int(round(abs(current_size) * (pct_closed / 100.0)))
+    if close_size <= 0:
+        return {"ok": False, "error": f"Ukuran hasil hitung 0 (posisi={current_size}, pct={pct_closed})"}
+    if close_size > abs(current_size):
+        close_size = abs(current_size)  # safety cap, jangan pernah lebih dari posisi aktual
+
+    # Untuk close: kalau posisi LONG, kirim size NEGATIF (jual). Kalau SHORT, size POSITIF (beli balik).
+    order_size = -close_size if is_long else close_size
+
+    return place_order(
+        symbol,
+        signal="SELL" if is_long else "BUY",
+        size=abs(order_size),
+        reduce_only=True,
+    )
+
+
 def place_order(symbol: str, signal: str, size: float, sl: float = None, tp: float = None, reduce_only: bool = False, leverage: int = 2):
     """
     Eksekusi market order ke Gate.io Futures TESTNET berdasarkan sinyal scanner.
