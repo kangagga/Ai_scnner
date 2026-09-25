@@ -436,6 +436,18 @@ def check_exits(send_alert_fn):
             except (ImportError, sqlite3.Error, KeyError, ValueError) as e:
                 logger.error(f"Virtual trade error: {e}", exc_info=True)
 
+            # === LIVE TRADING: tutup posisi live sesuai TP1/TP2/TP3/SL yang sama ===
+            if trade.get("is_live"):
+                try:
+                    from gate_executor import close_position_partial
+                    live_close_result = close_position_partial(symbol, pct_closed)
+                    if live_close_result.get("ok"):
+                        logger.info(f"[LIVE] Posisi live ditutup: {symbol} | leg={tp_level_leg} pct={pct_closed}% | {live_close_result.get('data')}")
+                    else:
+                        logger.warning(f"[LIVE] Gagal tutup posisi live (mungkin sudah kena SL exchange duluan): {symbol} | {live_close_result.get('error')}")
+                except Exception as _lce:
+                    logger.error(f"[LIVE] Error tak terduga saat tutup posisi live {symbol}: {_lce}", exc_info=True)
+
             # FIX: post-mortem AI singkat untuk pembelajaran pola (non-blocking, gagal diam-diam)
             try:
                 from ai_analyst import analyse_trade_postmortem
