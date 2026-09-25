@@ -20,7 +20,7 @@ def init_features_db():
             price_change_3 REAL, rvol REAL, rsi REAL, adx REAL,
             ema200_aligned INTEGER,
             dist_to_resistance_pct REAL, dist_to_support_pct REAL,
-            atr REAL, atr_extension REAL,
+            atr REAL, atr_extension REAL, squeeze_score REAL,
             candle_body_ratio REAL, candle_close_location REAL,
             liq_score INTEGER, slippage_est REAL,
             mae_pct REAL DEFAULT 0, mfe_pct REAL DEFAULT 0,
@@ -60,14 +60,14 @@ def save_features(trade_id: int, sig: dict):
     cur.execute("""
         INSERT OR REPLACE INTO trade_features
         (trade_id, price_change_3, rvol, rsi, adx, ema200_aligned,
-         dist_to_resistance_pct, dist_to_support_pct, atr, atr_extension,
+         dist_to_resistance_pct, dist_to_support_pct, atr, atr_extension, squeeze_score,
          candle_body_ratio, candle_close_location, liq_score, slippage_est,
          market_regime)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         trade_id, price_change_3, sig.get("volume_ratio", 0),
         sig.get("rsi", 0), sig.get("adx", 0), ema_aligned,
-        dist_res_pct, dist_sup_pct, atr, atr_extension,
+        dist_res_pct, dist_sup_pct, atr, atr_extension, sig.get("squeeze_score", 0),
         sig.get("body_ratio", 0), 0,  # candle_close_location: belum dihitung, TODO
         sig.get("liq_score", 5), sig.get("slippage_est", 0),
         sig.get("regime", "NEUTRAL"),

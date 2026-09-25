@@ -112,12 +112,15 @@ class TestIsDuplicatePosition(unittest.TestCase):
         result = virtual_trader.is_duplicate_position("ETHUSDT", "4h", "BUY (SR BREAKOUT)")
         self.assertTrue(result)
 
-    def test_different_timeframe_same_pair_not_duplicate(self):
-        """Timeframe beda dianggap posisi independen -- 1h dan 4h boleh
-        jalan bersamaan untuk pair yang sama."""
+    def test_different_timeframe_same_pair_is_duplicate(self):
+        """[FIX 2026-09-25] Diperketat: 1 pair maksimal 1 posisi, LINTAS
+        SEMUA TIMEFRAME. Kasus nyata: VIRTUALUSDT BUY (MOMENTUM) di 1h dan
+        4h terbuka bersamaan -- eksposur ganda ke pair yang sama kalau harga
+        berbalik, bukan diversifikasi. Sebelumnya test ini expect False
+        (dianggap independen); sekarang harus True."""
         self._insert_trade("XAUTUSDT", "1h", "SELL (SR BOUNCE)", closed=0)
         result = virtual_trader.is_duplicate_position("XAUTUSDT", "4h", "SELL (SR BOUNCE)")
-        self.assertFalse(result)
+        self.assertTrue(result, "1 pair harus maksimal 1 posisi lintas timeframe")
 
     def test_closed_position_not_duplicate(self):
         """Posisi yang sudah closed=1 tidak menghalangi posisi baru."""

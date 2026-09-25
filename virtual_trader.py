@@ -9,22 +9,22 @@ VIRTUAL_DB = "/home/userland/ai-scanner/virtual_trading.db"
 VIRTUAL_BALANCE = 1000.0  # Balance awal $1000
 
 def is_duplicate_position(symbol, timeframe, signal):
-    """Cek apakah sudah ada posisi terbuka untuk pair+timeframe (read-only,
-    tidak insert). [FIX 2026-08-26] Sebelumnya query ikut mencocokkan kolom
-    signal secara exact, sehingga "BUY (SR BOUNCE)" dan "SELL (SR BOUNCE)"
-    dianggap 2 kombinasi berbeda -- akibatnya posisi BUY dan SELL bisa
-    terbuka bersamaan di pair+timeframe yang sama (saling bertentangan,
-    tidak masuk akal secara trading). Sekarang cek per pair+timeframe saja,
-    apapun arah/jenis sinyalnya -- 1 pair+timeframe maksimal 1 posisi
-    terbuka."""
+    """Cek apakah sudah ada posisi terbuka untuk pair (read-only, tidak insert).
+    [FIX 2026-08-26] Awalnya cek exact match symbol+timeframe+signal -- BUY dan
+    SELL di pair+timeframe sama dianggap beda, bisa terbuka bersamaan.
+    [FIX 2026-09-25] Diperketat lagi jadi per-SYMBOL SAJA (lintas timeframe),
+    bukan per pair+timeframe. Kasus nyata: VIRTUALUSDT BUY (MOMENTUM) di 1h dan
+    4h terbuka BERSAMAAN -- profit sekarang, tapi kalau harga berbalik, kedua
+    posisi rugi bersamaan (eksposur ganda ke pair yang sama, bukan diversifikasi).
+    Sekarang 1 pair maksimal 1 posisi terbuka, apapun timeframe/arah/strateginya."""
     try:
         conn = sqlite3.connect(VIRTUAL_DB)
         cur = conn.cursor()
         cur.execute("""
             SELECT id FROM virtual_trades
-            WHERE symbol=? AND timeframe=? AND closed=0
+            WHERE symbol=? AND closed=0
             LIMIT 1
-        """, (symbol, timeframe))
+        """, (symbol,))
         result = cur.fetchone()
         conn.close()
         return result is not None
@@ -101,14 +101,17 @@ def add_virtual_trade(signal: dict):
     sig_type = signal.get("signal")
     
     # === FILTER DUPLIKASI ===
-    # Cek apakah sudah ada posisi terbuka untuk pair+timeframe+signal yang sama
+    # [FIX 2026-09-25] Diperketat jadi per-SYMBOL SAJA (lintas timeframe/signal),
+    # konsisten dengan is_duplicate_position(). Sebelumnya cek symbol+timeframe+
+    # signal, sehingga VIRTUALUSDT BUY (MOMENTUM) di 1h dan 4h bisa lolos
+    # BERSAMAAN -- eksposur ganda ke pair yang sama, bukan diversifikasi.
     cur.execute("""
         SELECT id FROM virtual_trades
-        WHERE symbol=? AND timeframe=? AND signal=? AND closed=0
+        WHERE symbol=? AND closed=0
         LIMIT 1
-    """, (symbol, timeframe, sig_type))
+    """, (symbol,))
     if cur.fetchone():
-        logger.info(f"[DUPLICATE] {symbol}/{timeframe} {sig_type} sudah ada posisi terbuka, skip")
+        logger.info(f"[DUPLICATE] {symbol}/{timeframe} {sig_type} sudah ada posisi terbuka di pair ini, skip")
         conn.close()
         return
     

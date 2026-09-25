@@ -833,6 +833,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "pivot"              : pivot,
         "atr"                : round(_safe(last.get("atr", 0)), 8),
         "body_ratio"         : round(_safe(last.get("body_ratio", 0)), 3),
+        "price_change_3"     : round(_safe(last.get("price_change_3", 0)), 5),
     }
 
 def scan_all_fast(symbols=None, timeframe="all", min_score=0):

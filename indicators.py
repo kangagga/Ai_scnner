@@ -844,6 +844,7 @@ def institutional_ai_v4(df):
     # tertangkap pola SR presisi. Confidence dihitung dari kombinasi rvol dan
     # kekuatan price change, bukan cuma pass/fail seperti SETUP.
     _price_change_3 = data['close'].pct_change(3)
+    data['price_change_3'] = _price_change_3
     _momentum_buy_cond = (
         (_price_change_3 > 0.02) &
         (data['rvol'] > 2.0) &

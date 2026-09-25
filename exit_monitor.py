@@ -197,24 +197,54 @@ def check_exits(send_alert_fn):
 
         # Update trailing stop dinamis
         _atr = trade.get("atr", 0)
-        if _atr > 0 and key in _active_trades:
+        if key in _active_trades:
             with _lock:
-                if is_buy:
-                    prev_high = _active_trades[key].get("highest_price", trade["entry"])
-                    if price > prev_high:
-                        _active_trades[key]["highest_price"] = price
+                # [FIX 2026-09-23] Bug MAE selalu 0: sebelumnya highest_price cuma
+                # di-update untuk BUY, lowest_price cuma untuk SELL (sisi lain
+                # nyangkut di harga entry). Sekarang KEDUA sisi selalu di-track,
+                # terlepas dari arah sinyal, supaya MAE/MFE valid untuk BUY maupun
+                # SELL. Juga dipisah dari gate "_atr > 0" -- sebelumnya kalau ATR
+                # kebetulan 0, MFE pun ikut tidak ter-track sama sekali.
+                prev_high = _active_trades[key].get("highest_price", trade["entry"])
+                if price > prev_high:
+                    _active_trades[key]["highest_price"] = price
+                prev_low = _active_trades[key].get("lowest_price", trade["entry"])
+                if price < prev_low:
+                    _active_trades[key]["lowest_price"] = price
+
+                if _atr > 0:
+                    if is_buy and price > prev_high:
                         new_trail = round(price - 2.0 * _atr, 8)
                         if new_trail > _active_trades[key]["sl"]:
                             _active_trades[key]["sl"] = new_trail
                             logger.info("[TRAIL] " + symbol + " BUY SL naik ke " + str(new_trail))
-                else:
-                    prev_low = _active_trades[key].get("lowest_price", trade["entry"])
-                    if price < prev_low:
-                        _active_trades[key]["lowest_price"] = price
+                    elif not is_buy and price < prev_low:
                         new_trail = round(price + 2.0 * _atr, 8)
                         if new_trail < _active_trades[key]["sl"]:
                             _active_trades[key]["sl"] = new_trail
                             logger.info("[TRAIL] " + symbol + " SELL SL turun ke " + str(new_trail))
+
+                # [FIX 2026-09-23] Breakeven stop -- lihat config.py BREAKEVEN_TRIGGER_PCT
+                # untuk justifikasi. Cuma geser SL ke entry, tidak pernah melonggarkan
+                # (konsisten dengan trailing stop di atas), dan tidak pernah overwrite
+                # trailing stop yang sudah lebih baik dari breakeven.
+                try:
+                    from config import BREAKEVEN_TRIGGER_PCT
+                    _entry_price = _active_trades[key]["entry"]
+                    if _entry_price > 0:
+                        _cur_pnl_pct = ((price - _entry_price) / _entry_price * 100) if is_buy \
+                                       else ((_entry_price - price) / _entry_price * 100)
+                        if _cur_pnl_pct >= BREAKEVEN_TRIGGER_PCT:
+                            _cur_sl = _active_trades[key]["sl"]
+                            if is_buy and _entry_price > _cur_sl:
+                                _active_trades[key]["sl"] = _entry_price
+                                logger.info(f"[BREAKEVEN] {symbol} BUY SL digeser ke entry ({_entry_price}), profit {_cur_pnl_pct:.2f}%")
+                            elif not is_buy and _entry_price < _cur_sl:
+                                _active_trades[key]["sl"] = _entry_price
+                                logger.info(f"[BREAKEVEN] {symbol} SELL SL digeser ke entry ({_entry_price}), profit {_cur_pnl_pct:.2f}%")
+                except Exception as _be:
+                    logger.debug(f"[BREAKEVEN] Error {symbol}: {_be}")
+
                 trade = dict(_active_trades[key])
 
                 # [FIX 2026-09-21] PHASE 3: update MAE/MFE selama trade masih open.
