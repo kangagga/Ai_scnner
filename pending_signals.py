@@ -126,6 +126,21 @@ def check_pending_signals():
                 logger.info(f"[PENDING->CONFIRMED] {symbol}/{timeframe} {orig_signal}: harga lanjut searah ({entry} -> {price}), promote ke ACTIVE")
                 add_virtual_trade(sig)
                 exit_add_trade(sig)
+                
+                # === LIVE TRADING (testnet dulu, EXECUTE_TESTNET toggle di config.py) ===
+                try:
+                    from gate_executor import execute_signal, scale_to_live_size
+                    from config import LIVE_LEVERAGE
+                    live_sig = dict(sig)
+                    live_sig["position_size"] = scale_to_live_size(sig.get("position_size", 0))
+                    live_sig["leverage"] = LIVE_LEVERAGE
+                    live_result = execute_signal(live_sig)
+                    if live_result.get("ok"):
+                        logger.info(f"[LIVE] Order terkirim: {sig['symbol']} {sig['signal']} | {live_result.get('data')}")
+                    else:
+                        logger.warning(f"[LIVE] Order gagal/di-skip: {sig['symbol']} {sig['signal']} | {live_result.get('error')}")
+                except Exception as e:
+                    logger.error(f"[LIVE] Error tak terduga saat eksekusi live: {e}", exc_info=True)
                 mark_status(pid, "CONFIRMED")
             else:
                 logger.info(f"[PENDING->INVALID] {symbol}/{timeframe} {orig_signal}: harga stagnan/berbalik ({entry} -> {price}), tidak ada continuation")
