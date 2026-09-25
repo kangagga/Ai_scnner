@@ -157,6 +157,46 @@ def close_position_partial(symbol: str, pct_closed: float):
     )
 
 
+def update_sl_order(symbol: str, is_buy: bool, new_sl_price: float):
+    """Geser SL yang sudah terpasang di exchange ke harga baru (trailing stop /
+    breakeven). [ADD 2026-09-26, REVISI v2] Pakai update in-place (list order lama
+    dulu buat cari order_id, baru update trigger_price-nya) -- BUKAN cancel-lalu-
+    pasang-ulang, supaya kalau update gagal, SL LAMA TETAP ADA (tidak pernah ada
+    momen posisi tanpa proteksi sama sekali).
+
+    symbol       : contoh "BTC_USDT"
+    is_buy       : True untuk posisi LONG, False untuk SHORT
+    new_sl_price : harga SL baru (hasil trailing/breakeven dari exit_monitor)
+
+    Return: {"ok": True, "data": {...}} atau {"ok": False, "error": "..."}
+    """
+    from gate_api import FuturesUpdatePriceTriggeredOrder
+
+    gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    try:
+        open_orders = _futures_api.list_price_triggered_orders(SETTLE, status="open", contract=gate_symbol)
+    except (GateApiException, ApiException) as e:
+        logger.error(f"[gate_executor] Gagal ambil daftar trigger order {gate_symbol}: {e}")
+        return {"ok": False, "error": f"Gagal ambil daftar SL lama: {e}"}
+
+    if not open_orders:
+        logger.warning(f"[gate_executor] Tidak ada trigger order aktif untuk {gate_symbol}, pasang SL baru dari nol")
+        return place_sl_order(symbol, is_buy, new_sl_price)
+
+    order_id = open_orders[0].id
+
+    try:
+        update_req = FuturesUpdatePriceTriggeredOrder(
+            settle=SETTLE, order_id=order_id, trigger_price=str(new_sl_price),
+        )
+        result = _futures_api.update_price_triggered_order(SETTLE, update_req)
+        logger.info(f"[gate_executor] SL berhasil digeser (in-place): {gate_symbol} order_id={order_id} @ {new_sl_price}")
+        return {"ok": True, "data": {"id": order_id, "new_price": new_sl_price}}
+    except (GateApiException, ApiException) as e:
+        logger.error(f"[gate_executor] Gagal update SL in-place {gate_symbol}: {e} -- SL LAMA MASIH AKTIF (aman)")
+        return {"ok": False, "error": f"Gagal geser SL (SL lama tetap aktif): {e}"}
+
+
 def place_order(symbol: str, signal: str, size: float, sl: float = None, tp: float = None, reduce_only: bool = False, leverage: int = 2):
     """
     Eksekusi market order ke Gate.io Futures TESTNET berdasarkan sinyal scanner.
