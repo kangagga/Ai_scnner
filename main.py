@@ -513,10 +513,14 @@ def job_scan():
                         # di awal job_scan). EKSEKUSI tetap tidak berubah sama sekali.
                         if "EKSEKUSI" in level:
                             add_virtual_trade(sig)
-                            sig['is_live'] = True
-                            exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor
-                            
+
                             # === LIVE TRADING (testnet dulu, EXECUTE_TESTNET toggle di config.py) ===
+                            # [FIX 2026-09-26] is_live sekarang HANYA True kalau execute_signal()
+                            # beneran sukses -- sebelumnya di-set True duluan sebelum tahu hasilnya,
+                            # jadi exit_monitor bisa mencoba sinkron SL untuk posisi yang SEBENARNYA
+                            # TIDAK PERNAH ada di exchange (kejadian nyata: GRASSUSDT, symbol tidak
+                            # listing sebagai futures contract di Gate.io -> CONTRACT_NOT_FOUND).
+                            sig['is_live'] = False
                             try:
                                 from gate_executor import execute_signal, scale_to_live_size
                                 from config import LIVE_LEVERAGE
@@ -525,11 +529,14 @@ def job_scan():
                                 live_sig["leverage"] = LIVE_LEVERAGE
                                 live_result = execute_signal(live_sig)
                                 if live_result.get("ok"):
+                                    sig['is_live'] = True
                                     logger.info(f"[LIVE] Order terkirim: {sig['symbol']} {sig['signal']} | {live_result.get('data')}")
                                 else:
                                     logger.warning(f"[LIVE] Order gagal/di-skip: {sig['symbol']} {sig['signal']} | {live_result.get('error')}")
                             except Exception as e:
                                 logger.error(f"[LIVE] Error tak terduga saat eksekusi live: {e}", exc_info=True)
+
+                            exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor (is_live sudah akurat)
                         else:  # SIAP ENTRY
                             from pending_signals import add_pending
                             add_pending(sig)
