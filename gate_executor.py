@@ -336,8 +336,8 @@ def get_contract_specs(symbol):
         c = _futures_api.get_futures_contract(SETTLE, gate_symbol)
         return {
             "quanto_multiplier": float(c.quanto_multiplier),
-            "order_size_min": c.order_size_min,
-            "order_size_max": c.order_size_max,
+            "order_size_min": int(c.order_size_min),
+            "order_size_max": int(c.order_size_max) if c.order_size_max else None,
         }
     except Exception as e:
         logger.error(f"[gate_executor] Gagal ambil contract specs {gate_symbol}: {e}")
