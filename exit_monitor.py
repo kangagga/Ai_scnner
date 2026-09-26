@@ -3,6 +3,7 @@ import threading
 import time
 import requests
 from datetime import datetime
+from config import LIVE_ACCOUNT_BALANCE, LIVE_LEVERAGE
 
 
 logger = logging.getLogger(__name__)
@@ -382,7 +383,7 @@ def check_exits(send_alert_fn):
                 f"💰 Entry  : {trade['entry']}\n"
                 f"🎯 Target : {target}\n"
                 f"📈 Harga  : {price}\n"
-                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round(25.0 * (pct_closed / 100.0) * pnl_pct / 100.0, 2)})\n"
+                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round((LIVE_ACCOUNT_BALANCE * LIVE_LEVERAGE) * (pct_closed / 100.0) * pnl_pct / 100.0, 2)})\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 AI Signal Bot"
             )
