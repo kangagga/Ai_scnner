@@ -64,6 +64,26 @@ def set_leverage(symbol: str, leverage: int):
         return {"ok": False, "error": str(e)}
 
 
+def _round_to_tick(symbol: str, price: float) -> float:
+    """Bulatkan harga ke tick size (order_price_round) yang valid untuk contract ini.
+    [FIX 2026-09-26] Ditemukan lewat testing testnet: Gate.io menolak trigger
+    price yang bukan kelipatan tick size contract (error AUTO_INVALID_PARAM_TRIGGER_PRICE).
+    Tick size beda-beda per pair (ETH_USDT=0.05, dll), jadi harus dicek dari API,
+    bukan diasumsikan/hardcode."""
+    gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    try:
+        c = _futures_api.get_futures_contract(SETTLE, gate_symbol)
+        tick = float(c.order_price_round)
+        if tick > 0:
+            rounded = round(price / tick) * tick
+            # Hindari floating point residue (misal 2610.0000000004)
+            decimals = max(0, len(str(tick).split(".")[-1])) if "." in str(tick) else 0
+            return round(rounded, decimals)
+    except (GateApiException, ApiException) as e:
+        logger.warning(f"[gate_executor] Gagal ambil tick size {gate_symbol}, pakai harga asli: {e}")
+    return price
+
+
 def place_sl_order(symbol: str, is_buy: bool, sl_price: float):
     """Pasang stop-loss di SISI EXCHANGE (price-triggered order), bukan cuma
     dipantau dari exit_monitor.py. [FIX 2026-09-25] Sebelumnya place_order()
@@ -73,6 +93,7 @@ def place_sl_order(symbol: str, is_buy: bool, sl_price: float):
     keduanya trigger saat harga bergerak ke ARAH RUGI dari posisi."""
     gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
     rule = 2 if is_buy else 1
+    sl_price = _round_to_tick(symbol, sl_price)
     try:
         initial = FuturesInitialOrder(
             contract=gate_symbol, size=0, price="0", tif="ioc", close=True,
@@ -159,19 +180,22 @@ def close_position_partial(symbol: str, pct_closed: float):
 
 def update_sl_order(symbol: str, is_buy: bool, new_sl_price: float):
     """Geser SL yang sudah terpasang di exchange ke harga baru (trailing stop /
-    breakeven). [ADD 2026-09-26, REVISI v2] Pakai update in-place (list order lama
-    dulu buat cari order_id, baru update trigger_price-nya) -- BUKAN cancel-lalu-
-    pasang-ulang, supaya kalau update gagal, SL LAMA TETAP ADA (tidak pernah ada
-    momen posisi tanpa proteksi sama sekali).
+    breakeven). [FIX 2026-09-26 v3] Gate.io TIDAK MENDUKUNG update in-place untuk
+    trigger order (SL) yang dibuat lewat API -- dikonfirmasi via error resmi server
+    code 1077 APIOrderNotSupportUpdateTouchOrder (bukan bug versi library/path).
+    Solusi: cancel SL lama, baru pasang SL baru (bukan amend). Kalau cancel
+    berhasil tapi pasang baru gagal, di-retry otomatis sekali; kalau tetap gagal,
+    posisi jadi TANPA SL SAMA SEKALI dan ditandai lewat sl_removed=True di return.
 
     symbol       : contoh "BTC_USDT"
     is_buy       : True untuk posisi LONG, False untuk SHORT
     new_sl_price : harga SL baru (hasil trailing/breakeven dari exit_monitor)
 
-    Return: {"ok": True, "data": {...}} atau {"ok": False, "error": "..."}
+    Return: {"ok": True, "data": {...}} atau
+            {"ok": False, "error": "...", "sl_removed": bool}
+            sl_removed=True berarti SL LAMA SUDAH DIBATALKAN dan SL baru GAGAL
+            dipasang (2x percobaan) -- posisi TANPA proteksi, butuh tindakan segera.
     """
-    from gate_api import FuturesUpdatePriceTriggeredOrder
-
     gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
     try:
         open_orders = _futures_api.list_price_triggered_orders(SETTLE, status="open", contract=gate_symbol)
@@ -183,18 +207,53 @@ def update_sl_order(symbol: str, is_buy: bool, new_sl_price: float):
         logger.warning(f"[gate_executor] Tidak ada trigger order aktif untuk {gate_symbol}, pasang SL baru dari nol")
         return place_sl_order(symbol, is_buy, new_sl_price)
 
-    order_id = open_orders[0].id
+    old_order_id = open_orders[0].id
 
     try:
-        update_req = FuturesUpdatePriceTriggeredOrder(
-            settle=SETTLE, order_id=order_id, trigger_price=str(new_sl_price),
-        )
-        result = _futures_api.update_price_triggered_order(SETTLE, update_req)
-        logger.info(f"[gate_executor] SL berhasil digeser (in-place): {gate_symbol} order_id={order_id} @ {new_sl_price}")
-        return {"ok": True, "data": {"id": order_id, "new_price": new_sl_price}}
+        _futures_api.cancel_price_triggered_order(SETTLE, old_order_id)
+        logger.info(f"[gate_executor] SL lama dibatalkan: {gate_symbol} order_id={old_order_id}")
     except (GateApiException, ApiException) as e:
-        logger.error(f"[gate_executor] Gagal update SL in-place {gate_symbol}: {e} -- SL LAMA MASIH AKTIF (aman)")
-        return {"ok": False, "error": f"Gagal geser SL (SL lama tetap aktif): {e}"}
+        logger.error(f"[gate_executor] Gagal cancel SL lama {gate_symbol} order_id={old_order_id}: {e} -- SL lama kemungkinan masih aktif (aman)")
+        return {"ok": False, "error": f"Gagal cancel SL lama: {e}"}
+    except ValueError as e:
+        # [FIX 2026-09-26] Bug dikenal di library gate_api: response DELETE dari
+        # testnet kadang berisi field pos_margin_mode dengan nilai tidak valid
+        # (misal "|single"), bikin parsing model Python crash SETELAH request
+        # DELETE sendiri sudah diterima server. Jangan asumsikan sukses ATAU
+        # gagal dari exception ini saja -- verifikasi langsung ke server.
+        logger.warning(f"[gate_executor] cancel_price_triggered_order lempar ValueError saat parsing response (kemungkinan bug pos_margin_mode, request DELETE kemungkinan sudah sukses): {e} -- memverifikasi manual...")
+        try:
+            still_open = _futures_api.list_price_triggered_orders(SETTLE, status="open", contract=gate_symbol)
+        except (GateApiException, ApiException) as e2:
+            logger.critical(f"[gate_executor] Tidak bisa verifikasi status SL lama {gate_symbol} order_id={old_order_id} setelah ValueError: {e2}")
+            return {"ok": False, "error": f"Cancel SL lama tidak bisa diverifikasi setelah ValueError ({e}), dan verifikasi juga gagal ({e2}). Status SL lama TIDAK DIKETAHUI, cek manual sebelum lanjut."}
+        still_exists = any(str(o.id) == str(old_order_id) for o in still_open)
+        if still_exists:
+            logger.error(f"[gate_executor] Verifikasi: SL lama {gate_symbol} order_id={old_order_id} MASIH AKTIF, cancel gagal beneran (bukan cuma bug parsing)")
+            return {"ok": False, "error": f"Cancel SL lama gagal (order_id={old_order_id} masih terdaftar aktif setelah percobaan cancel)"}
+        logger.info(f"[gate_executor] Verifikasi: SL lama {gate_symbol} order_id={old_order_id} sudah tidak ada di server (cancel sebenarnya berhasil, ValueError cuma bug parsing) -- lanjut pasang SL baru")
+
+    new_result = place_sl_order(symbol, is_buy, new_sl_price)
+    if new_result.get("ok"):
+        logger.info(f"[gate_executor] SL berhasil digeser (cancel+recreate): {gate_symbol} order_id_baru={new_result['data']['id']} @ {new_sl_price}")
+        return new_result
+
+    logger.error(f"[gate_executor] BAHAYA: SL lama sudah dibatalkan tapi SL baru GAGAL dipasang! {gate_symbol}. Retry sekali... error={new_result.get('error')}")
+    retry_result = place_sl_order(symbol, is_buy, new_sl_price)
+    if retry_result.get("ok"):
+        logger.info(f"[gate_executor] Retry berhasil, SL terpasang: {gate_symbol} order_id_baru={retry_result['data']['id']} @ {new_sl_price}")
+        return retry_result
+
+    logger.critical(f"[gate_executor] RETRY JUGA GAGAL. Posisi {gate_symbol} SEKARANG TANPA SL SAMA SEKALI. error_pertama={new_result.get('error')} error_retry={retry_result.get('error')}")
+    return {
+        "ok": False,
+        "sl_removed": True,
+        "error": (
+            f"SL LAMA SUDAH DIBATALKAN DAN SL BARU GAGAL DIPASANG (2x percobaan). "
+            f"Posisi {gate_symbol} TANPA SL SEKARANG. Error awal: {new_result.get('error')} | "
+            f"Error retry: {retry_result.get('error')}"
+        ),
+    }
 
 
 def place_order(symbol: str, signal: str, size: float, sl: float = None, tp: float = None, reduce_only: bool = False, leverage: int = 2):

@@ -256,6 +256,21 @@ def check_exits(send_alert_fn):
                         _sl_sync_result = update_sl_order(symbol, is_buy, trade["sl"])
                         if _sl_sync_result.get("ok"):
                             logger.info(f"[LIVE] SL exchange disinkronkan: {symbol} @ {trade['sl']}")
+                        elif _sl_sync_result.get("sl_removed"):
+                            # [FIX 2026-09-26] Posisi TANPA SL SAMA SEKALI (cancel SL lama
+                            # berhasil, pasang SL baru gagal 2x percobaan). Ini lebih bahaya
+                            # daripada menutup posisi terlalu cepat -- tutup penuh sekarang
+                            # juga daripada biarkan posisi leverage tanpa proteksi.
+                            logger.critical(f"[LIVE] POSISI TANPA SL: {symbol} -- {_sl_sync_result.get('error')}. Menutup posisi penuh sebagai fail-safe...")
+                            try:
+                                from gate_executor import close_position_partial
+                                _emergency_close = close_position_partial(symbol, 100)
+                                if _emergency_close.get("ok"):
+                                    logger.critical(f"[LIVE] Posisi {symbol} berhasil ditutup penuh (emergency, tanpa SL). Data: {_emergency_close.get('data')}")
+                                else:
+                                    logger.critical(f"[LIVE] GAGAL menutup posisi darurat {symbol}: {_emergency_close.get('error')} -- POSISI MASIH TERBUKA TANPA SL, PERLU DICEK MANUAL SEGERA")
+                            except Exception as _ece:
+                                logger.critical(f"[LIVE] Error tak terduga saat emergency close {symbol}: {_ece} -- POSISI MASIH TERBUKA TANPA SL, PERLU DICEK MANUAL SEGERA", exc_info=True)
                         else:
                             logger.error(f"[LIVE] Gagal sinkron SL exchange {symbol}: {_sl_sync_result.get('error')}")
                     except Exception as _sle:
