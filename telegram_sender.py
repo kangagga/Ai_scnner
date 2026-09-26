@@ -1090,6 +1090,27 @@ def handle_commands(scan_fn=None):
                                     }
                                     add_virtual_trade(trade_signal)
                                     from exit_monitor import add_trade as exit_add_trade
+                                    from scanner import _calculate_position_size
+                                    from config import RISK_PER_TRADE, ACCOUNT_BALANCE, LIVE_LEVERAGE
+                                    from gate_executor import execute_signal, scale_to_live_size
+                                    trade_signal['position_size'] = _calculate_position_size(entry, sl, RISK_PER_TRADE, ACCOUNT_BALANCE)
+                                    trade_signal['is_live'] = False
+                                    live_status_msg = "\u26A0\uFE0F Live execution tidak dicoba (error internal)"
+                                    try:
+                                        live_sig = dict(trade_signal)
+                                        live_sig['position_size'] = scale_to_live_size(trade_signal.get('position_size', 0), paper_capital=ACCOUNT_BALANCE)
+                                        live_sig['leverage'] = LIVE_LEVERAGE
+                                        live_result = execute_signal(live_sig)
+                                        if live_result.get('ok'):
+                                            trade_signal['is_live'] = True
+                                            live_status_msg = "\u2705 LIVE: Order berhasil dikirim ke exchange"
+                                            logger.info(f"[LIVE] Manual order terkirim: {symbol} {direction} | {live_result.get('data')}")
+                                        else:
+                                            live_status_msg = f"\u274C LIVE: Order gagal/di-skip - {live_result.get('error')}"
+                                            logger.warning(f"[LIVE] Manual order gagal: {symbol} {direction} | {live_result.get('error')}")
+                                    except Exception as _le:
+                                        live_status_msg = f"\u274C LIVE: Error tak terduga - {_le}"
+                                        logger.error(f"[LIVE] Error tak terduga manual execute: {_le}", exc_info=True)
                                     exit_add_trade(trade_signal)
                                     _send(
                                         f"✅ <b>MANUAL ENTRY DIBUKA</b>\n{'═'*25}\n"
@@ -1103,7 +1124,7 @@ def handle_commands(scan_fn=None):
                                         f"💧 Liq   : {liq_score}/10 | Slippage: {slippage}%"
                                         f"{sr_warning}\n"
                                         f"{'═'*25}\n"
-                                        f"⚠️ Ini VIRTUAL trade (simulasi), bukan order real\n"
+                                        f"{live_status_msg}\n"
                                         f"🤖 AI Signal Bot"
                                     )
                     except Exception as e:
@@ -1238,6 +1259,20 @@ def handle_commands(scan_fn=None):
                 msg += "📈 Win Rate: " + str(s["wr"]) + "%\n"
                 msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
 
+                try:
+                    from gate_executor import get_account_balance
+                    _bal = get_account_balance()
+                    if _bal.get('ok'):
+                        _bd = _bal['data']
+                        msg += "\n\U0001F4B5 <b>Saldo Real (Gate.io Testnet)</b>\n"
+                        msg += f"Total     : ${float(_bd.get('total', 0)):.2f}\n"
+                        msg += f"Available : ${float(_bd.get('available', 0)):.2f}\n"
+                        msg += f"Unreal PnL: ${float(_bd.get('unrealised_pnl', 0)):.2f}\n"
+                    else:
+                        msg += f"\n\U0001F4B5 Saldo Real: gagal ambil ({_bal.get('error')})\n"
+                except Exception as _be:
+                    msg += f"\n\U0001F4B5 Saldo Real: error ({_be})\n"
+                msg += "\u2501" * 22 + "\n"
                 from pending_signals import get_all_pending
                 pending = get_all_pending()
                 if pending:
@@ -1427,6 +1462,20 @@ def handle_commands(scan_fn=None):
                        f"📈 Win Rate: {s['wr']}%\n"
                        f"━━━━━━━━━━━━━━━━━━━━━━")
 
+                try:
+                    from gate_executor import get_account_balance
+                    _bal = get_account_balance()
+                    if _bal.get('ok'):
+                        _bd = _bal['data']
+                        msg += "\n\U0001F4B5 <b>Saldo Real (Gate.io Testnet)</b>\n"
+                        msg += f"Total     : ${float(_bd.get('total', 0)):.2f}\n"
+                        msg += f"Available : ${float(_bd.get('available', 0)):.2f}\n"
+                        msg += f"Unreal PnL: ${float(_bd.get('unrealised_pnl', 0)):.2f}\n"
+                    else:
+                        msg += f"\n\U0001F4B5 Saldo Real: gagal ambil ({_bal.get('error')})\n"
+                except Exception as _be:
+                    msg += f"\n\U0001F4B5 Saldo Real: error ({_be})\n"
+                msg += "\u2501" * 22 + "\n"
                 from pending_signals import get_all_pending
                 pending = get_all_pending()
                 if pending:
