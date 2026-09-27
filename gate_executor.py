@@ -137,6 +137,59 @@ def get_open_position(symbol: str):
         return {"ok": False, "error": str(e)}
 
 
+def cancel_all_sl_orders(symbol: str):
+    """Batalkan SEMUA trigger order (SL) yang masih aktif untuk symbol ini.
+    [ADD 2026-09-27] Dipakai setelah posisi ditutup PENUH (full close), supaya
+    SL order tidak nyangkut sendirian tanpa posisi (order 'yatim') -- kejadian
+    nyata: GTUSDT, SL trigger tetap aktif di exchange padahal posisi sudah 0
+    setelah close_position_partial() dipanggil untuk full close.
+
+    symbol : contoh "BTC_USDT"
+
+    Return: {"ok": True, "cancelled": int} atau {"ok": False, "error": "...", "cancelled": int}
+    """
+    gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    try:
+        open_orders = _futures_api.list_price_triggered_orders(SETTLE, status="open", contract=gate_symbol)
+    except (GateApiException, ApiException) as e:
+        logger.error(f"[gate_executor] Gagal ambil daftar trigger order {gate_symbol} untuk cancel-all: {e}")
+        return {"ok": False, "error": f"Gagal ambil daftar SL: {e}", "cancelled": 0}
+
+    if not open_orders:
+        return {"ok": True, "cancelled": 0}
+
+    cancelled = 0
+    errors = []
+    for o in open_orders:
+        order_id = o.id
+        try:
+            _futures_api.cancel_price_triggered_order(SETTLE, order_id)
+            logger.info(f"[gate_executor] SL yatim dibatalkan: {gate_symbol} order_id={order_id}")
+            cancelled += 1
+        except (GateApiException, ApiException) as e:
+            logger.error(f"[gate_executor] Gagal cancel SL yatim {gate_symbol} order_id={order_id}: {e}")
+            errors.append(str(e))
+        except ValueError as e:
+            logger.warning(f"[gate_executor] cancel_price_triggered_order (cancel-all) lempar ValueError: {e} -- memverifikasi manual...")
+            try:
+                still_open = _futures_api.list_price_triggered_orders(SETTLE, status="open", contract=gate_symbol)
+            except (GateApiException, ApiException) as e2:
+                logger.critical(f"[gate_executor] Tidak bisa verifikasi status SL {gate_symbol} order_id={order_id} setelah ValueError: {e2}")
+                errors.append(f"order_id={order_id}: verifikasi gagal ({e2})")
+                continue
+            still_exists = any(str(oo.id) == str(order_id) for oo in still_open)
+            if still_exists:
+                logger.error(f"[gate_executor] Verifikasi: SL {gate_symbol} order_id={order_id} MASIH AKTIF, cancel gagal beneran")
+                errors.append(f"order_id={order_id}: masih aktif setelah verifikasi")
+            else:
+                logger.info(f"[gate_executor] Verifikasi: SL {gate_symbol} order_id={order_id} sudah tidak ada (cancel sukses, ValueError cuma bug parsing)")
+                cancelled += 1
+
+    if errors:
+        return {"ok": False, "error": f"{len(errors)} SL gagal dibatalkan: {'; '.join(errors)}", "cancelled": cancelled}
+    return {"ok": True, "cancelled": cancelled}
+
+
 def close_position_partial(symbol: str, pct_closed: float):
     """Tutup SEBAGIAN posisi yang lagi terbuka di Gate.io (reduce-only market order).
     [ADD 2026-09-25] Dipakai untuk TP1/TP2/TP3 partial-close. pct_closed dihitung
@@ -170,12 +223,23 @@ def close_position_partial(symbol: str, pct_closed: float):
     # Untuk close: kalau posisi LONG, kirim size NEGATIF (jual). Kalau SHORT, size POSITIF (beli balik).
     order_size = -close_size if is_long else close_size
 
-    return place_order(
+    result = place_order(
         symbol,
         signal="SELL" if is_long else "BUY",
         size=abs(order_size),
         reduce_only=True,
     )
+
+    # [ADD 2026-09-27] Full close (bukan partial) -- batalkan SL yang masih
+    # nyangkut, supaya tidak jadi order 'yatim' tanpa posisi (kejadian nyata: GTUSDT).
+    if result.get("ok") and close_size == abs(current_size):
+        cancel_result = cancel_all_sl_orders(symbol)
+        if cancel_result.get("ok"):
+            logger.info(f"[gate_executor] Full close {symbol}: {cancel_result.get('cancelled')} SL order dibatalkan otomatis")
+        else:
+            logger.error(f"[gate_executor] Full close {symbol} sukses tapi GAGAL batalkan SL yatim: {cancel_result.get('error')}")
+
+    return result
 
 
 def update_sl_order(symbol: str, is_buy: bool, new_sl_price: float):
