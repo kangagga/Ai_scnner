@@ -166,7 +166,7 @@ def get_current_price(symbol: str) -> float:
         if data:
             return float(data[0].get("last", 0))
     except (requests.RequestException, ValueError, KeyError, IndexError) as e:
-        logger.debug(f"Gagal ambil harga: {e}")
+        logger.warning(f"Gagal ambil harga {symbol}: {type(e).__name__}: {e}")
     return 0.0
 
 _sent_exit_notif = set()  # tracking notif sudah dikirim
