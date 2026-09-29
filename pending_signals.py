@@ -136,13 +136,11 @@ def check_pending_signals():
                     live_result = execute_signal(live_sig)
                     if live_result.get("ok"):
                         sig['is_live'] = True
-                        sig['is_live'] = True
                         logger.info(f"[LIVE] Order terkirim: {sig['symbol']} {sig['signal']} | {live_result.get('data')}")
                     else:
                         logger.warning(f"[LIVE] Order gagal/di-skip: {sig['symbol']} {sig['signal']} | {live_result.get('error')}")
                 except Exception as e:
                     logger.error(f"[LIVE] Error tak terduga saat eksekusi live: {e}", exc_info=True)
-                exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor (is_live sudah akurat)
                 exit_add_trade(sig)  # pantau TP/SL oleh exit_monitor (is_live sudah akurat)
                 mark_status(pid, "CONFIRMED")
             else:

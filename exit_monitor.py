@@ -332,6 +332,26 @@ def check_exits(send_alert_fn):
                         logger.info(f"[TIME EXIT] {symbol} sudah {age_hours:.1f} jam terbuka, force close")
                 except ValueError as e:
                     logger.warning(f"[TIME EXIT] Gagal parse opened_at {symbol}: {e}")
+        # [ADD 2026-09-28] Sinkron dengan exchange: kalau posisi live sudah tidak ada
+        # di Gate.io (SL exchange kepicu duluan / ditutup manual di app), tutup catatan
+        # lokal juga. Kasus nyata: ADAUSDT ditutup exchange 08:50, bot baru sadar 09:02.
+        if hit is None and trade.get("is_live"):
+            try:
+                _opened = trade.get("opened_at")
+                _age_s = (datetime.now().astimezone() - datetime.fromisoformat(_opened)).total_seconds() if _opened else 9999
+                if _age_s >= 60:
+                    from gate_executor import get_open_position
+                    _pos = get_open_position(symbol)
+                    if _pos.get("ok"):
+                        _gone = _pos.get("data") is None
+                    else:
+                        _gone = "POSITION_NOT_FOUND" in str(_pos.get("error", ""))
+                    if _gone:
+                        logger.warning(f"[SYNC] {symbol}: posisi live sudah tidak ada di exchange, menutup catatan lokal")
+                        hit = ("EXCHANGE CLOSE", price)
+            except Exception as _se:
+                logger.error(f"[SYNC] Gagal cek posisi exchange {symbol}: {_se}")
+
         if hit:
             label, target = hit
             is_profit = False  # placeholder, dihitung ulang di bawah setelah pnl_pct final

@@ -73,11 +73,11 @@ def _round_to_tick(symbol: str, price: float) -> float:
     gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
     try:
         c = _futures_api.get_futures_contract(SETTLE, gate_symbol)
-        tick = float(c.order_price_round)
+        tick_str = c.order_price_round
+        tick = float(tick_str)
         if tick > 0:
             rounded = round(price / tick) * tick
-            # Hindari floating point residue (misal 2610.0000000004)
-            decimals = max(0, len(str(tick).split(".")[-1])) if "." in str(tick) else 0
+            decimals = len(tick_str.split(".")[-1].rstrip("0")) if "." in tick_str else 0
             return round(rounded, decimals)
     except (GateApiException, ApiException) as e:
         logger.warning(f"[gate_executor] Gagal ambil tick size {gate_symbol}, pakai harga asli: {e}")
@@ -450,8 +450,30 @@ def execute_signal(sig: dict):
     if not symbol or entry <= 0 or usd_size <= 0:
         return {"ok": False, "error": f"Data sinyal tidak lengkap: symbol={symbol} entry={entry} size={usd_size}"}
 
+    if not contract_exists(symbol):
+        return {"ok": False, "error": f"{symbol} tidak listing sebagai futures di Gate.io, dilewati"}
+
     contracts = usd_to_contracts(symbol, usd_size, entry)
     if contracts <= 0:
         return {"ok": False, "error": f"Contract size terhitung 0 (usd={usd_size}, entry={entry})"}
 
     return place_order(symbol, signal, size=contracts, sl=sl, tp=tp, leverage=leverage)
+
+
+_contract_cache = {"names": None, "ts": 0}
+
+
+def contract_exists(symbol: str) -> bool:
+    """Cek symbol ada sebagai kontrak futures di Gate.io. Cache 1 jam."""
+    import time
+    gate_symbol = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    now = time.time()
+    if _contract_cache["names"] is None or now - _contract_cache["ts"] > 3600:
+        try:
+            cs = _futures_api.list_futures_contracts(SETTLE)
+            _contract_cache["names"] = {c.name for c in cs}
+            _contract_cache["ts"] = now
+        except Exception as e:
+            logger.error(f"[gate_executor] Gagal ambil daftar kontrak: {e}")
+            return True
+    return gate_symbol in _contract_cache["names"]

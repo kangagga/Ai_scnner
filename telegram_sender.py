@@ -1093,7 +1093,8 @@ def handle_commands(scan_fn=None):
                                     from scanner import _calculate_position_size
                                     from config import RISK_PER_TRADE, ACCOUNT_BALANCE, LIVE_LEVERAGE
                                     from gate_executor import execute_signal, scale_to_live_size
-                                    trade_signal['position_size'] = _calculate_position_size(entry, sl, RISK_PER_TRADE, ACCOUNT_BALANCE)
+                                    _manual_coins = _calculate_position_size(entry, sl, RISK_PER_TRADE, ACCOUNT_BALANCE)
+                                    trade_signal['position_size'] = _manual_coins * entry  # [FIX 2026-09-26] konversi koin->USD
                                     trade_signal['is_live'] = False
                                     live_status_msg = "\u26A0\uFE0F Live execution tidak dicoba (error internal)"
                                     try:
