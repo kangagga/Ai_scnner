@@ -374,12 +374,29 @@ def format_signal(s: dict) -> str:
         _wr_ok = True if (is_default or data_quality is None) else (win_rate >= 50)
         if score >= 80 and _rr >= 2.5 and _vol >= 2.0 and _adx >= 20 and _wr_ok:
             alert_level = "🌟 POTENSIAL TINGGI (liquidity buruk, tidak dieksekusi otomatis)"
+    try:
+        from setup_classifier import get_setup_label
+        from liquidity_filter import get_execution_label
+        _st = get_setup_label(s)
+        _ex = get_execution_label({"liq_score": s.get("liq_score"), "slippage_est": s.get("slippage_est"), "spread_pct": s.get("ob_spread_pct")})
+        _blk = "❌ BLOCKED" if _ex["auto_execute_blocked"] else ("⚠️ Execution jelek, belum kena veto lama" if _ex["execution_label"] == "TIDAK LAYAK" else "✅ Lolos veto liquidity")
+        label_block = (
+            f"{_st['setup_emoji']} Setup : <b>{_st['setup_label']}</b>\n"
+            f"🎯 Technical : {score}/100\n"
+            f"{_ex['execution_emoji']} Execution : <b>{_ex['execution_label']}</b> ({_ex['execution_score']}/100)\n"
+            f"💧 Liquidity : {s.get('liq_score', '?')}/10\n"
+            f"💸 Slippage : {s.get('slippage_est', 0)}%\n"
+            f"🚫 Auto Execute : {_blk}\n"
+        )
+    except Exception:
+        label_block = ""
 
     return (
         f"{'━'*30}\n"
         f"{emoji} <b>{s.get('symbol', '???')}</b> | {tf} | {now}\n"
         f"{'━'*30}\n"
         f"⚠️ Level   : <b>{alert_level}</b>\n"
+        f"{label_block}"
         f"🌍 Regime  : {s.get('regime_emoji', '➡️')} <b>{s.get('regime', 'UNKNOWN')}</b> | ADX:{s.get('regime_adx', 0)} | {s.get('regime_advice', '')}\n"
         f"📊 Sinyal  : <b>{s.get('signal', 'NEUTRAL')}</b>\n"
         f"🎯 Score   : {score}/100  [{bar}]\n"

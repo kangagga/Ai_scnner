@@ -132,3 +132,27 @@ def liquidity_score_adj(liq_data: dict) -> int:
     if slip > 0.5:  adj -= 1
 
     return max(-5, min(3, adj))
+
+def get_execution_label(liq_data: dict) -> dict:
+    sc = liq_data.get("liq_score")
+    sl = liq_data.get("slippage_est")
+    sp = liq_data.get("spread_pct")
+    _sc = 5 if sc is None else sc
+    _sl = 0 if sl is None else sl
+    _sp = 0 if sp is None else sp
+    blocked = _sc < 5 or _sl > 3.0
+    if _sl > 2.0 or _sc <= 3 or _sp > 0.5:
+        e, l = "🔴", "TIDAK LAYAK"
+    elif _sc <= 5 or _sl > 1.0 or _sp > 0.25:
+        e, l = "🟠", "BERISIKO"
+    elif _sc >= 8 and _sl < 0.5 and _sp <= 0.10:
+        e, l = "🟢", "BAIK"
+    else:
+        e, l = "🟡", "HATI-HATI"
+    xs = _sc * 10 - min(30, _sl * 10) - min(20, _sp * 50)
+    return {
+        "execution_emoji": e,
+        "execution_label": l,
+        "execution_score": int(max(0, min(100, xs))),
+        "auto_execute_blocked": blocked,
+    }

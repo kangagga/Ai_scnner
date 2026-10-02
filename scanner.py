@@ -778,6 +778,7 @@ def _analyse_single(symbol, timeframe, min_score=0):
         "adx"                : round(_safe(last.get("adx", 0)), 2),
         "squeeze_score"      : round(_safe(last.get("squeeze_score", 0)), 1),
         "ema_trend"          : ema_trend,
+        "ema200"             : round(_safe(last.get("ema200", 0)), 6),
         "momentum_score"     : round(_safe(last.get("confidence", 0)), 1) if "MOMENTUM" in signal else 0,
         "momentum_res_penalty"    : round(_safe(last.get("momentum_res_penalty", 0)), 1),
         "momentum_ema_penalty"    : round(_safe(last.get("momentum_ema_penalty", 0)), 1),
