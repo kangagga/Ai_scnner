@@ -128,10 +128,10 @@ def _chart_buttons(symbol: str) -> list:
     base = symbol[:-4] if symbol.endswith("USDT") else symbol
     tv_symbol = f"{base}USDT"
     tradingview_url = f"https://www.tradingview.com/symbols/{tv_symbol}/"
-    tokocrypto_url = f"https://www.tokocrypto.com/id/trade/{base}_USDT"
+    gateio_url = "https://www.gate.com/mobileapp/ref/VLEXULBAUG?ref_type=147"
     return [[
         {"text": "📈 TradingView", "url": tradingview_url},
-        {"text": "📊 Tokocrypto", "url": tokocrypto_url},
+        {"text": "📊 Gate.io", "url": gateio_url},
     ]]
 
 def _send_with_url_button(text: str, buttons: list) -> bool:
@@ -323,8 +323,9 @@ def format_signal(s: dict) -> str:
     # veto di main.py, supaya user tidak perlu menganalisa manual tiap kali muncul.
     _liq_score = s.get("liq_score", 5)
     _slippage  = s.get("slippage_est", 0)
-    if _liq_score < 5 or _slippage > 3.0:
-        alert_level = "⛔ LIQUIDITY BURUK — AKAN DIABAIKAN OTOMATIS"
+    _liq_buruk = _liq_score < 5 or _slippage > 3.0
+    if _liq_buruk:
+        alert_level = "⛔ LIQUIDITY BURUK — AKAN DIABAIKAN OTOMATIS"  # bisa diganti di bawah jadi label "potensial tinggi"
 
     bar = "█" * int(score / 10) + "░" * (10 - int(score / 10))
 
@@ -360,6 +361,19 @@ def format_signal(s: dict) -> str:
         wr_quality_tag = f"🟡(n={similar_cases})"
     else:
         wr_quality_tag = f"🔴(n={similar_cases}, sample kecil)"
+
+    # [FIX 2026-10-02] Sinyal diblok liquidity tapi secara analisa kuat di banyak
+    # sisi (score, R:R, volume, trend, dan win rate historis kalau datanya ada)
+    # diberi label terpisah -- tetap TIDAK dieksekusi otomatis (aturan liquidity
+    # tidak berubah), cuma supaya user tahu ini layak dipertimbangkan manual,
+    # bukan disamaratakan dengan sinyal lemah yang kebetulan juga liquiditynya buruk.
+    if '_liq_buruk' in dir() and _liq_buruk:
+        _rr = s.get("rr_ratio", 0)
+        _vol = s.get("volume_ratio", 0)
+        _adx = s.get("regime_adx", 0)
+        _wr_ok = True if (is_default or data_quality is None) else (win_rate >= 50)
+        if score >= 80 and _rr >= 2.5 and _vol >= 2.0 and _adx >= 20 and _wr_ok:
+            alert_level = "🌟 POTENSIAL TINGGI (liquidity buruk, tidak dieksekusi otomatis)"
 
     return (
         f"{'━'*30}\n"
