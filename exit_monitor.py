@@ -97,6 +97,7 @@ def add_trade(signal: dict):
             "lowest_price": signal.get("entry", 0),
             "opened_at": datetime.now().astimezone().isoformat(),
             "is_live": signal.get("is_live", False),
+            "position_size": signal.get("position_size", 25.0),
         }
 
         # [FIX 2026-09-21] PHASE 3: lookup trade_id untuk MAE/MFE tracking.
@@ -403,7 +404,7 @@ def check_exits(send_alert_fn):
                 f"💰 Entry  : {trade['entry']}\n"
                 f"🎯 Target : {target}\n"
                 f"📈 Harga  : {price}\n"
-                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round((LIVE_ACCOUNT_BALANCE * LIVE_LEVERAGE) * (pct_closed / 100.0) * pnl_pct / 100.0, 2)})\n"
+                f"{'🟢' if is_profit else '🔴'} PnL    : {'+' if pnl_pct > 0 else ''}{pnl_pct}% (${'+' if pnl_pct > 0 else ''}{round(trade.get('position_size', 25.0) * (LIVE_LEVERAGE if trade.get('is_live') else 1) * (pct_closed / 100.0) * pnl_pct / 100.0, 2)})\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 AI Signal Bot"
             )
