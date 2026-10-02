@@ -120,6 +120,21 @@ def check_pending_signals():
                 mark_status(pid, "INVALID")
                 continue
 
+            # [FIX 2026-10-02] Simetris dengan cek SL di atas: kalau harga sudah
+            # lewat TP1 SEBELUM sempat dikonfirmasi (bisa terjadi karena PENDING
+            # menunggu candle berikutnya, kadang berjam-jam), batalkan juga.
+            # Tanpa ini, trade dicatat seolah baru "dibuka" di entry lama padahal
+            # pergerakan profitnya sudah terjadi duluan selama menunggu -- membuat
+            # paper trading terlihat langsung TP begitu "dibuka", dan statistik
+            # win rate jadi tidak realistis (profit yang tidak pernah benar-benar
+            # diikuti dari entry).
+            tp1 = sig.get("tp1", 0)
+            overshoot_tp1 = tp1 > 0 and ((is_buy and price >= tp1) or (not is_buy and price <= tp1))
+            if overshoot_tp1:
+                logger.info(f"[PENDING->INVALID] {symbol}/{timeframe} {orig_signal}: harga sudah lewat TP1 sebelum sempat konfirmasi ({price} vs tp1={tp1}), momentum sudah lewat")
+                mark_status(pid, "INVALID")
+                continue
+
             # Confirmed kalau harga sudah bergerak searah (continuation terbukti)
             moved_favorable = (price > entry) if is_buy else (price < entry)
             if moved_favorable:

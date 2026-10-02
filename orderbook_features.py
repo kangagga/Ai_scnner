@@ -175,3 +175,93 @@ def ob_score_adjustment(ob_features: dict, signal: str) -> int:
     if spread > 0.5:  adj -= 5  # sangat illiquid
 
     return max(-10, min(10, adj))
+
+
+def _fetch_orderbook_futures(symbol: str, depth: int = 20) -> dict:
+    """Order book FUTURES mainnet (baca data publik saja, tidak butuh API key).
+    [ADD 2026-10-02] Dipakai untuk liquidity check yang lebih akurat untuk
+    keputusan eksekusi FUTURES -- sebelumnya liquidity_filter.py cuma pakai
+    order book SPOT, padahal keputusan veto/skor liquiditynya untuk futures.
+    Format response beda dari spot: list of dict {'p': harga, 's': ukuran},
+    bukan list of list [harga, ukuran]."""
+    key = f"ob_fut_{symbol}"
+    now = time.time()
+    with _CACHE_LOCK:
+        if key in _CACHE and now - _CACHE[key]["ts"] < _CACHE_TTL:
+            return _CACHE[key]["data"]
+    try:
+        r = requests.get(f"{_BASE}/futures/usdt/order_book",
+                          params={"contract": symbol, "limit": depth},
+                          timeout=4)
+        if r.status_code == 200:
+            data = r.json()
+            with _CACHE_LOCK:
+                _CACHE[key] = {"ts": now, "data": data}
+            return data
+    except requests.RequestException as e:
+        logger.warning(f"[orderbook_features] Gagal fetch orderbook futures {symbol}: {e}")
+    except (KeyError, ValueError) as e:
+        logger.warning(f"[orderbook_features] Response futures tidak valid untuk {symbol}: {e}")
+    return {}
+
+
+def get_orderbook_features_futures(symbol: str) -> dict:
+    """Sama seperti get_orderbook_features(), tapi dari order book FUTURES
+    mainnet, bukan spot. Dipakai liquidity_filter.py untuk estimasi liquidity
+    yang sesuai instrumen yang benar-benar dieksekusi (futures)."""
+    result = {
+        "ob_imbalance"  : 0.0,
+        "ob_spread_pct" : 0.0,
+        "ob_liquidity"  : 0.0,
+        "ob_bid_wall"   : False,
+        "ob_ask_wall"   : False,
+        "ob_pressure"   : "NEUTRAL",
+    }
+
+    symbol_gate = symbol.replace("USDT", "_USDT") if "_" not in symbol else symbol
+    ob = _fetch_orderbook_futures(symbol_gate, depth=20)
+    if not ob:
+        return result
+
+    bids = ob.get("bids", [])
+    asks = ob.get("asks", [])
+    if not bids or not asks:
+        return result
+
+    # Format futures: [{'p': '2731.95', 's': '48591'}, ...]
+    try:
+        bid_vol = sum(float(b["s"]) for b in bids)
+        ask_vol = sum(float(a["s"]) for a in asks)
+    except (KeyError, ValueError, TypeError) as e:
+        logger.warning(f"[orderbook_features] Gagal parse orderbook futures {symbol}: {e}")
+        return result
+    total = bid_vol + ask_vol
+
+    if total > 0:
+        result["ob_imbalance"] = round((bid_vol - ask_vol) / total, 3)
+
+    try:
+        best_bid = float(bids[0]["p"])
+        best_ask = float(asks[0]["p"])
+    except (KeyError, ValueError, TypeError):
+        return result
+    mid = (best_bid + best_ask) / 2
+    if mid > 0:
+        result["ob_spread_pct"] = round((best_ask - best_bid) / mid * 100, 4)
+
+    result["ob_liquidity"] = round(total, 2)
+
+    avg_bid = bid_vol / len(bids) if bids else 0
+    avg_ask = ask_vol / len(asks) if asks else 0
+    result["ob_bid_wall"] = any(float(b["s"]) > avg_bid * 3 for b in bids[:5])
+    result["ob_ask_wall"] = any(float(a["s"]) > avg_ask * 3 for a in asks[:5])
+
+    imb = result["ob_imbalance"]
+    if imb >= 0.15:
+        result["ob_pressure"] = "BUY"
+    elif imb <= -0.15:
+        result["ob_pressure"] = "SELL"
+    else:
+        result["ob_pressure"] = "NEUTRAL"
+
+    return result
