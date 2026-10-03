@@ -390,6 +390,11 @@ def format_signal(s: dict) -> str:
         )
     except Exception:
         label_block = ""
+    try:
+        from bitget_check import get_bitget_line
+        label_block += get_bitget_line(s)
+    except Exception:
+        pass
 
     return (
         f"{'━'*30}\n"

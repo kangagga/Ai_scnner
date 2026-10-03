@@ -90,7 +90,7 @@ def get_balance():
     conn.close()
     return {"balance": row[0], "peak": row[1], "total": row[2], "wins": row[3], "losses": row[4]}
 
-def add_virtual_trade(signal: dict):
+def _add_virtual_trade_orig(signal: dict):
     """Tambah trade virtual saat sinyal masuk"""
     init_virtual_db()
     conn = sqlite3.connect(VIRTUAL_DB)
@@ -350,3 +350,38 @@ if __name__ == "__main__":
     logger.info(f"[VT] Profit: ${s['profit']:.2f} ({s['profit_pct']}%)")
     logger.info(f"[VT] Win Rate: {s['wr']}%")
     logger.info(f"[VT] Total trades: {s['total']}")
+
+
+
+def add_virtual_trade(signal: dict):
+    """Pembungkus: panggil fungsi asli, lalu simpan label Setup + indikator."""
+    mx = None
+    try:
+        _c = sqlite3.connect(VIRTUAL_DB)
+        mx = _c.execute("SELECT COALESCE(MAX(id),0) FROM virtual_trades").fetchone()[0]
+        _c.close()
+    except Exception:
+        pass
+    result = _add_virtual_trade_orig(signal)
+    try:
+        if mx is None:
+            return result
+        from setup_classifier import get_setup_label
+        st = get_setup_label(signal)
+        conn = sqlite3.connect(VIRTUAL_DB)
+        have = [r[1] for r in conn.execute("PRAGMA table_info(virtual_trades)")]
+        for col, typ in [("setup_label", "TEXT"), ("adx", "REAL"), ("rsi", "REAL"),
+                         ("volume_ratio", "REAL"), ("macd_hist", "REAL"), ("rr_ratio", "REAL")]:
+            if col not in have:
+                conn.execute(f"ALTER TABLE virtual_trades ADD COLUMN {col} {typ}")
+        conn.execute(
+            "UPDATE virtual_trades SET setup_label=?, adx=?, rsi=?, volume_ratio=?, macd_hist=?, rr_ratio=? "
+            "WHERE id>? AND symbol=? AND closed=0",
+            (st["setup_label"], signal.get("regime_adx", signal.get("adx", 0)), signal.get("rsi", 0),
+             signal.get("volume_ratio", 0), signal.get("macd_hist", 0), signal.get("rr_ratio", 0),
+             mx, signal.get("symbol")))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"[LABEL_SAVE] gagal simpan label: {e}")
+    return result
