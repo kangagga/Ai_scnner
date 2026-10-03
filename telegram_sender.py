@@ -391,8 +391,30 @@ def format_signal(s: dict) -> str:
     except Exception:
         label_block = ""
     try:
+        from momentum_meter import get_momentum_meter
+        _mm = get_momentum_meter(s)
+        label_block += (
+            f"🚀 Momentum : {_mm['momentum_bar']} {_mm['momentum_level']}/100 "
+            f"({_mm['momentum_level_label']}) | {_mm['momentum_trend_emoji']} {_mm['momentum_trend']}"
+            f"{' ⚡' if _mm['momentum_spike'] else ''}\n"
+        )
+    except Exception:
+        pass
+    try:
         from bitget_check import get_bitget_line
-        label_block += get_bitget_line(s)
+        _bg = get_bitget_line(s)
+        label_block += _bg
+        try:
+            _strong = _st['setup_emoji'] in ('🟢', '🌟')
+            _gate_bad = _ex['execution_emoji'] in ('🔴', '🟠')
+            _bg_ok = ('✅' in _bg) or ('⚠' in _bg)
+            if _strong and _gate_bad:
+                if _bg_ok:
+                    label_block += "ℹ️ Gate tidak layak, tapi Bitget layak untuk manual entry\n"
+                else:
+                    label_block += "ℹ️ Tidak ada tempat eksekusi yang layak\n"
+        except Exception:
+            pass
     except Exception:
         pass
 

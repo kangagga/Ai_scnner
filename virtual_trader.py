@@ -384,4 +384,23 @@ def add_virtual_trade(signal: dict):
         conn.close()
     except Exception as e:
         logger.warning(f"[LABEL_SAVE] gagal simpan label: {e}")
+    try:
+        if mx is not None:
+            from momentum_meter import get_momentum_meter
+            mm = get_momentum_meter(signal)
+            conn = sqlite3.connect(VIRTUAL_DB)
+            have = [r[1] for r in conn.execute("PRAGMA table_info(virtual_trades)")]
+            for col, typ in [("momentum_level", "INTEGER"), ("momentum_trend", "TEXT"),
+                             ("momentum_spike", "INTEGER")]:
+                if col not in have:
+                    conn.execute(f"ALTER TABLE virtual_trades ADD COLUMN {col} {typ}")
+            conn.execute(
+                "UPDATE virtual_trades SET momentum_level=?, momentum_trend=?, momentum_spike=? "
+                "WHERE id>? AND symbol=? AND closed=0",
+                (mm["momentum_level"], mm["momentum_trend"], int(mm["momentum_spike"]),
+                 mx, signal.get("symbol")))
+            conn.commit()
+            conn.close()
+    except Exception as e:
+        logger.warning(f"[MOMENTUM_SAVE] gagal simpan momentum: {e}")
     return result
