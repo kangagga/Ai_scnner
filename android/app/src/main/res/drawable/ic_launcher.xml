@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background -->
+    <path
+        android:fillColor="#0B1220"
+        android:pathData="M0,0h108v108h-108z" />
+    <!-- Rounded inner panel -->
+    <path
+        android:fillColor="#16233B"
+        android:pathData="M24,24h60a6,6 0 0 1 6,6v48a6,6 0 0 1 -6,6h-60a6,6 0 0 1 -6,-6v-48a6,6 0 0 1 6,-6z" />
+    <!-- Scan beam line (green) -->
+    <path
+        android:strokeColor="#00C48C"
+        android:strokeWidth="4"
+        android:pathData="M34,46h40" />
+    <!-- Upper brackets (blue) -->
+    <path
+        android:strokeColor="#4D9FFF"
+        android:strokeWidth="4"
+        android:pathData="M38,36h14M56,36h14" />
+    <!-- Lower brackets (purple) -->
+    <path
+        android:strokeColor="#7B5CF0"
+        android:strokeWidth="4"
+        android:pathData="M38,62h14M56,62h14" />
+    <!-- Center dot (green) -->
+    <path
+        android:fillColor="#00C48C"
+        android:pathData="M52,50a2,2 0 1 0 4,0a2,2 0 1 0 -4,0" />
+</vector>

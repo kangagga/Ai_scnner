@@ -1,0 +1,15 @@
+# Android build artifacts
+build/
+.gradle/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local machine-specific config (never commit)
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store

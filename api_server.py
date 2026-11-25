@@ -337,3 +337,347 @@ def api_market_regime():
     except Exception as e:
         logger.warning(f"[API] api_market_regime error: {e}")
         return jsonify({"regime": "NEUTRAL", "trend_raw": "NEUTRAL", "fear_greed_value": 50})
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# ENDPOINT AI SCANNER ANDROID — READ-ONLY + KONTROL AMAN
+# ═══════════════════════════════════════════════════════════════════════
+# Ditambahkan untuk aplikasi Android "AI SCANNER — Full Trading Command Center".
+# Semua endpoint READ-ONLY hanya membaca state/database yang sudah ada — tidak
+# mengubah logic trading/risk. Endpoint KONTROL hanya mengubah flag aman di
+# risk_manager (paused / trading_halted) yang memang sudah dipakai engine untuk
+# memblokir trade baru, wajib header X-API-Key, dan dicatat ke audit_log/.
+# ═══════════════════════════════════════════════════════════════════════
+
+from flask import request as _flask_request
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+_WIB2 = _tz(_td(hours=7))
+
+# Kunci kontrol HANYA dari environment. TIDAK ada fallback bawaan.
+# Jika AI_SCANNER_API_KEY tidak dikonfigurasi, semua endpoint kontrol
+# menolak permintaan dengan status 503 (lihat _control_auth).
+_CONTROL_KEY = _os.environ.get("AI_SCANNER_API_KEY", "").strip()
+_CONTROL_KEY_CONFIGURED = bool(_CONTROL_KEY)
+
+
+def _audit_control(action: str, detail: str = ""):
+    try:
+        audit_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "audit_log")
+        _os.makedirs(audit_dir, exist_ok=True)
+        path = _os.path.join(audit_dir, "app_control.log")
+        line = f"{_dt.now(_WIB2).isoformat()} | {action} | {detail}\n"
+        with open(path, "a") as f:
+            f.write(line)
+    except Exception:
+        pass
+
+
+def _control_auth():
+    """Autentikasi endpoint kontrol.
+
+    Returns (ok, status_code, message).
+    - Key belum dikonfigurasi di server -> 503 (tolak semua).
+    - Key salah / tidak ada -> 401.
+    - Key benar -> (True, 200, "").
+    Key TIDAK pernah dicetak ke log.
+    """
+    if not _CONTROL_KEY_CONFIGURED:
+        return False, 503, "control key not configured on server"
+    key = _flask_request.headers.get("X-API-Key", "")
+    if key != _CONTROL_KEY:
+        return False, 401, "unauthorized"
+    return True, 200, ""
+
+
+def _get_risk_state():
+    try:
+        from risk_manager import get_risk_status
+        return get_risk_status(), None
+    except Exception as e:
+        return {}, str(e)
+
+
+@app.route("/api/bot/status")
+def api_bot_status():
+    risk, err = _get_risk_state()
+    try:
+        from config import BITGET_MIRROR
+    except Exception:
+        BITGET_MIRROR = False
+    return jsonify({
+        "mode": "PAPER TRADING",
+        "mirror_enabled": bool(BITGET_MIRROR),
+        "running": True,
+        "connected": True,
+        "last_scan": _dashboard_data.get("last_scan"),
+        "bot_start": _dashboard_data.get("bot_start"),
+        "health": risk.get("health", "🟢 HEALTHY"),
+        "balance": risk.get("balance", 0),
+        "peak_balance": risk.get("peak_balance", 0),
+        "drawdown_pct": risk.get("drawdown_pct", 0),
+        "open_positions": risk.get("open_positions", 0),
+        "total_trades": risk.get("total_trades", 0),
+        "paused": bool(risk.get("trading_halted", False)),
+        "halt_reason": risk.get("halt_reason", ""),
+        "error": err,
+    })
+
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    risk, err = _get_risk_state()
+    try:
+        from config import BITGET_MIRROR
+    except Exception:
+        BITGET_MIRROR = False
+
+    result = {
+        "bot": {
+            "mode": "PAPER TRADING",
+            "mirror_enabled": bool(BITGET_MIRROR),
+            "running": True,
+            "connected": True,
+            "last_scan": _dashboard_data.get("last_scan"),
+            "health": risk.get("health", "🟢 HEALTHY"),
+            "paused": bool(risk.get("trading_halted", False)),
+            "halt_reason": risk.get("halt_reason", ""),
+        },
+        "portfolio": {
+            "balance": risk.get("balance", 0),
+            "peak_balance": risk.get("peak_balance", 0),
+            "drawdown_pct": risk.get("drawdown_pct", 0),
+            "daily_pnl": risk.get("daily_pnl", 0),
+            "daily_pnl_pct": risk.get("daily_pnl_pct", 0),
+            "portfolio_heat": risk.get("portfolio_heat", 0),
+            "consecutive_loss": risk.get("consecutive_loss", 0),
+            "trading_halted": risk.get("trading_halted", False),
+            "open_positions": risk.get("open_positions", 0),
+            "max_positions": risk.get("max_positions", 5),
+            "total_trades": risk.get("total_trades", 0),
+        },
+        "performance": {
+            "total_trades": 0, "wins": 0, "losses": 0,
+            "win_rate": 0.0, "total_pnl_usd": 0.0, "profit_factor": 0.0,
+            "equity_curve": [], "pnl_pct_7d": 0.0,
+        },
+        "signals": {
+            "total": _dashboard_data.get("stats", {}).get("total", 0),
+            "buy": _dashboard_data.get("stats", {}).get("buy", 0),
+            "sell": _dashboard_data.get("stats", {}).get("sell", 0),
+            "avg_wr": _dashboard_data.get("stats", {}).get("avg_wr", 0.0),
+            "avg_score": _dashboard_data.get("stats", {}).get("avg_score", 0.0),
+        },
+        "error": err,
+    }
+
+    # Performance dari virtual_trading.db
+    try:
+        conn = _sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True, timeout=5)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT COUNT(*),
+                   SUM(CASE WHEN result='WIN' THEN 1 ELSE 0 END),
+                   SUM(CASE WHEN result='LOSS' THEN 1 ELSE 0 END),
+                   SUM(pnl_usdt),
+                   SUM(CASE WHEN pnl_usdt>0 THEN pnl_usdt ELSE 0 END),
+                   SUM(CASE WHEN pnl_usdt<0 THEN ABS(pnl_usdt) ELSE 0 END)
+            FROM virtual_trades WHERE closed=1
+        """)
+        row = cur.fetchone()
+        total, wins, losses, total_pnl, gp, gl = row
+        total = total or 0; wins = wins or 0; losses = losses or 0
+        total_pnl = total_pnl or 0.0; gp = gp or 0.0; gl = gl or 0.0
+        wr = round(wins / total * 100, 1) if total > 0 else 0.0
+        pf = round(gp / gl, 2) if gl > 0 else (round(gp, 2) if gp > 0 else 0.0)
+        cutoff = (_dt.now(_WIB2) - _td(days=7)).isoformat()
+        cur.execute("""
+            SELECT closed_at, balance_after FROM virtual_trades
+            WHERE closed=1 AND closed_at>=? ORDER BY closed_at ASC
+        """, (cutoff,))
+        curve = [{"time": r[0], "balance": r[1]} for r in cur.fetchall() if r[1] is not None]
+        conn.close()
+        pct = 0.0
+        if curve:
+            s0, s1 = curve[0]["balance"], curve[-1]["balance"]
+            if s0:
+                pct = round((s1 - s0) / s0 * 100, 2)
+        result["performance"] = {
+            "total_trades": total, "wins": wins, "losses": losses,
+            "win_rate": wr, "total_pnl_usd": round(total_pnl, 2),
+            "profit_factor": pf, "equity_curve": curve, "pnl_pct_7d": pct,
+        }
+    except Exception as e:
+        result["performance"]["error"] = str(e)
+
+    return jsonify(result)
+
+
+@app.route("/api/trades")
+def api_trades():
+    """Jurnal trading virtual (trades closed) dari virtual_trading.db."""
+    if not _os.path.exists(_DB_PATH):
+        return jsonify({"trades": [], "total": 0, "note": "database belum tersedia"})
+    try:
+        conn = _sqlite3.connect(f"file:{_DB_PATH}?mode=ro", uri=True, timeout=5)
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(virtual_trades)")
+        cols = [r[1] for r in cur.fetchall()]
+        wanted = ["id","timestamp","symbol","signal","entry","sl","tp1","tp2",
+                  "tp3","exit_price","pnl_pct","pnl_usd","result","balance_after",
+                  "timeframe","closed","closed_at","fees","duration_min",
+                  "entry_reason","exit_reason","strategy"]
+        sel = [c for c in wanted if c in cols]
+        if not sel:
+            conn.close()
+            return jsonify({"trades": [], "total": 0})
+        q = "SELECT " + ", ".join(sel) + " FROM virtual_trades ORDER BY id DESC LIMIT 200"
+        cur.execute(q)
+        rows = cur.fetchall()
+        conn.close()
+        trades = []
+        for r in rows:
+            d = dict(zip(sel, r))
+            trades.append({
+                "id": d.get("id"),
+                "pair": d.get("symbol"),
+                "timeframe": d.get("timeframe"),
+                "signal": d.get("signal"),
+                "entry": d.get("entry"),
+                "sl": d.get("sl"),
+                "tp1": d.get("tp1"),
+                "tp2": d.get("tp2"),
+                "tp3": d.get("tp3"),
+                "exit_price": d.get("exit_price"),
+                "pnl_pct": d.get("pnl_pct"),
+                "pnl_usd": d.get("pnl_usd"),
+                "result": d.get("result"),
+                "balance_after": d.get("balance_after"),
+                "opened_at": d.get("timestamp"),
+                "closed_at": d.get("closed_at"),
+                "fees": d.get("fees", 0),
+                "duration_min": d.get("duration_min"),
+                "entry_reason": d.get("entry_reason", ""),
+                "exit_reason": d.get("exit_reason", ""),
+                "strategy": d.get("strategy", d.get("signal", "")),
+            })
+        return jsonify({"trades": trades, "total": len(trades)})
+    except Exception as e:
+        return jsonify({"error": str(e), "trades": [], "total": 0}), 500
+
+
+@app.route("/api/market-analysis")
+def api_market_analysis():
+    """Analisis market real (regime, BTC trend, fear&greed) + penjelasan AI."""
+    try:
+        from market_context import get_market_context
+        ctx = get_market_context()
+    except Exception as e:
+        ctx = {"error": str(e)}
+
+    btc = ctx.get("btc_trend", {}) if isinstance(ctx.get("btc_trend"), dict) else {}
+    fg = ctx.get("fear_greed", {}) if isinstance(ctx.get("fear_greed"), dict) else {}
+    overall = ctx.get("overall", "NEUTRAL")
+
+    ai_text = ""
+    try:
+        from ai_analyst import analyse_market_sentiment
+        sigs = _dashboard_data.get("signals", [])
+        if sigs:
+            ai_text = analyse_market_sentiment(sigs)
+    except Exception:
+        ai_text = ""
+
+    return jsonify({
+        "regime": overall,
+        "bullish": overall == "BULLISH",
+        "bearish": overall == "BEARISH",
+        "sideways": overall == "NEUTRAL",
+        "btc_trend": btc.get("trend", "N/A"),
+        "btc_strength": btc.get("strength", "N/A"),
+        "btc_price": btc.get("price", 0),
+        "btc_adx": btc.get("adx", 0),
+        "fear_greed_value": fg.get("value", 50),
+        "fear_greed_label": fg.get("label", "Neutral"),
+        "allow_buy": ctx.get("allow_buy", True),
+        "allow_sell": ctx.get("allow_sell", True),
+        "summary": ctx.get("summary", ""),
+        "ai_explanation": ai_text,
+        "error": ctx.get("error"),
+    })
+
+
+@app.route("/api/risk/status")
+def api_risk_status():
+    risk, err = _get_risk_state()
+    return jsonify({
+        "health": risk.get("health", "🟢 HEALTHY"),
+        "balance": risk.get("balance", 0),
+        "peak_balance": risk.get("peak_balance", 0),
+        "drawdown_pct": risk.get("drawdown_pct", 0),
+        "daily_pnl": risk.get("daily_pnl", 0),
+        "daily_pnl_pct": risk.get("daily_pnl_pct", 0),
+        "portfolio_heat": risk.get("portfolio_heat", 0),
+        "consecutive_loss": risk.get("consecutive_loss", 0),
+        "trading_halted": risk.get("trading_halted", False),
+        "halt_reason": risk.get("halt_reason", ""),
+        "open_positions": risk.get("open_positions", 0),
+        "max_positions": risk.get("max_positions", 5),
+        "total_trades": risk.get("total_trades", 0),
+        "limits": {
+            "max_drawdown_pct": 15.0,
+            "max_daily_loss_pct": 5.0,
+            "max_heat_pct": 20.0,
+            "max_consecutive_loss": 6,
+        },
+        "error": err,
+    })
+
+
+def _control_action(action: str):
+    try:
+        from risk_manager import _state, resume_trading
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    if action == "pause":
+        with _state._lock:
+            _state.trading_halted = True
+            _state.halt_reason = "DIJEDA melalui aplikasi AI Scanner"
+            _state.save()
+    elif action == "resume":
+        resume_trading(manual=True)
+    elif action == "emergency":
+        with _state._lock:
+            _state.trading_halted = True
+            _state.halt_reason = "EMERGENCY STOP melalui aplikasi AI Scanner"
+            _state.save()
+    else:
+        return jsonify({"ok": False, "error": "unknown action"}), 400
+
+    _audit_control(action, f"ip={_flask_request.remote_addr}")
+    return jsonify({"ok": True, "action": action})
+
+
+@app.route("/api/bot/pause", methods=["POST"])
+def api_bot_pause():
+    ok, code, msg = _control_auth()
+    if not ok:
+        return jsonify({"ok": False, "error": msg}), code
+    return _control_action("pause")
+
+
+@app.route("/api/bot/resume", methods=["POST"])
+def api_bot_resume():
+    ok, code, msg = _control_auth()
+    if not ok:
+        return jsonify({"ok": False, "error": msg}), code
+    return _control_action("resume")
+
+
+@app.route("/api/bot/emergency-stop", methods=["POST"])
+def api_bot_emergency():
+    ok, code, msg = _control_auth()
+    if not ok:
+        return jsonify({"ok": False, "error": msg}), code
+    return _control_action("emergency")

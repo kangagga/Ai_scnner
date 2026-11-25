@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kebijakan keamanan jaringan untuk AI SCANNER.
+
+  - base-config: cleartext (HTTP) DILARANG untuk semua host secara default.
+    Artinya akses jarak jauh / publik WAJIB menggunakan HTTPS.
+  - domain-config: cleartext HANYA diizinkan untuk host pengembangan lokal:
+      * localhost / 127.0.0.1 (loopback)
+      * 10.0.2.2 (host mesin dari emulator Android)
+    Untuk perangkat fisik di LAN yang sama, gunakan HTTPS, atau tambahkan
+    IP LAN tersebut ke daftar domain-config di bawah ini.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
