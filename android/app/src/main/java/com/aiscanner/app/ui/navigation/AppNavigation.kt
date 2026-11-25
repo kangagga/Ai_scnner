@@ -82,7 +82,7 @@ fun AppNavigation() {
             if (showBottomBar) {
                 NavigationBar(containerColor = NavySurface) {
                     BottomNavItem.entries.forEach { item ->
-                        val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
+                        val selected = currentDestination?.route == item.route
                         NavigationBarItem(
                             selected = selected,
                             onClick = {

@@ -25,7 +25,7 @@ class AIScannerRepository(
     private val signalDao: SignalDao
 ) {
 
-    private fun <T> safeCall(block: suspend (ApiService) -> T): ApiResult<T> {
+    private suspend fun <T> safeCall(block: suspend (ApiService) -> T): ApiResult<T> {
         return try {
             ApiResult.Success(block(apiProvider()))
         } catch (e: IOException) {

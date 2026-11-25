@@ -60,8 +60,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
 
     // Charts (Vico)
-    implementation("com.patrykandpatrick.vico:compose:1.15.0")
-    implementation("com.patrykandpatrick.vico:compose-m3:1.15.0")
+    implementation("com.patrykandpatrick.vico:compose:2.0.0")
+    implementation("com.patrykandpatrick.vico:compose-m3:2.0.0")
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")

@@ -32,6 +32,7 @@ import com.aiscanner.app.ui.components.StatCard
 import com.aiscanner.app.ui.components.StatusBanner
 import com.aiscanner.app.ui.screens.UiState
 import com.aiscanner.app.ui.theme.AmberWarn
+import com.aiscanner.app.ui.theme.BluePrimary
 import com.aiscanner.app.ui.theme.GreenPrimary
 import com.aiscanner.app.ui.theme.NavyCard
 import com.aiscanner.app.ui.theme.PurplePrimary

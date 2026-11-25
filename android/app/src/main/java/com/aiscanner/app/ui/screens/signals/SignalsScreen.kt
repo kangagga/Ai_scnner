@@ -5,6 +5,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -209,7 +210,7 @@ private fun SignalCard(s: Signal) {
 }
 
 @Composable
-private fun DetailCell(label: String, value: String) {
+private fun RowScope.DetailCell(label: String, value: String) {
     Column(Modifier.weight(1f)) {
         Text(
             text = label,
