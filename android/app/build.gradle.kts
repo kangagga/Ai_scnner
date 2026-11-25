@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.aiscanner.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.aiscanner.app"
