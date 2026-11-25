@@ -54,10 +54,13 @@ dependencies {
 
     // Network
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.retrofit2:converter-scalars:2.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0")
+
+    // Desugaring Java 17 features
+    implementation("com.android.tools:desugar_jdk_libs:1.2.3")
 
     // Charts (Vico)
     implementation("com.patrykandpatrick.vico:compose:2.0.0")

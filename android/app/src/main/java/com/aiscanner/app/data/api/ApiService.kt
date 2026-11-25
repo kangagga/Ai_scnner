@@ -1,38 +1,50 @@
 package com.aiscanner.app.data.api
 
+import com.aiscanner.app.data.model.Signal
+import retrofit2.GET
 import retrofit2.http.GET
-import retrofit2.http.Header
-import retrofit2.http.POST
+import java.util.Map
 
 interface ApiService {
+    @GET("api/health")
+    suspend fun health(): ApiResponse.Health
 
-    @GET("/api/health")
-    suspend fun health(): HealthResponse
+    @GET("api/status")
+    suspend fun status(): ApiResponse.Status
 
-    @GET("/api/bot/status")
-    suspend fun botStatus(): BotStatus
-
-    @GET("/api/dashboard")
-    suspend fun dashboard(): DashboardResponse
-
-    @GET("/api/signals")
+    @GET("api/signals")
     suspend fun signals(): List<Signal>
 
-    @GET("/api/trades")
-    suspend fun trades(): TradesResponse
-
-    @GET("/api/market-analysis")
-    suspend fun marketAnalysis(): MarketAnalysis
-
-    @GET("/api/risk/status")
-    suspend fun riskStatus(): RiskStatus
-
-    @POST("/api/bot/pause")
-    suspend fun pause(@Header("X-API-Key") key: String): ControlResult
-
-    @POST("/api/bot/resume")
-    suspend fun resume(@Header("X-API-Key") key: String): ControlResult
-
-    @POST("/api/bot/emergency-stop")
-    suspend fun emergencyStop(@Header("X-API-Key") key: String): ControlResult
+    data class ApiResponse {
+        data class Health(val ok: Boolean, val time: String)
+        data class Status(
+            val bot_start: String?,
+            val config: Map<String, Any>?,
+            val cooldowns: Map<String, Any>?,
+            val last_scan: String?,
+            val logs: List<LogItem>?,
+            val scan_progress: ScanProgress?,
+            val stats: Stats?,
+            val bot: BotStatus?
+        )
+        data class LogItem(val icon: String, val message: String, val time: String)
+        data class ScanProgress(val pct: Float, val current: String, val done: Int, val total: Int)
+        data class Stats(val total: Int, val buy: Int, val sell: Int, val avg_wr: Float, val avg_score: Float)
+        data class BotStatus(
+            val mode: String,
+            val mirror_enabled: Boolean,
+            val running: Boolean,
+            val connected: Boolean,
+            val last_scan: String?,
+            val bot_start: String?,
+            val health: String?,
+            val balance: Int?,
+            val peak_balance: Int?,
+            val drawdown_pct: Float?,
+            val open_positions: Int?,
+            val total_trades: Int?,
+            val paused: Boolean?,
+            val halt_reason: String?
+        )
+    }
 }
