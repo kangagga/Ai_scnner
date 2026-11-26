@@ -1,31 +1,27 @@
 name: Build Android APK
 
+# Hanya manual: push/PR TIDAK memicu build (hemat kuota Actions).
 on:
-  push:
-    branches: [main, eksperimen-ai]
-    paths:
-      - 'android/**'
-  pull_request:
-    branches: [main, eksperimen-ai]
-    paths:
-      - 'android/**'
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Jenis build"
+        type: choice
+        options: [release, debug]
+        default: release
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
 
       - name: Grant execute permission to gradlew
         run: chmod +x android/gradlew
@@ -34,13 +30,18 @@ jobs:
         working-directory: android
         run: ./gradlew compileDebugKotlin --no-daemon
 
-      - name: Build debug APK
+      - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          if [ "${{ inputs.build_type }}" = "release" ]; then
+            ./gradlew assembleRelease --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-scanner-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
+          name: ai-scanner-${{ inputs.build_type }}-apk
+          path: android/app/build/outputs/apk/${{ inputs.build_type }}/*.apk
           if-no-files-found: error
