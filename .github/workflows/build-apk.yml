@@ -30,6 +30,10 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x android/gradlew
 
+      - name: Kotlin compile check
+        working-directory: android
+        run: ./gradlew compileDebugKotlin --no-daemon
+
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon

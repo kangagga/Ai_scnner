@@ -2,15 +2,12 @@ package com.aiscanner.app.data.repository
 
 import com.aiscanner.app.data.api.ApiService
 import com.aiscanner.app.data.api.BotStatus
-import com.aiscanner.app.data.api.ControlResult
 import com.aiscanner.app.data.api.DashboardResponse
 import com.aiscanner.app.data.api.MarketAnalysis
 import com.aiscanner.app.data.api.RiskStatus
 import com.aiscanner.app.data.api.Signal
 import com.aiscanner.app.data.api.TradesResponse
 import com.aiscanner.app.data.local.SignalDao
-import com.aiscanner.app.data.local.toEntity
-import com.aiscanner.app.data.local.toSignal
 import java.io.IOException
 import retrofit2.HttpException
 
@@ -22,56 +19,36 @@ sealed class ApiResult<out T> {
 
 class AIScannerRepository(
     private val apiProvider: () -> ApiService,
-    private val signalDao: SignalDao
+    @Suppress("unused") private val signalDao: SignalDao
 ) {
-
-    private suspend fun <T> safeCall(block: suspend (ApiService) -> T): ApiResult<T> {
-        return try {
-            ApiResult.Success(block(apiProvider()))
-        } catch (e: IOException) {
-            ApiResult.Error("Tidak terhubung ke server bot", disconnected = true)
-        } catch (e: HttpException) {
-            ApiResult.Error("Server error ${e.code()}")
-        } catch (e: Exception) {
-            ApiResult.Error(e.message ?: "Error tidak diketahui")
-        }
+    private suspend fun <T> safeCall(block: suspend (ApiService) -> T): ApiResult<T> = try {
+        ApiResult.Success(block(apiProvider()))
+    } catch (e: IOException) {
+        ApiResult.Error("Tidak terhubung ke server bot", disconnected = true)
+    } catch (e: HttpException) {
+        ApiResult.Error("Server error ${e.code()}")
+    } catch (e: Exception) {
+        ApiResult.Error(e.message ?: "Error tidak diketahui")
     }
 
-    suspend fun getDashboard(): ApiResult<DashboardResponse> = safeCall { it.dashboard() }
+    suspend fun getHealth() = safeCall { it.health() }
+    suspend fun getStatus() = safeCall { it.status() }
+    suspend fun getRiskStatus(): ApiResult<RiskStatus> = safeCall { it.portfolio() }
+    suspend fun getMarketAnalysis(): ApiResult<MarketAnalysis> = safeCall { it.marketRegime() }
 
-    suspend fun getBotStatus(): ApiResult<BotStatus> = safeCall { it.botStatus() }
-
-    suspend fun getSignals(): ApiResult<List<Signal>> {
-        return try {
-            val remote = apiProvider().signals()
-            runCatching {
-                signalDao.clear()
-                signalDao.insertAll(remote.map { it.toEntity() })
-            }
-            ApiResult.Success(remote)
-        } catch (e: IOException) {
-            val cached = runCatching { signalDao.getAll() }.getOrNull()
-            if (!cached.isNullOrEmpty()) {
-                ApiResult.Success(cached.map { it.toSignal() })
-            } else {
-                ApiResult.Error("Tidak terhubung ke server bot", disconnected = true)
-            }
-        } catch (e: HttpException) {
-            ApiResult.Error("Server error ${e.code()}")
-        } catch (e: Exception) {
-            ApiResult.Error(e.message ?: "Error tidak diketahui")
+    /** Terbaru di atas. Gagal = Error (bukan list kosong), tanpa data cache palsu. */
+    suspend fun getSignals(): ApiResult<List<Signal>> =
+        when (val r = safeCall { it.signals() }) {
+            is ApiResult.Success -> ApiResult.Success(r.data.sortedByDescending { it.timestamp ?: "" })
+            is ApiResult.Error -> r
+            ApiResult.Loading -> ApiResult.Loading
         }
-    }
 
-    suspend fun getTrades(): ApiResult<TradesResponse> = safeCall { it.trades() }
-
-    suspend fun getMarketAnalysis(): ApiResult<MarketAnalysis> = safeCall { it.marketAnalysis() }
-
-    suspend fun getRiskStatus(): ApiResult<RiskStatus> = safeCall { it.riskStatus() }
-
-    suspend fun pauseBot(key: String): ApiResult<ControlResult> = safeCall { it.pause(key) }
-
-    suspend fun resumeBot(key: String): ApiResult<ControlResult> = safeCall { it.resume(key) }
-
-    suspend fun emergencyStop(key: String): ApiResult<ControlResult> = safeCall { it.emergencyStop(key) }
+    // Belum ada endpoint backend untuk ini: jujur "tidak tersedia".
+    suspend fun getTrades(): ApiResult<TradesResponse> =
+        ApiResult.Error("Journal belum tersedia di backend")
+    suspend fun getDashboard(): ApiResult<DashboardResponse> =
+        ApiResult.Error("Endpoint dashboard tidak tersedia")
+    suspend fun getBotStatus(): ApiResult<BotStatus> =
+        ApiResult.Error("Endpoint bot status tidak tersedia")
 }
