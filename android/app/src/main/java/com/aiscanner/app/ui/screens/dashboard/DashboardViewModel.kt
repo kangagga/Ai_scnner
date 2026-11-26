@@ -3,9 +3,14 @@ package com.aiscanner.app.ui.screens.dashboard
 import android.app.Application
 import androidx.lifecycle.viewModelScope
 import com.aiscanner.app.data.api.ApiService
+import com.aiscanner.app.data.api.BotStatus
+import com.aiscanner.app.data.api.DashboardResponse
+import com.aiscanner.app.data.api.Portfolio
 import com.aiscanner.app.data.api.Signal
+import com.aiscanner.app.data.api.SignalSummary
 import com.aiscanner.app.data.repository.ApiResult
 import com.aiscanner.app.ui.screens.BaseViewModel
+import com.aiscanner.app.ui.screens.UiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,55 +18,61 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class DashboardViewModel(app: Application) : BaseViewModel(app) {
+    private val _uiState = MutableStateFlow<UiState<DashboardResponse>>(UiState.Loading)
+    val uiState: StateFlow<UiState<DashboardResponse>> = _uiState.asStateFlow()
     private val _isHealthy = MutableStateFlow(false)
     val isHealthy: StateFlow<Boolean> = _isHealthy.asStateFlow()
     private val _status = MutableStateFlow<ApiService.Status?>(null)
     val status: StateFlow<ApiService.Status?> = _status.asStateFlow()
     private val _signals = MutableStateFlow<List<Signal>>(emptyList())
     val signals: StateFlow<List<Signal>> = _signals.asStateFlow()
-    private val _scanProgress = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val scanProgress: StateFlow<Map<String, Int>> = _scanProgress.asStateFlow()
-    private val _isLoading = MutableStateFlow(true)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
 
-    init {
-        viewModelScope.launch { while (true) { fetch(); delay(10_000) } }
-    }
+    init { viewModelScope.launch { while (true) { fetch(); delay(10_000) } } }
 
-    fun refreshData() { viewModelScope.launch { fetch() } }
+    fun load() { viewModelScope.launch { _uiState.value = UiState.Loading; fetch() } }
+    fun refreshData() = load()
 
     private suspend fun fetch() {
-        _isLoading.value = true
         val h = repository.getHealth()
-        _isHealthy.value = h is ApiResult.Success && h.data.ok == true
-        if (h is ApiResult.Error) { _error.value = h.message; _isLoading.value = false; return }
-        _error.value = null
+        if (h is ApiResult.Error) {
+            _isHealthy.value = false
+            _uiState.value = UiState.Error(h.message, h.disconnected)
+            return
+        }
+        _isHealthy.value = true
 
-        val sg = repository.getSignals()
-        if (sg is ApiResult.Success) _signals.value = sg.data
+        val sigs = (repository.getSignals() as? ApiResult.Success)?.data ?: emptyList()
+        _signals.value = sigs
+        val st = (repository.getStatus() as? ApiResult.Success)?.data
+        _status.value = st
+        val risk = (repository.getRiskStatus() as? ApiResult.Success)?.data
 
-        val st = repository.getStatus()
-        if (st is ApiResult.Success) {
-            var s = st.data
-            val sigs = _signals.value
-            // Statistik status backend kosong (0): hitung dari sinyal terbaru.
-            if ((s.stats?.total ?: 0) == 0 && sigs.isNotEmpty()) {
-                s = s.copy(stats = ApiService.Stats(
-                    total = sigs.size,
-                    buy = sigs.count { it.signal?.contains("BUY") == true },
-                    sell = sigs.count { it.signal?.contains("SELL") == true },
-                    avg_wr = null, // backend tidak mengisi win rate
-                    avg_score = sigs.mapNotNull { it.confidence }.average().toFloat()
-                ))
-            }
-            _status.value = s
-            _scanProgress.value = mapOf(
-                "done" to (s.scan_progress?.done ?: 0),
-                "total" to (s.scan_progress?.total ?: 1)
+        val bot = BotStatus(
+            mode = "PAPER", running = true, connected = true,
+            lastScan = st?.last_scan, botStart = st?.bot_start,
+            health = risk?.health, balance = risk?.balance, peakBalance = risk?.peakBalance,
+            drawdownPct = risk?.drawdownPct, openPositions = risk?.openPositions,
+            totalTrades = risk?.totalTrades, paused = risk?.tradingHalted,
+            haltReason = risk?.haltReason
+        )
+        val portfolio = risk?.let {
+            Portfolio(
+                balance = it.balance, peakBalance = it.peakBalance, drawdownPct = it.drawdownPct,
+                dailyPnl = it.dailyPnl, dailyPnlPct = it.dailyPnlPct, portfolioHeat = it.portfolioHeat,
+                consecutiveLoss = it.consecutiveLoss, tradingHalted = it.tradingHalted,
+                openPositions = it.openPositions, maxPositions = it.maxPositions,
+                totalTrades = it.totalTrades
             )
         }
-        _isLoading.value = false
+        val summary = SignalSummary(
+            total = sigs.size,
+            buy = sigs.count { it.signal?.contains("BUY") == true },
+            sell = sigs.count { it.signal?.contains("SELL") == true },
+            avgWr = null,
+            avgScore = sigs.mapNotNull { it.confidence }.takeIf { it.isNotEmpty() }?.average()
+        )
+        _uiState.value = UiState.Success(
+            DashboardResponse(bot = bot, portfolio = portfolio, performance = null, signals = summary)
+        )
     }
 }
