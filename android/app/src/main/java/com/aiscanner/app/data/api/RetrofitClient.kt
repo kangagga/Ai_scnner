@@ -2,7 +2,7 @@ package com.aiscanner.app.data.api
 
 import com.aiscanner.app.data.model.Signal
 import retrofit2.Retrofit
-import retrofit2.converter.scalars.ScalarsConverterFactory
+import retrofit2.converter.gson.GsonConverterFactory
 
 object RetrofitClient {
     private const val BASE_URL = "http://127.0.0.1:5000"
@@ -10,7 +10,7 @@ object RetrofitClient {
     val apiService by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL)
-            .addConverterFactory(ScalarsConverterFactory.create())
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(ApiService::class.java)
     }

@@ -1,0 +1,121 @@
+{
+  "total_count": 1,
+  "jobs": [
+    {
+      "id": 139558453549,
+      "run_id": 45714934135,
+      "workflow_name": "Build Android APK",
+      "head_branch": "main",
+      "run_url": "https://api.github.com/repos/kangagga/Ai_scnner/actions/runs/45714934135",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOSy4iPM8AAAAgflUBLQ",
+      "head_sha": "b5314b69d1c273c28b9acbb78b4f979862da042d",
+      "url": "https://api.github.com/repos/kangagga/Ai_scnner/actions/jobs/139558453549",
+      "html_url": "https://github.com/kangagga/Ai_scnner/actions/runs/45714934135/job/139558453549",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-11-25T22:38:20Z",
+      "started_at": "2026-11-25T22:38:21Z",
+      "completed_at": "2026-11-25T22:39:32Z",
+      "name": "build-apk",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-25T22:38:22Z",
+          "completed_at": "2026-11-25T22:38:23Z"
+        },
+        {
+          "name": "Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-25T22:38:23Z",
+          "completed_at": "2026-11-25T22:38:24Z"
+        },
+        {
+          "name": "Set up JDK 17",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-11-25T22:38:24Z",
+          "completed_at": "2026-11-25T22:38:24Z"
+        },
+        {
+          "name": "Set up Gradle",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-25T22:38:24Z",
+          "completed_at": "2026-11-25T22:38:34Z"
+        },
+        {
+          "name": "Grant execute permission to gradlew",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-25T22:38:34Z",
+          "completed_at": "2026-11-25T22:38:34Z"
+        },
+        {
+          "name": "Build debug APK",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 6,
+          "started_at": "2026-11-25T22:38:34Z",
+          "completed_at": "2026-11-25T22:39:20Z"
+        },
+        {
+          "name": "Upload APK artifact",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 7,
+          "started_at": "2026-11-25T22:39:20Z",
+          "completed_at": "2026-11-25T22:39:20Z"
+        },
+        {
+          "name": "Post Set up Gradle",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-11-25T22:39:20Z",
+          "completed_at": "2026-11-25T22:39:30Z"
+        },
+        {
+          "name": "Post Set up JDK 17",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-11-25T22:39:30Z",
+          "completed_at": "2026-11-25T22:39:30Z"
+        },
+        {
+          "name": "Post Checkout",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-11-25T22:39:30Z",
+          "completed_at": "2026-11-25T22:39:30Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-11-25T22:39:30Z",
+          "completed_at": "2026-11-25T22:39:30Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/kangagga/Ai_scnner/check-runs/139558453549",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000000299,
+      "runner_name": "GitHub Actions 1000000299",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}
