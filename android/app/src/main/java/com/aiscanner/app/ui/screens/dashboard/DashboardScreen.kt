@@ -142,7 +142,7 @@ private fun DashboardContent(data: DashboardResponse) {
 
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         StatCard(
-            label = "Virtual Balance",
+            label = "Virtual Balance (PAPER)",
             value = formatMoney(portfolio?.balance),
             modifier = Modifier.weight(1f),
             valueColor = GreenPrimary
@@ -158,7 +158,7 @@ private fun DashboardContent(data: DashboardResponse) {
 
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         StatCard(
-            label = "Unrealized PnL",
+            label = "PnL Harian",
             value = formatSignedMoney(portfolio?.dailyPnl),
             modifier = Modifier.weight(1f),
             valueColor = if ((portfolio?.dailyPnl ?: 0.0) >= 0) GreenPrimary else RedLoss,
@@ -166,7 +166,7 @@ private fun DashboardContent(data: DashboardResponse) {
         )
         StatCard(
             label = "Realized PnL",
-            value = formatSignedMoney(perf?.totalPnlUsd),
+            value = if (perf?.totalPnlUsd == null) "N/A" else formatSignedMoney(perf.totalPnlUsd),
             modifier = Modifier.weight(1f),
             valueColor = if ((perf?.totalPnlUsd ?: 0.0) >= 0) GreenPrimary else RedLoss
         )
@@ -177,13 +177,13 @@ private fun DashboardContent(data: DashboardResponse) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         StatCard(
             label = "Win Rate",
-            value = formatPercent(perf?.winRate),
+            value = if (perf?.winRate == null) "N/A" else formatPercent(perf.winRate),
             modifier = Modifier.weight(1f),
             valueColor = PurplePrimary
         )
         StatCard(
             label = "Profit Factor",
-            value = (perf?.profitFactor ?: 0.0).toString(),
+            value = perf?.profitFactor?.toString() ?: "N/A",
             modifier = Modifier.weight(1f),
             valueColor = BluePrimary
         )
@@ -215,7 +215,7 @@ private fun DashboardContent(data: DashboardResponse) {
         )
         StatCard(
             label = "Closed Trades",
-            value = formatInt(perf?.totalTrades),
+            value = if (perf?.totalTrades == null) "N/A" else formatInt(perf.totalTrades),
             modifier = Modifier.weight(1f)
         )
     }

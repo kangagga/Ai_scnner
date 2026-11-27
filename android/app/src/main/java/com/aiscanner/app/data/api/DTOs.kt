@@ -73,6 +73,10 @@ data class SignalSummary(
 )
 
 data class Signal(
+    @SerializedName("id") val id: Long? = null,
+    @SerializedName("timestamp") val timestamp: String? = null,
+    @SerializedName("sent") val sent: Int? = null,
+    @SerializedName("momentum") val momentum: Double? = null,
     @SerializedName("symbol") val symbol: String? = null,
     @SerializedName("timeframe") val timeframe: String? = null,
     @SerializedName("signal") val signal: String? = null,

@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
  */
 object NetworkModule {
 
-    const val DEFAULT_BASE_URL = "http://10.0.2.2:5000/"
+    const val DEFAULT_BASE_URL = "http://127.0.0.1:5000/"
 
     @Volatile
     var baseUrl: String = DEFAULT_BASE_URL
