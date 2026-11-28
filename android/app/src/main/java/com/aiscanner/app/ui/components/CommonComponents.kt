@@ -1,5 +1,6 @@
 package com.aiscanner.app.ui.components
 
+import com.aiscanner.app.ui.theme.NavyCardElevated
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
