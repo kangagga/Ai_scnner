@@ -37,7 +37,7 @@ import com.aiscanner.app.ui.screens.risk.RiskViewModel
 import com.aiscanner.app.ui.screens.settings.SettingsScreen
 import com.aiscanner.app.ui.screens.signals.SignalsScreen
 import com.aiscanner.app.ui.screens.signals.SignalsViewModel
-import com.aiscanner.app.ui.theme.GreenPrimary
+import com.aiscanner.app.ui.theme.ElectricBlue
 import com.aiscanner.app.ui.theme.NavyCardElevated
 import com.aiscanner.app.ui.theme.NavySurface
 import com.aiscanner.app.ui.theme.TextPrimary
@@ -97,8 +97,8 @@ fun AppNavigation() {
                             icon = { Icon(item.icon, contentDescription = item.label) },
                             label = { Text(item.label, fontSize = 10.sp) },
                             colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = GreenPrimary,
-                                selectedTextColor = GreenPrimary,
+                                selectedIconColor = ElectricBlue,
+                                selectedTextColor = ElectricBlue,
                                 unselectedIconColor = TextSecondary,
                                 unselectedTextColor = TextSecondary,
                                 indicatorColor = NavyCardElevated

@@ -27,6 +27,14 @@ class DashboardViewModel(app: Application) : BaseViewModel(app) {
     private val _signals = MutableStateFlow<List<Signal>>(emptyList())
     val signals: StateFlow<List<Signal>> = _signals.asStateFlow()
 
+    // Data live scanner & aktivitas dari endpoint /api/status
+    private val _scanProgress = MutableStateFlow<ApiService.ScanProgress?>(null)
+    val scanProgress: StateFlow<ApiService.ScanProgress?> = _scanProgress.asStateFlow()
+    private val _activityLogs = MutableStateFlow<List<ApiService.LogItem>>(emptyList())
+    val activityLogs: StateFlow<List<ApiService.LogItem>> = _activityLogs.asStateFlow()
+    private val _marketAnalysis = MutableStateFlow<com.aiscanner.app.data.api.MarketAnalysis?>(null)
+    val marketAnalysis: StateFlow<com.aiscanner.app.data.api.MarketAnalysis?> = _marketAnalysis.asStateFlow()
+
     init { viewModelScope.launch { while (true) { fetch(); delay(10_000) } } }
 
     fun load() { viewModelScope.launch { _uiState.value = UiState.Loading; fetch() } }
@@ -45,6 +53,9 @@ class DashboardViewModel(app: Application) : BaseViewModel(app) {
         _signals.value = sigs
         val st = (repository.getStatus() as? ApiResult.Success)?.data
         _status.value = st
+        _scanProgress.value = st?.scan_progress
+        _activityLogs.value = st?.logs.orEmpty()
+        _marketAnalysis.value = (repository.getMarketAnalysis() as? ApiResult.Success)?.data
         val risk = (repository.getRiskStatus() as? ApiResult.Success)?.data
 
         val bot = BotStatus(
